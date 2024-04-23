@@ -9,14 +9,13 @@ class PPOTaskBase(nn.Module):
     def __init__(self,
                  cfg,
                  env,
-                 device='cuda:0',
                  eval_interval=50,
                  save_interval=50,
                  test_interval=100,
                  wandb_logger=None):
         super().__init__()
         self.cfg = cfg
-        self.device = device
+        self.device = cfg.device
         self.eval_interval = eval_interval
         self.save_interval = save_interval
         self.test_interval = test_interval

@@ -14,7 +14,10 @@ from tasks.PPOTaskBase import PPOTaskBase
 def _create_env(env, num_envs, device, viz=False):
     env = VmapWrapper(env, batch_size=num_envs)
     env = AutoResetWrapper(env)
-    env = TorchWrapper(env, device=device, backend='gpu')
+    if device == 'cpu':
+        env = TorchWrapper(env, device=device, backend='cpu')
+    else:
+        env = TorchWrapper(env, device=device, backend='gpu')
     if viz:
         env = RenderWrapper(env, render_mode='human')
 
@@ -22,7 +25,10 @@ def _create_env(env, num_envs, device, viz=False):
 
 
 @hydra.main(config_path='config', config_name='train', version_base="1.2")
+
+
 def train(cfg: DictConfig):
+    
     env = _create_env(GO2Env(cfg.env), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz)
 
     log = cfg.log

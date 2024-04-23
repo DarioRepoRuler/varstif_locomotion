@@ -21,7 +21,7 @@ class UnitreeEnv(MjxEnv):
             model_path,
             soft_limits=0.99,
     ):
-        mj_model = mujoco.MjModel.from_xml_path(os.path.join(Path.home(), 'projects/RL4Quadrupeds/envs/resources/', model_path))
+        mj_model = mujoco.MjModel.from_xml_path(os.path.join(Path.home(), 'Documents/TALocoMotion/envs/resources/', model_path))
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
         mj_model.opt.ls_iterations = 6

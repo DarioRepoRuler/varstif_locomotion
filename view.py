@@ -11,11 +11,12 @@ import time
 
 
 @hydra.main(config_path='config', config_name='test', version_base="1.2")
+
 def train(cfg: DictConfig):
     env0 = GO2Env(cfg.env)
     env = VmapWrapper(env0, batch_size=1)
     env = AutoResetWrapper(env)
-    env = TorchWrapper(env, device='cuda:0', backend='gpu')
+    env = TorchWrapper(env, device='cpu', backend='cpu')
 
     m = env0.model
     d = env0.data
@@ -23,7 +24,7 @@ def train(cfg: DictConfig):
     with mujoco.viewer.launch_passive(m, d) as v:
         while v.is_running():
             start = time.time()
-            obs, reward, done, info = env.step(torch.zeros((1, 12), device='cuda:0'))
+            obs, reward, done, info = env.step(torch.zeros((1, 12), device='cpu'))
             qpos = env.state.pipeline_state.qpos
             qvel = env.state.pipeline_state.qvel
             d.qpos, d.qvel = qpos[0], qvel[0]
@@ -32,7 +33,6 @@ def train(cfg: DictConfig):
             # elapsed = time.time() - start
             # if elapsed < 0.1:
             #     time.sleep(0.1 - elapsed)
-
 
 if __name__ == '__main__':
     train()
