@@ -14,11 +14,11 @@ env:
 log: True
 log_dir: "projects/RL4Humanoids/outputs/"
 
-num_envs: 1
+num_envs: 1 
 episode_length: 200
 num_learning_iterations: 500
-device: 'cpu'
-viz: False
+device: 'cuda:0'
+viz: True
 
 project: RL4Humanoids
-group: Bruce-P
+group: Bruce-P2

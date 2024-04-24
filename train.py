@@ -11,7 +11,20 @@ from envs.common.wrapper.training_wrapper import VmapWrapper, AutoResetWrapper
 from tasks.PPOTaskBase import PPOTaskBase
 
 
+# Define the configuration for training, later used by function _create_env!
+@hydra.main(config_path='config', config_name='train', version_base="1.2")
+
+
 def _create_env(env, num_envs, device, viz=False):
+    """
+    Create the environment with the specified number of environments and device.
+
+    Args:
+        env (GO2Env): The environment to create.
+        num_envs (int): The number of environments to create.
+        device (str): The device to use for computation.
+        viz (bool): Whether to render the environment.
+    """
     env = VmapWrapper(env, batch_size=num_envs)
     env = AutoResetWrapper(env)
     if device == 'cpu':
@@ -20,17 +33,23 @@ def _create_env(env, num_envs, device, viz=False):
         env = TorchWrapper(env, device=device, backend='gpu')
     if viz:
         env = RenderWrapper(env, render_mode='human')
-
     return env
 
 
-@hydra.main(config_path='config', config_name='train', version_base="1.2")
-
-
 def train(cfg: DictConfig):
-    
+    """
+    Train the model using the provided configuration.
+
+    Args:
+        cfg (DictConfig): The configuration for training.
+
+    Returns:
+        None
+    """
+    # Create the environment
     env = _create_env(GO2Env(cfg.env), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz)
 
+    # Set up logging using wandb
     log = cfg.log
     log_name = datetime.now().strftime("%Y-%m-%d/%H-%M-%S")
     wandb_logger = None
@@ -38,13 +57,17 @@ def train(cfg: DictConfig):
         wandb_logger = wandb.init(project=cfg.project,
                                   group=cfg.group,
                                   name=log_name)
-
+        
+    # Create the task and save directory
     task = PPOTaskBase(cfg=cfg, env=env, wandb_logger=wandb_logger)
     save_dir = os.path.join(Path.home(), cfg.log_dir, log_name, 'checkpoints')
 
+    # Train the model
     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
                     save_dir=save_dir,
                     ckpt_path=None)
+    
+    # Finish logging
     if log:
         wandb.finish()
 

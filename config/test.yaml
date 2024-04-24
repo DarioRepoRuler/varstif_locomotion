@@ -14,4 +14,4 @@ env:
 
 num_envs: 1
 episode_length: 100
-device: 'cuda'
+device: 'cuda:0'
