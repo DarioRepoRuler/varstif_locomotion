@@ -1,3 +1,0 @@
-Wed Apr 24 10:27:26 2024
-ERROR: could not initialize GLFW
-
