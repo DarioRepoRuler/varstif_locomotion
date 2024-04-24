@@ -4,7 +4,9 @@ import jax
 
 
 class TorchWrapper:
-    """Wrapper that converts Jax tensors to PyTorch tensors."""
+    """
+    Wrapper that converts Jax tensors to PyTorch tensors.
+    """
 
     def __init__(self,
                  env,

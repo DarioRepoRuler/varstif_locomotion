@@ -18,6 +18,7 @@ from tasks.PPOTaskBase import PPOTaskBase
 def _create_env(env, num_envs, device, viz=False):
     """
     Create the environment with the specified number of environments and device.
+    VmapWrapper->AutoResetWrapper->TorchWrapper(->RenderWrapper)
 
     Args:
         env (GO2Env): The environment to create.

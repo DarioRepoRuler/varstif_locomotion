@@ -36,7 +36,7 @@ class UnitreeEnv(MjxEnv):
         self._obs_noise = cfg.obs_noise
         self._kick_vel = cfg.kick_vel
         self.soft_limits = soft_limits
-        self.single_obs_size = 49
+        self.single_obs_size = 49 # defined in _get_obs
         # set up robot properties
         self._setup()
 
@@ -66,6 +66,7 @@ class UnitreeEnv(MjxEnv):
         assert not any(id_ == -1 for id_ in foot_body), 'Foot not found.'
         self.foot_body_id = jp.array(foot_body_id)
 
+        # Scaling of the rewards
         self.reward_scales = {
             'tracking_lin_vel': 1.0,
             'tracking_ang_vel': 1.0,
@@ -82,9 +83,11 @@ class UnitreeEnv(MjxEnv):
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
+        # Define constraints for the commands
         lin_vel_x = [-1.0, 1.0]  # min max [m/s]
         lin_vel_y = [-0.5, 0.5]  # min max [m/s]
         ang_vel_yaw = [-0.8, 0.8]  # min max [rad/s]
+        # Add jump command! 
 
         _, key1, key2, key3 = jax.random.split(rng, 4)
         lin_vel_x = jax.random.uniform(
@@ -96,7 +99,7 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = jax.random.uniform(
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
-        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]])
+        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) #Add new command here!
         return new_cmd
 
     def reset(self, rng: jp.ndarray) -> State:
@@ -156,6 +159,13 @@ class UnitreeEnv(MjxEnv):
         return torques
 
     def kick_robot(self, state: State, rng: jp.ndarray):
+        """
+        Adjusts the velocity of the robot base to simulate a kick, for every push_interval steps.
+
+        Args:
+            state: current state
+            rng: random key
+        """
         push_interval = 100
         kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
         kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)])
@@ -168,7 +178,13 @@ class UnitreeEnv(MjxEnv):
         return state
 
     def step(self, state: State, action: jp.ndarray) -> State:
-        """Runs one timestep of the environment's dynamics."""
+        """
+        Runs one timestep of the environment's dynamics.
+        
+        Args:
+            state: current state
+            action: action to take
+        """
         rng, cmd_rng, kick_noise = jax.random.split(state.info['rng'], 3)
         # kick robot
         state = self.kick_robot(state, kick_noise)
@@ -257,15 +273,25 @@ class UnitreeEnv(MjxEnv):
                   state_info: dict[str, Any],
                   obs_history: jax.Array
                  ) -> jp.ndarray:
+        """
+        Get observation from the environment. The observation is a numpy array containing the following
+        items: [torso_z, yaw rate, proj_gravity, qpos, qvel, last_act, command] 
 
+        Args:
+            data: mjx.Data
+            state_info: a dictionary containing the following keys [rng, last_act, last_vel, command, last_contact, feet_air_time, feet_contact_time, rewards, kick, step] 
+            obs_history: jax.Array
+        """
         x, xd = self._pos_vel(data)
+        # Inverse torso quaternion
         inv_torso_rot = math.quat_inv(x.rot[0])
         torso_z = data.qpos[2:3]
+
         local_v = math.rotate(xd.vel[0], inv_torso_rot)
         local_w = math.rotate(xd.ang[0], inv_torso_rot)
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
 
-        # 1+6+3+12+12+12+3 = 49
+        # Observation space dimension: 1+6+3+12+12+12+3 = 49
         obs = jp.concatenate([
             torso_z,
             0.1 * jp.concatenate([local_v, local_w]),  # yaw rate
@@ -273,11 +299,11 @@ class UnitreeEnv(MjxEnv):
             data.qpos[7:],
             0.1 * data.qvel[6:],
             state_info['last_act'],
-            state_info['command']
+            state_info['command'] # 3 commands(can add more->observation space update needed)
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
-        # stack observations through time
+        # Stack observations through time
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
 
         return obs
@@ -285,8 +311,10 @@ class UnitreeEnv(MjxEnv):
     def _check_terminate(self, data: mjx.Data, x):
         # done if joint limits are reached or robot is falling
         up = jp.array([0.0, 0.0, 1.0])
+         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
-        done |= jp.any(data.qpos[7:] < self.lower_limits)
+        # Check if compliant with limits
+        done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
         done |= data.xpos[self._torso_idx, 2] < self.min_z
         # done |= data.xpos[self._torso_idx, 2] > self.max_z
@@ -310,6 +338,9 @@ class UnitreeEnv(MjxEnv):
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         ang_vel_error = jp.abs(commands[2] - base_ang_vel[2])
         return jp.exp(-10 * ang_vel_error)
+    
+
+    # Add jumping reward!
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array:
         # Penalize z axis base linear velocity
