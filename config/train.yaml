@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.1
+  action_scale: 0.3
   control_mode: "P"
   physics_steps_per_control_step: 4
   obs_noise: 0.
@@ -12,11 +12,11 @@ env:
   push_interval: 50
 
 log: True
-log_dir: "projects/RL4Humanoids/outputs/"
+log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 1 
+num_envs: 200 
 episode_length: 200
-num_learning_iterations: 500
+num_learning_iterations: 1001
 device: 'cuda:0'
 viz: True
 

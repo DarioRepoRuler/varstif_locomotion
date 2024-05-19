@@ -11,8 +11,6 @@ from envs.common.wrapper.training_wrapper import VmapWrapper, AutoResetWrapper
 from tasks.PPOTaskBase import PPOTaskBase
 
 
-# Define the configuration for training, later used by function _create_env!
-@hydra.main(config_path='config', config_name='train', version_base="1.2")
 
 
 def _create_env(env, num_envs, device, viz=False):
@@ -37,6 +35,8 @@ def _create_env(env, num_envs, device, viz=False):
     return env
 
 
+# Define the configuration according to the schema in config/train.yaml
+@hydra.main(config_path='config', config_name='train', version_base="1.2")
 def train(cfg: DictConfig):
     """
     Train the model using the provided configuration.
@@ -48,6 +48,9 @@ def train(cfg: DictConfig):
         None
     """
     # Create the environment
+    # Print config properties
+    print(f"Config: {cfg}")
+    
     env = _create_env(GO2Env(cfg.env), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz)
 
     # Set up logging using wandb

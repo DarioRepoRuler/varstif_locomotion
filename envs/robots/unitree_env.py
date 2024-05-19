@@ -21,7 +21,8 @@ class UnitreeEnv(MjxEnv):
             model_path,
             soft_limits=0.99,
     ):
-        mj_model = mujoco.MjModel.from_xml_path(os.path.join(Path.home(), 'TALocoMotion/envs/resources/', model_path))
+
+        mj_model = mujoco.MjModel.from_xml_path(os.path.join('/home/dario/Documents/TALocoMotion/envs/resources', model_path))
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
         mj_model.opt.ls_iterations = 6
@@ -67,23 +68,25 @@ class UnitreeEnv(MjxEnv):
         self.foot_body_id = jp.array(foot_body_id)
 
         # Scaling of the rewards
+        # These rewards are from the tutorial: https://colab.research.google.com/github/google-deepmind/mujoco/blob/main/mjx/tutorial.ipynb
         self.reward_scales = {
-            'tracking_lin_vel': 1.0,
-            'tracking_ang_vel': 1.0,
-            "lin_vel_z": 0.5,
-            "ang_vel_xy": 0.5,
-            "orientation": 1.0,
-            "torques": 0.00001,
-            "smooth_rate": 0.02,
+            # From turtoial
+            'tracking_lin_vel': 1.0, 
+            'tracking_ang_vel': 1.0, 
+            "lin_vel_z": -2.0, #0.5,
+            "ang_vel_xy": -0.05,#0.5,
+            "orientation": -5.0, #1.0,
+            "torques": -0.0002,#0.00001,
+            "smooth_rate": 0.02, #action_rate from tutorial
             'feet_air_time': 0.5,
             'feet_contact_time': -0.2,
-            'termination': -10.0,
-            'stand_still': 0.5,
+            'termination': -1.0,
+            'stand_still': -0.5,#0.5,
             "foot_slip": -0.1,
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
-        # Define constraints for the commands
+        # Define constraints for the commands# From turtoial
         lin_vel_x = [-1.0, 1.0]  # min max [m/s]
         lin_vel_y = [-0.5, 0.5]  # min max [m/s]
         ang_vel_yaw = [-0.8, 0.8]  # min max [rad/s]
@@ -189,11 +192,11 @@ class UnitreeEnv(MjxEnv):
         # kick robot
         state = self.kick_robot(state, kick_noise)
 
-        # physics step
+        # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         data = self.pipeline_step(data0, action)
 
-        # ----------------- compute rewards --------------- #
+        # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
         joint_angles = data.qpos[7:]
         joint_vel = data.qvel
@@ -245,7 +248,7 @@ class UnitreeEnv(MjxEnv):
         reward = sum(rewards.values())
 
         # state management
-        state.info['feet_air_time'] *= ~contact_filt_mm
+        state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation
         state.info['feet_contact_time'] *= contact_filt_mm
         state.info['last_contact'] = contact
         state.info['rewards'] = rewards
@@ -311,13 +314,12 @@ class UnitreeEnv(MjxEnv):
     def _check_terminate(self, data: mjx.Data, x):
         # done if joint limits are reached or robot is falling
         up = jp.array([0.0, 0.0, 1.0])
-         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
+        # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
         done |= data.xpos[self._torso_idx, 2] < self.min_z
-        # done |= data.xpos[self._torso_idx, 2] > self.max_z
 
         return done
 
@@ -328,7 +330,7 @@ class UnitreeEnv(MjxEnv):
         # Tracking of linear velocity commands (xy axes)
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         lin_vel_error = jp.sum(jp.square(commands[:2] - local_vel[:2]))
-        lin_vel_reward = jp.exp(-2 * lin_vel_error)
+        lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
         return lin_vel_reward
 
     def _reward_tracking_ang_vel(
@@ -337,35 +339,37 @@ class UnitreeEnv(MjxEnv):
         # Tracking of angular velocity commands (yaw)
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         ang_vel_error = jp.abs(commands[2] - base_ang_vel[2])
-        return jp.exp(-10 * ang_vel_error)
-    
-
-    # Add jumping reward!
+        return jp.exp(-4 * ang_vel_error) #change to sigma
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array:
         # Penalize z axis base linear velocity
-        return jp.exp(-2*jp.abs(xd.vel[0, 2]))
+        #return jp.exp(-4*jp.abs(xd.vel[0, 2]))
+        return jp.square(xd.vel[0, 2])
 
     def _reward_ang_vel_xy(self, x: Transform, xd: Motion) -> jax.Array:
         # Penalize xy axes base angular velocity
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
-        return jp.exp(-2*jp.linalg.norm(base_ang_vel[:2]))
+        #return jp.exp(-4*jp.linalg.norm(base_ang_vel[:2])) 
+        return jp.sum(jp.square(base_ang_vel[:2]))
 
     def _reward_orientation(self, x: Transform) -> jax.Array:
         # Penalize non flat base orientation
         up = jp.array([0.0, 0.0, 1.0])
         rot_up = math.rotate(up, x.rot[0])
-        return jp.exp(-2*jp.linalg.norm(rot_up[:2]))
-
+        #return jp.exp(-2*jp.linalg.norm(rot_up[:2])) # change this
+        return jp.sum(jp.square(rot_up[:2]))
+    
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
-        return jp.exp(-0.01*jp.linalg.norm(torques))
-
-    def _reward_smooth_rate(
+        #return jp.exp(-0.01*jp.linalg.norm(torques))
+        return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
+    
+    def _reward_smooth_rate( # to be continued...(why the velocities?)
             self, joint_vel: jax.Array, last_vel: jax.Array
     ) -> jax.Array:
         # Penalize changes in actions
-        return jp.exp(-0.1*jp.linalg.norm(joint_vel - last_vel))
+        return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
+    
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -387,17 +391,20 @@ class UnitreeEnv(MjxEnv):
         )  # no reward for zero command
         return rew_contact_time
 
-    def _reward_stand_still(
+    def _reward_stand_still( # CHANGE THIS
             self,
             commands: jax.Array,
             joint_angles: jax.Array,
     ) -> jax.Array:
         # Penalize motion at zero commands
-        return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
-                math.normalize(commands[:2])[1] < 0.05
+        # return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
+        #         math.normalize(commands[:2])[1] < 0.05
+        # )
+        return jp.sum(joint_angles - self.default_pos[7:]) * (
+        math.normalize(commands[:2])[1] < 0.1
         )
 
-    def _reward_foot_slip(
+    def _reward_foot_slip( # CHANGE THIS
             self, xd: Motion, contact_filt: jax.Array
     ) -> jax.Array:
         foot_indices = self.foot_body_id - 1
