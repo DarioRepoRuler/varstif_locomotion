@@ -18,7 +18,8 @@ def test(cfg: DictConfig):
     env = RenderWrapper(env, render_mode='human')
 
     task = PPOTaskBase(cfg=cfg, env=env)
-    ckpt_path = None
+    ckpt_path = f"/home/dario/Documents/TALocoMotion/outputs/2024-05-19/23-28-12/checkpoints/model_1000.pt"
+    #ckpt_path = f"/home/dario/Documents/best_models/100_100_50"
     task.test_agent(num_iterations=10, ckpt_path=ckpt_path)
 
 

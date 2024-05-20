@@ -64,7 +64,8 @@ def train(cfg: DictConfig):
         
     # Create the task and save directory
     task = PPOTaskBase(cfg=cfg, env=env, wandb_logger=wandb_logger)
-    save_dir = os.path.join(Path.home(), cfg.log_dir, log_name, 'checkpoints')
+    save_dir = os.path.join(os.getcwd(), 'outputs', log_name, 'checkpoints')
+    #save_dir = os.path.join(Path.home(), cfg.log_dir, log_name, 'checkpoints')
 
     # Train the model
     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,

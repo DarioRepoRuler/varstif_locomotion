@@ -21,8 +21,9 @@ class UnitreeEnv(MjxEnv):
             model_path,
             soft_limits=0.99,
     ):
-
-        mj_model = mujoco.MjModel.from_xml_path(os.path.join('/home/dario/Documents/TALocoMotion/envs/resources', model_path))
+        
+        resource_directory = os.path.join(os.getcwd(), 'envs','resources') # it is anticipated to be executed from TALocoMotion
+        mj_model = mujoco.MjModel.from_xml_path(os.path.join(resource_directory, model_path))
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
         mj_model.opt.ls_iterations = 6
@@ -73,15 +74,15 @@ class UnitreeEnv(MjxEnv):
             # From turtoial
             'tracking_lin_vel': 1.0, 
             'tracking_ang_vel': 1.0, 
-            "lin_vel_z": -2.0, #0.5,
-            "ang_vel_xy": -0.05,#0.5,
-            "orientation": -5.0, #1.0,
-            "torques": -0.0002,#0.00001,
+            "lin_vel_z": 0.5, #-2.0,
+            "ang_vel_xy": 0.5, #-0.05, 
+            "orientation": 1.0, #-5.0,
+            "torques": 0.00001, #-0.0002, #
             "smooth_rate": 0.02, #action_rate from tutorial
             'feet_air_time': 0.5,
             'feet_contact_time': -0.2,
             'termination': -1.0,
-            'stand_still': -0.5,#0.5,
+            'stand_still': 0.5, #-0.5,#
             "foot_slip": -0.1,
         }
 
@@ -103,6 +104,8 @@ class UnitreeEnv(MjxEnv):
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
         new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) #Add new command here!
+        # Just for test purposes!
+        new_cmd = jp.array([0.0, 0.5 ,0 ])
         return new_cmd
 
     def reset(self, rng: jp.ndarray) -> State:
@@ -112,6 +115,10 @@ class UnitreeEnv(MjxEnv):
         data = self.pipeline_init(self.default_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
         command = self._resample_commands(rng3)
+        # if is_training==False:
+        #     print(f"Testing forward vel.")
+        #     command = jp.array([1.0, 0.0, 0.0])
+        # print(f"Command: {command}")
 
         state_info = {
             'rng': rng,
@@ -343,26 +350,27 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array:
         # Penalize z axis base linear velocity
-        #return jp.exp(-4*jp.abs(xd.vel[0, 2]))
-        return jp.square(xd.vel[0, 2])
+        #return jp.square(xd.vel[0, 2])
+        return jp.exp(-4*jp.abs(xd.vel[0, 2]))
 
     def _reward_ang_vel_xy(self, x: Transform, xd: Motion) -> jax.Array:
         # Penalize xy axes base angular velocity
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
-        #return jp.exp(-4*jp.linalg.norm(base_ang_vel[:2])) 
-        return jp.sum(jp.square(base_ang_vel[:2]))
+        #return jp.sum(jp.square(base_ang_vel[:2]))
+
+        return jp.exp(-4*jp.linalg.norm(base_ang_vel[:2])) 
 
     def _reward_orientation(self, x: Transform) -> jax.Array:
         # Penalize non flat base orientation
         up = jp.array([0.0, 0.0, 1.0])
         rot_up = math.rotate(up, x.rot[0])
-        #return jp.exp(-2*jp.linalg.norm(rot_up[:2])) # change this
-        return jp.sum(jp.square(rot_up[:2]))
+        return jp.exp(-2*jp.linalg.norm(rot_up[:2])) # change this
+        #return jp.sum(jp.square(rot_up[:2]))
     
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
-        #return jp.exp(-0.01*jp.linalg.norm(torques))
-        return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
+        return jp.exp(-0.01*jp.linalg.norm(torques))
+        #return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
     def _reward_smooth_rate( # to be continued...(why the velocities?)
             self, joint_vel: jax.Array, last_vel: jax.Array
@@ -397,12 +405,12 @@ class UnitreeEnv(MjxEnv):
             joint_angles: jax.Array,
     ) -> jax.Array:
         # Penalize motion at zero commands
-        # return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
-        #         math.normalize(commands[:2])[1] < 0.05
-        # )
-        return jp.sum(joint_angles - self.default_pos[7:]) * (
-        math.normalize(commands[:2])[1] < 0.1
+        return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
+                math.normalize(commands[:2])[1] < 0.05
         )
+        # return jp.sum(joint_angles - self.default_pos[7:]) * (
+        # math.normalize(commands[:2])[1] < 0.1
+        # )
 
     def _reward_foot_slip( # CHANGE THIS
             self, xd: Motion, contact_filt: jax.Array

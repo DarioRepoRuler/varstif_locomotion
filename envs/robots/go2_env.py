@@ -18,11 +18,13 @@ class GO2Env(UnitreeEnv):
         self.torque_limits = jp.array([23.7, 23.7, 35.55] * 4)
 
         self.default_pos = jp.array(
-            [0, 0, 0.32, 1, 0, 0, 0, 
-             -0.1, 0.8, -1.5, 0.1, 0.8, -1.5, 
-             -0.1, 1.0, -1.5, 0.1, 1.0, -1.5]
+            [0, 0, 0.32, 1, 0, 0, 0, # base corrd + quat
+             -0.1, 0.8, -1.5, #FR
+             0.1, 0.8, -1.5,  #FL
+             -0.1, 1.0, -1.5, #RR
+             0.1, 1.0, -1.5]  #RL
         )
-        self.p_gains = jp.array([100., 100., 50.] * 4)
+        self.p_gains = jp.array([30., 30., 10.] * 4)
         self.d_gains = jp.array([1., 1., 2.] * 4)
 
         # position limits

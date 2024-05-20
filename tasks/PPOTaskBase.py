@@ -63,7 +63,7 @@ class PPOTaskBase(nn.Module):
         return obs_g, episode_infos
 
     def simulate(self, is_training):
-        next_obs_g, episode_infos = self.rollout(is_training=is_training)
+        next_obs_g, episode_infos = self.rollout()
         # get goal conditioned state
         self.algo.compute_returns(next_obs_g)
         stat = self.algo.storage.statistics()
