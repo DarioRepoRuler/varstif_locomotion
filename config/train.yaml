@@ -10,6 +10,7 @@ env:
   num_history: 1
   kick_vel: 0.1
   push_interval: 50
+  is_training: True
 
 log: True
 log_dir: "Documents/TALocoMotion/outputs/"

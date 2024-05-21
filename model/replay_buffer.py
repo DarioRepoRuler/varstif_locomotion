@@ -107,7 +107,7 @@ class ReplayBuffer:
         return stat
 
     def mini_batch_generator(self, num_batches, num_epochs=8):
-        batch_size = self.num_envs * self.step // num_batches
+        batch_size = self.num_envs * self.step // num_batches # integer floor division
 
         obs_g = self.observations[:self.step].flatten(0, 1)
         actions = self.actions[:self.step].flatten(0, 1)

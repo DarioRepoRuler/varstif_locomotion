@@ -10,8 +10,10 @@ env:
   num_history: 1
   kick_vel: 0.1
   push_interval: 50
+  is_training: False
 
 
+ckpt_path: '/home/dario/Documents/best_models/50_50_30.pt'
 num_envs: 1
 episode_length: 100
 device: 'cuda:0'

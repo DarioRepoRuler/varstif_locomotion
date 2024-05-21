@@ -37,6 +37,7 @@ class UnitreeEnv(MjxEnv):
         self.num_history = cfg.num_history
         self._obs_noise = cfg.obs_noise
         self._kick_vel = cfg.kick_vel
+        self.is_training = cfg.is_training
         self.soft_limits = soft_limits
         self.single_obs_size = 49 # defined in _get_obs
         # set up robot properties
@@ -70,19 +71,20 @@ class UnitreeEnv(MjxEnv):
 
         # Scaling of the rewards
         # These rewards are from the tutorial: https://colab.research.google.com/github/google-deepmind/mujoco/blob/main/mjx/tutorial.ipynb
+        # And partially adapted
         self.reward_scales = {
             # From turtoial
             'tracking_lin_vel': 1.0, 
             'tracking_ang_vel': 1.0, 
-            "lin_vel_z": 0.5, #-2.0,
-            "ang_vel_xy": 0.5, #-0.05, 
-            "orientation": 1.0, #-5.0,
-            "torques": 0.00001, #-0.0002, #
+            "lin_vel_z": 0.5, #-2.0, adapted
+            "ang_vel_xy": 0.5, #-0.05, adapted
+            "orientation": 1.0, #-5.0, adapted
+            "torques": 0.00001, #-0.0002, #adapted
             "smooth_rate": 0.02, #action_rate from tutorial
             'feet_air_time': 0.5,
             'feet_contact_time': -0.2,
             'termination': -1.0,
-            'stand_still': 0.5, #-0.5,#
+            'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
         }
 
@@ -103,9 +105,12 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = jax.random.uniform(
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
-        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) #Add new command here!
+
         # Just for test purposes!
-        new_cmd = jp.array([0.0, 0.5 ,0 ])
+        # new_cmd = jp.array([0.0, 0.5 ,0 ])
+
+        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) #Add new command here!
+        
         return new_cmd
 
     def reset(self, rng: jp.ndarray) -> State:
