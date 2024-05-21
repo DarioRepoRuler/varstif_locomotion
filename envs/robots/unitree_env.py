@@ -38,6 +38,10 @@ class UnitreeEnv(MjxEnv):
         self._obs_noise = cfg.obs_noise
         self._kick_vel = cfg.kick_vel
         self.is_training = cfg.is_training
+        if not self.is_training:
+            self.cmd_x = cfg.cmd_x
+            self.cmd_y = cfg.cmd_y
+            self.cmd_yaw = cfg.cmd_ang
         self.soft_limits = soft_limits
         self.single_obs_size = 49 # defined in _get_obs
         # set up robot properties
@@ -106,11 +110,13 @@ class UnitreeEnv(MjxEnv):
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
 
-        # Just for test purposes!
-        # new_cmd = jp.array([0.0, 0.5 ,0 ])
-
         new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) #Add new command here!
         
+        # Just for test purposes!
+        if not self.is_training:
+            new_cmd = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
+
+
         return new_cmd
 
     def reset(self, rng: jp.ndarray) -> State:
