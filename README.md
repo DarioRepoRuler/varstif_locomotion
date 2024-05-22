@@ -35,3 +35,10 @@ git clone git@github.com:gautica/TALocoMotion.git
 cd TALocoMotion
 pip install -r requirements.txt
 ```
+
+
+## Training
+Brax is allocating 75% of the GPU memory by default therefore it is necessary to tell it to use much less.
+```
+XLA_PYTHON_CLIENT_MEM_FRACTION=.2 python train.py
+```

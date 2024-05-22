@@ -133,6 +133,7 @@ class UnitreeEnv(MjxEnv):
 
         state_info = {
             'rng': rng,
+            'action_minus_2t': jp.zeros(12), # added for smoothness
             'last_act': jp.zeros(12),
             'last_vel': jp.zeros(18),
             'foot_acc': jp.zeros(12),
@@ -272,6 +273,7 @@ class UnitreeEnv(MjxEnv):
         state.info['rewards'] = rewards
         state.info['step'] += 1
         state.info['rng'] = rng
+        state.info['action_minus_2t'] = state.info['last_act'] 
         state.info['last_act'] = action
         state.info['last_vel'] = data.qvel
 
@@ -383,12 +385,19 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.01*jp.linalg.norm(torques))
         #return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
+    # Related to smoothness of the actions:
+
     def _reward_smooth_rate( # to be continued...(why the velocities?)
             self, joint_vel: jax.Array, last_vel: jax.Array
     ) -> jax.Array:
         # Penalize changes in actions
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
+
+    def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
+        return jp.exp(-0.4*jp.sum(jp.power(action - last_act, 2)))
     
+    def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
+        return jp.exp(-0.4*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
