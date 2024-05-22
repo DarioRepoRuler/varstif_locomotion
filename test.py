@@ -18,7 +18,10 @@ def test(cfg: DictConfig):
     env = RenderWrapper(env, render_mode='human')
 
     task = PPOTaskBase(cfg=cfg, env=env)
-    task.test_agent(num_iterations=10, ckpt_path=cfg.ckpt_path)
+    # Get model path
+    #ckpt_path=cfg.ckpt_path
+    ckpt_path = os.path.join(os.getcwd(), 'best_models', '50_50_30.pt')
+    task.test_agent(num_iterations=10, )
 
 
 if __name__ == '__main__':

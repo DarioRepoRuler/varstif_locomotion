@@ -29,7 +29,7 @@ The `-X` option is important as it enables X forwarding, which makes it possible
 
 After this is done the following procedure for setting up the conda enviroment is the same for developing on machine or on server:
 ```
-conda create mjx python=3.12
+conda create -n mjx python=3.12
 conda activate mjx
 git clone git@github.com:gautica/TALocoMotion.git
 cd TALocoMotion

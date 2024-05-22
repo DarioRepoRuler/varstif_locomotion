@@ -15,9 +15,9 @@ env:
 log: True
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 200 
+num_envs: 1000 
 episode_length: 200
-num_learning_iterations: 1001
+num_learning_iterations: 5001
 device: 'cuda:0'
 viz: True
 
