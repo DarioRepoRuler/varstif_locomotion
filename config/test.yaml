@@ -13,10 +13,10 @@ env:
   is_training: False
   cmd_x: 1.0
   cmd_y: 0.0
-  cmd_ang: 0.4
+  cmd_ang: 0.0
 
 
-ckpt_path: '/home/dario/Documents/best_models/130_130_130.pt'
+ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/50_50_30.pt'
 num_envs: 1
 episode_length: 100
 device: 'cuda:0'

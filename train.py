@@ -70,7 +70,7 @@ def train(cfg: DictConfig):
     # Train the model
     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
                     save_dir=save_dir,
-                    ckpt_path=None)
+                    ckpt_path=cfg.ckpt_path)
     
     # Finish logging
     if log:

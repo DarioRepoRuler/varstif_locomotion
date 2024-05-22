@@ -19,9 +19,9 @@ def test(cfg: DictConfig):
 
     task = PPOTaskBase(cfg=cfg, env=env)
     # Get model path
-    #ckpt_path=cfg.ckpt_path
-    ckpt_path = os.path.join(os.getcwd(), 'best_models', '50_50_30.pt')
-    task.test_agent(num_iterations=10, )
+    ckpt_path=cfg.ckpt_path
+    #ckpt_path = os.path.join(os.getcwd(), 'best_models', '50_50_30.pt')
+    task.test_agent(num_iterations=10,ckpt_path=ckpt_path)
 
 
 if __name__ == '__main__':

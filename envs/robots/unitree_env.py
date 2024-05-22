@@ -90,6 +90,8 @@ class UnitreeEnv(MjxEnv):
             'termination': -1.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
+            "action_rate": 0.02,
+            "action_rate2": 0.02
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -260,6 +262,8 @@ class UnitreeEnv(MjxEnv):
             ),
             'foot_slip': self._reward_foot_slip(xd, contact_filt_cm),
             'termination': self._reward_termination(done),
+            'action_rate': self.action_rate(action, state.info['last_act']),
+            'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
