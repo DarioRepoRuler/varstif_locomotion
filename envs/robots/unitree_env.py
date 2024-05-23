@@ -43,7 +43,7 @@ class UnitreeEnv(MjxEnv):
             self.cmd_y = cfg.cmd_y
             self.cmd_yaw = cfg.cmd_ang
         self.soft_limits = soft_limits
-        self.single_obs_size = 49 # defined in _get_obs
+        self.single_obs_size = 53 # defined in _get_obs
         # set up robot properties
         self._setup()
 
@@ -90,8 +90,8 @@ class UnitreeEnv(MjxEnv):
             'termination': -1.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
-            "action_rate": 0.02,
-            "action_rate2": 0.02
+            "action_rate": 0.2,
+            "action_rate2": 0.2
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -140,6 +140,7 @@ class UnitreeEnv(MjxEnv):
             'last_vel': jp.zeros(18),
             'foot_acc': jp.zeros(12),
             'command': command,
+            'contact': jp.zeros(4, dtype=bool), 
             'last_contact': jp.zeros(4, dtype=bool),
             'feet_air_time': jp.zeros(4),
             'feet_contact_time': jp.zeros(4),
@@ -203,7 +204,7 @@ class UnitreeEnv(MjxEnv):
 
     def step(self, state: State, action: jp.ndarray) -> State:
         """
-        Runs one timestep of the environment's dynamics.
+        Runs one control step of the environment.
         
         Args:
             state: current state
@@ -229,6 +230,7 @@ class UnitreeEnv(MjxEnv):
         contact_filt_mm = contact | state.info['last_contact']
         contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
+        state.info['contact'] = contact_filt_mm
         state.info['feet_air_time'] += self.dt
         state.info['feet_contact_time'] += self.dt
 
@@ -243,12 +245,12 @@ class UnitreeEnv(MjxEnv):
             'tracking_ang_vel': (
                 self._reward_tracking_ang_vel(state.info['command'], x, xd)
             ),
-            'lin_vel_z': self._reward_lin_vel_z(xd),
+            'lin_vel_z': self._reward_lin_vel_z(xd), # implement potential based reward?
             'ang_vel_xy': self._reward_ang_vel_xy(x, xd),
-            'orientation': self._reward_orientation(x),
+            'orientation': self._reward_orientation(x), # implement potential based reward?
             'torques': self._reward_torques(data.ctrl),  # pytype: disable=attribute-error
             'smooth_rate': self._reward_smooth_rate(joint_vel, state.info['last_vel']),
-            'stand_still': self._reward_stand_still(
+            'stand_still': self._reward_stand_still( # implement potential based reward?
                 state.info['command'], joint_angles,
             ),
             'feet_air_time': self._reward_feet_air_time(
@@ -326,6 +328,7 @@ class UnitreeEnv(MjxEnv):
             data.qpos[7:],
             0.1 * data.qvel[6:],
             state_info['last_act'],
+            state_info['contact'], 
             state_info['command'] # 3 commands(can add more->observation space update needed)
         ])
 
@@ -384,6 +387,9 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-2*jp.linalg.norm(rot_up[:2])) # change this
         #return jp.sum(jp.square(rot_up[:2]))
     
+    def _reward_potential(self, reward_t, reward_t_1) -> jax.Array:
+        return 0.95*reward_t - reward_t_1
+
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
         return jp.exp(-0.01*jp.linalg.norm(torques))
@@ -419,18 +425,18 @@ class UnitreeEnv(MjxEnv):
         # Punish contact time.
         rew_contact_time = jp.sum(contact_time)
         rew_contact_time *= (
-                math.normalize(commands[:2])[1] > 0.05
+                math.normalize(commands[:2])[1] > 0.1
         )  # no reward for zero command
         return rew_contact_time
 
-    def _reward_stand_still( # CHANGE THIS
+    def _reward_stand_still( 
             self,
             commands: jax.Array,
             joint_angles: jax.Array,
     ) -> jax.Array:
         # Penalize motion at zero commands
         return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
-                math.normalize(commands[:2])[1] < 0.05
+                math.normalize(commands[:2])[1] < 0.1
         )
         # return jp.sum(joint_angles - self.default_pos[7:]) * (
         # math.normalize(commands[:2])[1] < 0.1
