@@ -31,7 +31,7 @@ def _create_env(env, num_envs, device, viz=False):
     else:
         env = TorchWrapper(env, device=device, backend='gpu')
     if viz:
-        env = RenderWrapper(env, render_mode='human')
+        env = RenderWrapper(env, render_mode='rgb_array')
     return env
 
 
@@ -69,7 +69,7 @@ def train(cfg: DictConfig):
 
     # Train the model
     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
-                    save_dir=save_dir)
+                    save_dir=save_dir, ckpt_path=cfg.ckpt_path)
     
     # Finish logging
     if log:
