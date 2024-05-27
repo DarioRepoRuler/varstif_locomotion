@@ -16,7 +16,7 @@ env:
   cmd_ang: 0.0
 
 
-ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/50_50_30.pt'
+ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/outputs/2024-05-23/11-17-00/checkpoints/model_500.pt'
 num_envs: 1
 episode_length: 100
 device: 'cuda:0'

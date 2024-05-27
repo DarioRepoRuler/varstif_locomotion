@@ -43,7 +43,7 @@ class UnitreeEnv(MjxEnv):
             self.cmd_y = cfg.cmd_y
             self.cmd_yaw = cfg.cmd_ang
         self.soft_limits = soft_limits
-        self.single_obs_size = 53 # defined in _get_obs
+        self.single_obs_size = 54 # defined in _get_obs
         # set up robot properties
         self._setup()
 
@@ -90,8 +90,8 @@ class UnitreeEnv(MjxEnv):
             'termination': -1.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
-            "action_rate": 0.2,
-            "action_rate2": 0.2
+            "action_rate": 0.02,
+            "action_rate2": 0.02
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -277,7 +277,7 @@ class UnitreeEnv(MjxEnv):
         state.info['feet_contact_time'] *= contact_filt_mm
         state.info['last_contact'] = contact
         state.info['rewards'] = rewards
-        state.info['step'] += 1
+        state.info['step']+= 1
         state.info['rng'] = rng
         state.info['action_minus_2t'] = state.info['last_act'] 
         state.info['last_act'] = action
@@ -320,15 +320,16 @@ class UnitreeEnv(MjxEnv):
         local_w = math.rotate(xd.ang[0], inv_torso_rot)
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
 
-        # Observation space dimension: 1+6+3+12+12+12+3 = 49
+        # Observation space dimension: 1+6+3+12+12+12+3 = 49 #ols calculation
         obs = jp.concatenate([
             torso_z,
             0.1 * jp.concatenate([local_v, local_w]),  # yaw rate
             proj_gravity,
             data.qpos[7:],
             0.1 * data.qvel[6:],
-            state_info['last_act'],
-            state_info['contact'], 
+            state_info['last_act'], 
+            state_info['contact'], #added
+            jp.array([state_info['step']]), #added  
             state_info['command'] # 3 commands(can add more->observation space update needed)
         ])
 
@@ -404,10 +405,10 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
 
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
-        return jp.exp(-0.4*jp.sum(jp.power(action - last_act, 2)))
+        return jp.exp(-jp.sum(jp.power(action - last_act, 2)))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
-        return jp.exp(-0.4*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
+        return jp.exp(-jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -425,7 +426,7 @@ class UnitreeEnv(MjxEnv):
         # Punish contact time.
         rew_contact_time = jp.sum(contact_time)
         rew_contact_time *= (
-                math.normalize(commands[:2])[1] > 0.1
+                math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
         return rew_contact_time
 
@@ -436,7 +437,7 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
         # Penalize motion at zero commands
         return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
-                math.normalize(commands[:2])[1] < 0.1
+                math.normalize(commands[:2])[1] < 0.05
         )
         # return jp.sum(joint_angles - self.default_pos[7:]) * (
         # math.normalize(commands[:2])[1] < 0.1
