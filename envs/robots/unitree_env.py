@@ -90,16 +90,16 @@ class UnitreeEnv(MjxEnv):
             'termination': -1.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
-            "action_rate": 0.02,
-            "action_rate2": 0.02
+            "action_rate": 0.2,
+            "action_rate2": 0.2,
+            "abduction": 0.2
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
         # Define constraints for the commands# From turtoial
         lin_vel_x = [-1.0, 1.0]  # min max [m/s]
         lin_vel_y = [-0.5, 0.5]  # min max [m/s]
-        ang_vel_yaw = [-0.8, 0.8]  # min max [rad/s]
-        # Add jump command! 
+        ang_vel_yaw = [-0.8, 0.8]  # min max [rad/s] 
 
         _, key1, key2, key3 = jax.random.split(rng, 4)
         lin_vel_x = jax.random.uniform(
@@ -266,6 +266,7 @@ class UnitreeEnv(MjxEnv):
             'termination': self._reward_termination(done),
             'action_rate': self.action_rate(action, state.info['last_act']),
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
+            'abduction': self.abduction(joint_angles)
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -408,7 +409,12 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-jp.sum(jp.power(action - last_act, 2)))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
-        return jp.exp(-jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
+        return jp.exp(-0.4*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
+    
+    def abduction(
+            self, joint_angles: jax.Array
+    ):
+        return jp.exp(-2*jp.linalg.norm(joint_angles[::3] - self.default_pos[7:-1:3]))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -416,7 +422,7 @@ class UnitreeEnv(MjxEnv):
         # Reward air time.
         rew_air_time = jp.sum(air_time * first_contact)
         rew_air_time *= (
-                math.normalize(commands[:2])[1] > 0.05
+                math.normalize(commands[:2])[1] > 0.1
         )  # no reward for zero command
         return rew_air_time
 

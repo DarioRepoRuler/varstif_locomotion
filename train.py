@@ -32,6 +32,7 @@ def _create_env(env, num_envs, device, viz=False):
         env = TorchWrapper(env, device=device, backend='gpu')
     if viz:
         env = RenderWrapper(env, render_mode='rgb_array')
+        env = RenderWrapper(env, render_mode='rgb_array')
     return env
 
 
@@ -75,7 +76,8 @@ def train(cfg: DictConfig):
     #     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
     #                 save_dir=save_dir)
     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
-                     save_dir=save_dir)
+                    save_dir=save_dir, ckpt_path=cfg.ckpt_path)
+    
     # Finish logging
     if log:
         wandb.finish()
