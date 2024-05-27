@@ -42,3 +42,11 @@ Brax is allocating 75% of the GPU memory by default therefore it is necessary to
 ```
 XLA_PYTHON_CLIENT_MEM_FRACTION=.2 python train.py
 ```
+## Testing
+
+```
+XLA_PYTHON_CLIENT_MEM_FRACTION=.1 python test.py
+```
+
+
+somehow this erro keeps happening: https://stackoverflow.com/questions/72110384/libgl-error-mesa-loader-failed-to-open-iris

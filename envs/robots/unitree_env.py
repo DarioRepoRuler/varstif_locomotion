@@ -43,7 +43,7 @@ class UnitreeEnv(MjxEnv):
             self.cmd_y = cfg.cmd_y
             self.cmd_yaw = cfg.cmd_ang
         self.soft_limits = soft_limits
-        self.single_obs_size = 54 # defined in _get_obs
+        self.single_obs_size = 53 # defined in _get_obs
         # set up robot properties
         self._setup()
 
@@ -90,9 +90,10 @@ class UnitreeEnv(MjxEnv):
             'termination': -1.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
-            "action_rate": 0.2,
-            "action_rate2": 0.2,
-            "abduction": 0.2
+            "action_rate": 0.1,
+            "action_rate2": 0.1,
+            "abduction": 0.2,
+            "foot_clearance": 0.2
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -266,7 +267,8 @@ class UnitreeEnv(MjxEnv):
             'termination': self._reward_termination(done),
             'action_rate': self.action_rate(action, state.info['last_act']),
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
-            'abduction': self.abduction(joint_angles)
+            'abduction': self.abduction(joint_angles),
+            'foot_clearance': self._reward_foot_clearance(xd, contact_filt_cm, foot_pos[:, 2], state.info['feet_air_time'])
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -330,7 +332,7 @@ class UnitreeEnv(MjxEnv):
             0.1 * data.qvel[6:],
             state_info['last_act'], 
             state_info['contact'], #added
-            jp.array([state_info['step']]), #added  
+            #jp.array([state_info['step']]), #added  
             state_info['command'] # 3 commands(can add more->observation space update needed)
         ])
 
@@ -449,7 +451,7 @@ class UnitreeEnv(MjxEnv):
         # math.normalize(commands[:2])[1] < 0.1
         # )
 
-    def _reward_foot_slip( # CHANGE THIS
+    def _reward_foot_slip(
             self, xd: Motion, contact_filt: jax.Array
     ) -> jax.Array:
         foot_indices = self.foot_body_id - 1
@@ -457,6 +459,18 @@ class UnitreeEnv(MjxEnv):
 
         # Penalize large feet velocity for feet that are in contact with the ground.
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
+    
+    def _reward_foot_clearance(
+            self, xd: Motion, contact_filt: jax.Array, foot_z: jax.Array, feet_air_time: jax.Array, des_z = 0.2
+    ) -> jax.Array:
+        foot_indices = self.foot_body_id - 1
+        foot_vel = xd.take(foot_indices).vel
+        # Take the foots that are not on the ground
+        feet_in_air =~ contact_filt.reshape((-1, 1))
+        # Foot trajectory should be sinusoidal
+        des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * feet_air_time)) * feet_in_air
+        # Penalize large feet velocity for feet that are in contact with the ground.
+        return jp.exp(-2*jp.sum( jp.square(des_foot_z- foot_z ) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))
 
     def _reward_termination(self, done: jax.Array) -> jax.Array:
         return done

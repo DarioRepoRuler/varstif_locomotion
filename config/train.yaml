@@ -13,7 +13,7 @@ env:
   is_training: True
 
 log: True
-ckpt_path: '/home/dario/Documents/TALocoMotion/outputs/2024-05-23/19-39-18/checkpoints/model_1950.pt'
+ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/model_1950.pt'
 log_dir: "Documents/TALocoMotion/outputs/"
 
 num_envs: 200 
