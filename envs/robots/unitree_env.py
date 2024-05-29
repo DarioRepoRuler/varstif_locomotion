@@ -90,9 +90,10 @@ class UnitreeEnv(MjxEnv):
             'termination': -1.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
-            "action_rate": 0.2,
-            "action_rate2": 0.2,
-            "abduction": 0.2
+            "action_rate": 0.1,
+            "action_rate2": 0.1,
+            "abduction": 0.2,
+            "foot_clearance": 0.2
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -266,7 +267,8 @@ class UnitreeEnv(MjxEnv):
             'termination': self._reward_termination(done),
             'action_rate': self.action_rate(action, state.info['last_act']),
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
-            'abduction': self.abduction(joint_angles)
+            'abduction': self.abduction(joint_angles),
+            'foot_clearance': self._reward_foot_clearance(xd, contact_filt_cm, foot_pos[:, 2], state.info['feet_air_time'])
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -278,7 +280,7 @@ class UnitreeEnv(MjxEnv):
         state.info['feet_contact_time'] *= contact_filt_mm
         state.info['last_contact'] = contact
         state.info['rewards'] = rewards
-        state.info['step'] += 1
+        state.info['step']+= 1
         state.info['rng'] = rng
         state.info['action_minus_2t'] = state.info['last_act'] 
         state.info['last_act'] = action
@@ -321,16 +323,17 @@ class UnitreeEnv(MjxEnv):
         local_w = math.rotate(xd.ang[0], inv_torso_rot)
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
 
-        # Observation space dimension: 1+6+3+12+12+12+3 = 49
+        # Observation space dimension: 1+6+3+12+12+12+3 = 49 #ols calculation
         obs = jp.concatenate([
             torso_z,
             0.1 * jp.concatenate([local_v, local_w]),  # yaw rate
             proj_gravity,
             data.qpos[7:],
             0.1 * data.qvel[6:],
-            state_info['last_act'],
-            state_info['contact'], 
-            state_info['command'] 
+            state_info['last_act'], 
+            state_info['contact'], #added
+            #jp.array([state_info['step']]), #added  
+            state_info['command'] # 3 commands(can add more->observation space update needed)
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
@@ -405,7 +408,7 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
 
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
-        return jp.exp(-0.4*jp.sum(jp.power(action - last_act, 2)))
+        return jp.exp(-jp.sum(jp.power(action - last_act, 2)))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
         return jp.exp(-0.4*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
@@ -431,7 +434,7 @@ class UnitreeEnv(MjxEnv):
         # Punish contact time.
         rew_contact_time = jp.sum(contact_time)
         rew_contact_time *= (
-                math.normalize(commands[:2])[1] > 0.1
+                math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
         return rew_contact_time
 
@@ -442,13 +445,13 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
         # Penalize motion at zero commands
         return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
-                math.normalize(commands[:2])[1] < 0.1
+                math.normalize(commands[:2])[1] < 0.05
         )
         # return jp.sum(joint_angles - self.default_pos[7:]) * (
         # math.normalize(commands[:2])[1] < 0.1
         # )
 
-    def _reward_foot_slip( # CHANGE THIS
+    def _reward_foot_slip(
             self, xd: Motion, contact_filt: jax.Array
     ) -> jax.Array:
         foot_indices = self.foot_body_id - 1
@@ -456,6 +459,18 @@ class UnitreeEnv(MjxEnv):
 
         # Penalize large feet velocity for feet that are in contact with the ground.
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
+    
+    def _reward_foot_clearance(
+            self, xd: Motion, contact_filt: jax.Array, foot_z: jax.Array, feet_air_time: jax.Array, des_z = 0.2
+    ) -> jax.Array:
+        foot_indices = self.foot_body_id - 1
+        foot_vel = xd.take(foot_indices).vel
+        # Take the foots that are not on the ground
+        feet_in_air =~ contact_filt.reshape((-1, 1))
+        # Foot trajectory should be sinusoidal
+        des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * feet_air_time)) * feet_in_air
+        # Penalize large feet velocity for feet that are in contact with the ground.
+        return jp.exp(-2*jp.sum( jp.square(des_foot_z- foot_z ) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))
 
     def _reward_termination(self, done: jax.Array) -> jax.Array:
         return done
