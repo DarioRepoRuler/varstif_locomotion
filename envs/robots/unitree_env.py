@@ -90,10 +90,11 @@ class UnitreeEnv(MjxEnv):
             'termination': -1.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
+            # Additional self created
             "action_rate": 0.1,
             "action_rate2": 0.1,
-            "abduction": 0.2,
-            "foot_clearance": 0.2
+            "abduction": 0.1,
+            "foot_clearance": 0.1
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -416,7 +417,7 @@ class UnitreeEnv(MjxEnv):
     def abduction(
             self, joint_angles: jax.Array
     ):
-        return jp.exp(-2*jp.linalg.norm(joint_angles[::3] - self.default_pos[7:-1:3]))
+        return jp.exp(-0.5*jp.sum(jp.square(joint_angles[::3])))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -447,9 +448,6 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
                 math.normalize(commands[:2])[1] < 0.05
         )
-        # return jp.sum(joint_angles - self.default_pos[7:]) * (
-        # math.normalize(commands[:2])[1] < 0.1
-        # )
 
     def _reward_foot_slip(
             self, xd: Motion, contact_filt: jax.Array
@@ -468,9 +466,9 @@ class UnitreeEnv(MjxEnv):
         # Take the foots that are not on the ground
         feet_in_air =~ contact_filt.reshape((-1, 1))
         # Foot trajectory should be sinusoidal
-        des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * feet_air_time)) * feet_in_air
+        des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * 0.5 * feet_air_time)) * feet_in_air
         # Penalize large feet velocity for feet that are in contact with the ground.
-        return jp.exp(-2*jp.sum( jp.square(des_foot_z- foot_z ) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))
+        return jp.exp(-2*jp.sum(jp.square(des_foot_z- foot_z ) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))
 
     def _reward_termination(self, done: jax.Array) -> jax.Array:
         return done

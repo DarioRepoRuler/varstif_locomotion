@@ -13,7 +13,7 @@ env:
   is_training: True
 
 log: True
-ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/model_1950.pt'
+ckpt_path: '/home/dario/Documents/TALocoMotion/best_models/model_1950.pt'
 log_dir: "Documents/TALocoMotion/outputs/"
 
 num_envs: 200 
