@@ -17,7 +17,8 @@ env:
 
 
 #ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/model_1950.pt'
-ckpt_path: '/home/dario/Documents/TALocoMotion/best_models/model_1950.pt'
+#ckpt_path: '/home/dario/Documents/TALocoMotion/best_models/model_1950.pt'
+ckpt_path: '/home/dario/Documents/TALocoMotion/outputs/2024-05-31/10-34-06/checkpoints/model_2850.pt'
 
 num_envs: 1
 episode_length: 100

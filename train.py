@@ -31,8 +31,7 @@ def _create_env(env, num_envs, device, viz=False):
     else:
         env = TorchWrapper(env, device=device, backend='gpu')
     if viz:
-        env = RenderWrapper(env, render_mode='rgb_array')
-        env = RenderWrapper(env, render_mode='rgb_array')
+        env = RenderWrapper(env, render_mode='human')
     return env
 
 
@@ -48,10 +47,7 @@ def train(cfg: DictConfig):
     Returns:
         None
     """
-    # Create the environment
-    # Print config properties
-    print(f"Config: {cfg}")
-    
+    # Create the environment    
     env = _create_env(GO2Env(cfg.env), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz)
 
     # Set up logging using wandb

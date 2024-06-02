@@ -391,9 +391,6 @@ class UnitreeEnv(MjxEnv):
         rot_up = math.rotate(up, x.rot[0])
         return jp.exp(-2*jp.linalg.norm(rot_up[:2])) # change this
         #return jp.sum(jp.square(rot_up[:2]))
-    
-    def _reward_potential(self, reward_t, reward_t_1) -> jax.Array:
-        return 0.95*reward_t - reward_t_1
 
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
@@ -465,10 +462,16 @@ class UnitreeEnv(MjxEnv):
         foot_vel = xd.take(foot_indices).vel
         # Take the foots that are not on the ground
         feet_in_air =~ contact_filt.reshape((-1, 1))
+        feet_on_ground = contact_filt.reshape((-1, 1))
         # Foot trajectory should be sinusoidal
         des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * 0.5 * feet_air_time)) * feet_in_air
+        #difference = (des_foot_z - foot_z)*feet_in_air + foot_z * feet_on_ground
+        difference = (des_z - foot_z)*feet_in_air + foot_z * feet_on_ground
         # Penalize large feet velocity for feet that are in contact with the ground.
-        return jp.exp(-2*jp.sum(jp.square(des_foot_z- foot_z ) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))
+        #return jp.exp(-2*jp.sum(jp.square(des_z - foot_z) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))*jp.any(feet_in_air)
+        return jp.exp(-2*jp.sum(jp.square(difference) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))*jp.any(feet_in_air)
+        
+        
 
     def _reward_termination(self, done: jax.Array) -> jax.Array:
         return done
