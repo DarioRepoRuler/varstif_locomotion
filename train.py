@@ -65,14 +65,13 @@ def train(cfg: DictConfig):
     #save_dir = os.path.join(Path.home(), cfg.log_dir, log_name, 'checkpoints')
 
     # Train the model
-    # if cfg.ckpt_path is not None:
-    #     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
-    #                 save_dir=save_dir, ckpt_path=cfg.ckpt_path)
-    # else:
-    #     task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
-    #                 save_dir=save_dir)
-    task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
+    if cfg.ckpt_path is not None:
+        task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
                     save_dir=save_dir, ckpt_path=cfg.ckpt_path)
+    else:
+        task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
+                    save_dir=save_dir)
+
     
     # Finish logging
     if log:

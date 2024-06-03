@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.3
+  action_scale: 0.4
   control_mode: "P"
   physics_steps_per_control_step: 4
   obs_noise: 0.
@@ -15,10 +15,8 @@ env:
   cmd_y: 0.0
   cmd_ang: 0.0
 
+ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/model_1950.pt'
 
-#ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/model_1950.pt'
-#ckpt_path: '/home/dario/Documents/TALocoMotion/best_models/model_1950.pt'
-ckpt_path: '/home/dario/Documents/TALocoMotion/outputs/2024-05-31/10-34-06/checkpoints/model_2850.pt'
 
 num_envs: 1
 episode_length: 100

@@ -48,5 +48,7 @@ XLA_PYTHON_CLIENT_MEM_FRACTION=.2 python train.py
 XLA_PYTHON_CLIENT_MEM_FRACTION=.1 python test.py
 ```
 
+### MESA-LOADER Error
+Somehow this error keeps happening, especially after restarting/suspending the computer. It was resolved after this blog post: https://stackoverflow.com/questions/72110384/libgl-error-mesa-loader-failed-to-open-iris
 
-somehow this erro keeps happening: https://stackoverflow.com/questions/72110384/libgl-error-mesa-loader-failed-to-open-iris
+To be exact it was resolved with this command: `conda install -c conda-forge libstdcxx-ng`
