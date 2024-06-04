@@ -11,7 +11,7 @@ from tasks.PPOTaskBase import PPOTaskBase
 
 @hydra.main(config_path='config', config_name='test', version_base="1.2")
 def test(cfg: DictConfig):
-    env = GO2Env(cfg.env)
+    env = GO2Env(cfg.env,scene_xml=cfg.scene_xml)
     env = VmapWrapper(env, batch_size=1)
     env = AutoResetWrapper(env)
     env = TorchWrapper(env, device='cuda:0', backend='gpu')
@@ -20,9 +20,11 @@ def test(cfg: DictConfig):
     task = PPOTaskBase(cfg=cfg, env=env)
     # Get model path
     ckpt_path=cfg.ckpt_path
-    #ckpt_path = os.path.join(os.getcwd(), 'best_models', '50_50_30.pt')
-    task.test_agent(num_iterations=10,ckpt_path=ckpt_path)
 
+    if ckpt_path is not None:
+        task.test_agent(num_iterations=10, ckpt_path=ckpt_path)
+    else:
+        task.test_agent(num_iterations=10)
 
 if __name__ == '__main__':
     test()

@@ -91,10 +91,10 @@ class UnitreeEnv(MjxEnv):
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
             # Additional self created
-            "action_rate": 0.1,
-            "action_rate2": 0.1,
-            "abduction": 0.1,
-            "foot_clearance": 0.1
+            "action_rate": 0.02,
+            "action_rate2": 0.02,
+            "abduction": 0.02,
+            #"foot_clearance": 0.5
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -269,7 +269,7 @@ class UnitreeEnv(MjxEnv):
             'action_rate': self.action_rate(action, state.info['last_act']),
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             'abduction': self.abduction(joint_angles),
-            'foot_clearance': self._reward_foot_clearance(xd, contact_filt_cm, foot_pos[:, 2], state.info['feet_air_time'], state.info['command'])
+            #'foot_clearance': self._reward_foot_clearance(xd, contact_filt_cm, foot_pos[:, 2], state.info['feet_air_time'], state.info['command'])
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -414,7 +414,7 @@ class UnitreeEnv(MjxEnv):
     def abduction(
             self, joint_angles: jax.Array
     ):
-        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[::3])))
+        return jp.exp(-2*jp.sum(jp.square(joint_angles[::3])))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -467,7 +467,7 @@ class UnitreeEnv(MjxEnv):
         T= jp.linalg.norm(commands[:2], ord=2)
         des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * T * feet_air_time)) * feet_in_air
 
-        difference = (des_foot_z - foot_z)*feet_in_air + foot_z * feet_on_ground
+        difference = (des_z - foot_z)*feet_in_air + foot_z * feet_on_ground
         #difference = (des_z - foot_z)*feet_in_air + foot_z * feet_on_ground
         # Penalize large feet velocity for feet that are in contact with the ground.
         #return jp.exp(-2*jp.sum(jp.square(des_z - foot_z) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))*jp.any(feet_in_air)

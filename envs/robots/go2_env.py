@@ -3,8 +3,8 @@ from envs.robots.unitree_env import UnitreeEnv
 
 
 class GO2Env(UnitreeEnv):
-    def __init__(self, cfg):
-        super().__init__(cfg, model_path='unitree_go2/scene.xml')
+    def __init__(self, cfg, scene_xml='unitree_go2/scene.xml'):
+        super().__init__(cfg, model_path=scene_xml)
         # set up robot properties
         self._setup()
 
