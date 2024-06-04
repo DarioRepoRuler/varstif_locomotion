@@ -3,20 +3,20 @@
 
   <option timestep="0.005" impratio="5"/>
   
-  <option iterations="1" ls_iterations="5">
+  <option cone="pyramidal" impratio="100" iterations="1" ls_iterations="5">
     <flag eulerdamp="disable"/>
   </option>
 
-  <contact>
+  <!-- <contact>
     <pair geom1="FR" geom2="floor" solimp="0.015 1 0.031" solref="0.001 1" />
     <pair geom1="FL" geom2="floor" solimp="0.015 1 0.031" solref="0.001 1" />
     <pair geom1="RR" geom2="floor" solimp="0.015 1 0.031" solref="0.001 1" />
     <pair geom1="RL" geom2="floor" solimp="0.015 1 0.031" solref="0.001 1" />
-  </contact>
+  </contact> -->
 
   <default>
     <default class="go2">
-      <geom friction="0.6" margin="0.001" condim="3"/>
+      <geom friction="0.6" condim="3"/>
       <joint axis="0 1 0" armature="0.01"/>
 <!--      <motor ctrlrange="-23.7 23.7"/>-->
       <default class="abduction">

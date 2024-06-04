@@ -48,7 +48,7 @@ def train(cfg: DictConfig):
         None
     """
     # Create the environment    
-    env = _create_env(GO2Env(cfg.env), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz)
+    env = _create_env(GO2Env(cfg.env, scene_xml=cfg.scene_xml), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz)
 
     # Set up logging using wandb
     log = cfg.log

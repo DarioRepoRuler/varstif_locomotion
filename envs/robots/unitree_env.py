@@ -56,7 +56,6 @@ class UnitreeEnv(MjxEnv):
         feet_site_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_site
         ]
-        print(feet_site_id)
         assert not any(id_ == -1 for id_ in feet_site_id), 'Site not found.'
         self.feet_site_id = jp.array(feet_site_id)
 
@@ -94,7 +93,7 @@ class UnitreeEnv(MjxEnv):
             # Additional self created
             "action_rate": 0.02,
             "action_rate2": 0.02,
-            "abduction": 0.02,
+            "abduction": 0.1,
             #"foot_clearance": 0.5
         }
 
@@ -220,6 +219,10 @@ class UnitreeEnv(MjxEnv):
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         data = self.pipeline_step(data0, action)
+
+        jax.debug.print('contact: {x}', x=data.contact.geom)
+
+        jax.debug.print('distance: {x}', x=data.contact.dist)
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -354,7 +357,7 @@ class UnitreeEnv(MjxEnv):
         done |= jp.any(data.qpos[7:] > self.upper_limits)
         done |= data.xpos[self._torso_idx, 2] < self.min_z
 
-        return done
+        return False
 
     # ------------ reward functions---------------- #
     def _reward_tracking_lin_vel(
