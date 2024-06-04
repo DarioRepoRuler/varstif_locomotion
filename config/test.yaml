@@ -16,9 +16,10 @@ env:
   cmd_ang: 0.0
 
 ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/best_models/model_1950.pt'
+#ckpt_path: null
 
 
 num_envs: 1
-episode_length: 300
+episode_length: 100
 device: 'cuda:0'
-scene_xml: 'unitree_go2/playground.xml'
+scene_xml: 'unitree_go2/terrain.xml'

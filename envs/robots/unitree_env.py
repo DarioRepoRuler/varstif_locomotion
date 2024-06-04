@@ -56,6 +56,7 @@ class UnitreeEnv(MjxEnv):
         feet_site_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_site
         ]
+        print(feet_site_id)
         assert not any(id_ == -1 for id_ in feet_site_id), 'Site not found.'
         self.feet_site_id = jp.array(feet_site_id)
 

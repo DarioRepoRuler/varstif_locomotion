@@ -2,6 +2,10 @@
   <compiler angle="radian" meshdir="assets" autolimits="false"/>
 
   <option timestep="0.005" impratio="5"/>
+  
+  <option iterations="1" ls_iterations="5">
+    <flag eulerdamp="disable"/>
+  </option>
 
   <contact>
     <pair geom1="FR" geom2="floor" solimp="0.015 1 0.031" solref="0.001 1" />
