@@ -12,7 +12,7 @@ from envs.common.mjx_env import MjxEnv, State
 from envs.common.helper import unscale
 from pathlib import Path
 import os
-
+import numpy as np
 
 class UnitreeEnv(MjxEnv):
     def __init__(
@@ -32,6 +32,7 @@ class UnitreeEnv(MjxEnv):
         super().__init__(mj_model=mj_model,
                          physics_steps_per_control_step=cfg.physics_steps_per_control_step)
         print(self.sys.opt)
+        
         self.control_mode = cfg.control_mode
         self.action_scale = cfg.action_scale
         self.num_history = cfg.num_history
@@ -44,6 +45,8 @@ class UnitreeEnv(MjxEnv):
             self.cmd_yaw = cfg.cmd_ang
         self.soft_limits = soft_limits
         self.single_obs_size = 53 # defined in _get_obs
+        #self.connection_indices = jp.zeros((4), dtype=int)#([7,12,17,22])
+        
         # set up robot properties
         self._setup()
 
@@ -52,10 +55,14 @@ class UnitreeEnv(MjxEnv):
 
         self._torso_idx = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
 
-        feet_site = ['FR', 'FL', 'RR', 'RL']
+        
+        feet_site = ['FR', 'FL', 'RR', 'RL'] # Feet IDs: 2,1,4,3
         feet_site_id = [
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_site
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, f) for f in feet_site
         ]
+        floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, 'floor')
+        self.floor_id = floor_id
+
         assert not any(id_ == -1 for id_ in feet_site_id), 'Site not found.'
         self.feet_site_id = jp.array(feet_site_id)
 
@@ -68,10 +75,21 @@ class UnitreeEnv(MjxEnv):
 
         foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
         foot_body_id = [
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in foot_body
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, i) for i in foot_body
         ]
         assert not any(id_ == -1 for id_ in foot_body), 'Foot not found.'
         self.foot_body_id = jp.array(foot_body_id)
+        print(f"Torso ID: {self._torso_idx}")
+        print(f"Feet site id(geom): {feet_site_id}")
+        print(f"Floor ID: {floor_id}") # Floor ID: 0 
+        
+        # # # interesting the foot and the torso seem to have the same value
+        for i in range(100):
+            name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i)
+            print(f"Name of Geom {i}: {name}")
+            # name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i)
+            # print(f"Name of Body {i}: {name}")
+        
 
         # Scaling of the rewards
         # These rewards are from the tutorial: https://colab.research.google.com/github/google-deepmind/mujoco/blob/main/mjx/tutorial.ipynb
@@ -96,6 +114,33 @@ class UnitreeEnv(MjxEnv):
             "abduction": 0.1,
             #"foot_clearance": 0.5
         }
+    def get_connections(self, data)->jax.Array: # 7,12,17,22
+        # Get the connections of the robot
+
+        #jax.debug.print('Matches: {x}', x=jp.isin(data.contact.geom, self.feet_site_id))
+        #feet_mask = jp.isin(data.contact.geom, self.feet_site_id)[:,1]
+        #ground_mask = jp.isin(data.contact.geom, 0)[:,0]
+        #feet_ground_mask = feet_mask * ground_mask
+        #jax.debug.print('Matches: {x}', x=jp.take(data.contact.geom, jp.where(feet_ground_mask, indices, 500),mode='drop'))
+        #jax.debug.print('Matches: {x}', x=jp.where(feet_ground_mask, jp.arange(0,233), -1))
+
+        #ground_contact_mask= data.contact.geom==0
+        #feet_ground_mask = feet_contact_mask * ground_contact_mask[:,0]
+        geom_temp = jp.zeros((233,2))
+        conn_indices = jp.zeros((4,1), dtype=int)
+        geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
+        feet_mask = jp.isin(geom_temp, self.feet_site_id)[:,1]
+        ground_mask = jp.isin(geom_temp, 0)[:,0]
+        feet_ground_mask = feet_mask * ground_mask
+        #jax.debug.print('Conn indices shape before: {x}', x=jp.shape(conn_indices))
+        conn_indices= conn_indices.at[0:4,0].set(jp.where(feet_ground_mask, size=4)[0])
+        jax.debug.print('Conn indices after: {x}', x=conn_indices)
+        #self.connection_indices = self.connection_indices.at[0:4].set(conn_indices[0:4,0].astype(int))
+        #jax.debug.print('connections in self: {x}', x=self.connection_indices)
+        return conn_indices
+
+
+
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
         # Define constraints for the commands# From turtoial
@@ -114,7 +159,7 @@ class UnitreeEnv(MjxEnv):
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
 
-        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) #Add new command here!
+        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
         
         # Just for test purposes!
         if not self.is_training:
@@ -130,6 +175,10 @@ class UnitreeEnv(MjxEnv):
         data = self.pipeline_init(self.default_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
         command = self._resample_commands(rng3)
+        # At first the connections are empty
+        self.get_connections(data)[0:4]
+        #jax.debug.print('Connections: {x}', x=self.connection_indices)
+
         # if is_training==False:
         #     print(f"Testing forward vel.")
         #     command = jp.array([1.0, 0.0, 0.0])
@@ -219,10 +268,23 @@ class UnitreeEnv(MjxEnv):
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         data = self.pipeline_step(data0, action)
+        # ----------------- Debugging ------------------- #
 
-        jax.debug.print('contact: {x}', x=data.contact.geom)
+        connection_indices = jp.zeros((4),dtype=int)
+        connection_indices = connection_indices.at[0:4].set(self.get_connections(data)[0:4,0].astype(int))
+        jax.debug.print('Connections: {x}', x=connection_indices)
 
-        jax.debug.print('distance: {x}', x=data.contact.dist)
+        #indices= jp.nonzero(data.contact.geom)
+        #jax.debug.print('contact: {x}', x=data.contact.geom.shape)
+        # jax.debug.print('contact: {x}', x=data.contact.geom)
+
+        jax.debug.print('distance: {x}', x=data.contact.dist[connection_indices])
+        #jax.debug.breakpoint()
+        
+        
+
+        # match_indices = jp.argwhere(self.matches)
+        # jax.debug.print('contact: {x}', x=match_indices)
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -231,6 +293,12 @@ class UnitreeEnv(MjxEnv):
 
         # foot contact data based on z-position
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
+        #foot_ground_indices = jp.array([7, 0],[12,0],[17,0],[22,0])
+        #foot_ground_indices = jp.array([7,12,17,22])
+        #jax.debug.print('Foot distance to ground: {x}', x=data.contact.dist[foot_ground_indices])
+        #jax.debug.print('Geometries: {x}', x=data.contact.geom)
+
+
         foot_contact_z = foot_pos[:, 2] - self._foot_radius
         contact = foot_contact_z < 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
