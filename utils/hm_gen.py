@@ -7,7 +7,7 @@ class HeightMapGenerator:
     def __init__(self, height=520, width=520):
         self.height = height
         self.width = width
-        self.height_map = None
+        self.height_map = np.zeros((self.height, self.width), dtype=np.float32)
         
         
     def generate_perlin_noise(self, scale=100, octaves=6, persistence=0.5, lacunarity=2.0):
@@ -68,6 +68,26 @@ class HeightMapGenerator:
         height_map_with_hills = np.clip(height_map_with_hills, 0, 255)
         self.height_map = height_map_with_hills
         return height_map_with_hills
+    
+    def generate_linear_steps(self, num_steps=10):
+        """
+        Generate a height map with linear steps from left to right.
+        """
+        if num_steps < 1:
+            raise ValueError("Number of steps must be at least 1.")
+        
+        height_map = np.zeros((self.height, self.width), dtype=np.uint8)
+        step_width = self.width // num_steps
+        
+        for step in range(num_steps):
+            grayscale_value = int((step / (num_steps - 1)) * 255)
+            start_x = step * step_width
+            end_x = start_x + step_width if step != num_steps - 1 else self.width
+            height_map[:, start_x:end_x] = grayscale_value
+        
+        self.height_map = height_map
+        return height_map
+
 
     def save_height_map_as_image(self, filename):
         """
@@ -85,17 +105,19 @@ def main():
     width = 520
     height = 520
     hm_gen = HeightMapGenerator(height, width)
+    
     # Generate the Perlin noise height map
-
-    # Generate Laplacian hills on the height map
-    height_map_with_hills = hm_gen.generate_gaussian_hills(num_hills=3)
-
+    #hm_gen.generate_perlin_noise()
+    
+    # Introduce steps to the height map
+    hm_gen.generate_linear_steps(num_steps=5)
+    
     # Define the filename
-    filename = 'laplacian_hills.png'
-
-    # Save the height map with Laplacian hills as an image
+    filename = 'perlin_noise_with_steps.png'
+    
+    # Save the height map with steps as an image
     hm_gen.save_height_map_as_image(filename)
-    print(f'Height map with Laplacian hills saved as {filename}')
+    print(f'Height map with steps saved as {filename}')
 
 if __name__ == "__main__":
     main()

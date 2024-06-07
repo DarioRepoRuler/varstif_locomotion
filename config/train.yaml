@@ -16,7 +16,7 @@ log: True
 ckpt_path: "/home/dspoljaric/Documents/TALocoMotion/best_models/model_1950.pt"
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 2096 
+num_envs: 200 
 episode_length: 200
 num_learning_iterations: 5001
 device: 'cuda:0'
