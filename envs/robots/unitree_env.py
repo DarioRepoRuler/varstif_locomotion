@@ -100,9 +100,9 @@ class UnitreeEnv(MjxEnv):
         print(f"Floor ID: {floor_id}") # Floor ID: 0 
         
         # # # interesting the foot and the torso seem to have the same value
-        for i in range(60):
-            name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i)
-            print(f"Name of Geom {i}: {name}")
+        # for i in range(60):
+        #     name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i)
+        #     print(f"Name of Geom {i}: {name}")
             # name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i)
             # print(f"Name of Body {i}: {name}")
         
@@ -156,7 +156,7 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('connections in self: {x}', x=self.connection_indices)
         return conn_indices
     
-    def get_connections_1(self, data)->jax.Array: # 7,12,17,22
+    def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
         # Get the connections of the robot
         geom_temp = jp.zeros((233,2))
         conn_indices = jp.zeros((4,1), dtype=int)
@@ -304,22 +304,16 @@ class UnitreeEnv(MjxEnv):
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         data = self.pipeline_step(data0, action)
-        # ----------------- Debugging ------------------- #
-        jax.debug.print('Possible Contacts: {x}', x=data.contact.geom)
-
-
+        
+        # Get connections
         connection_indices = jp.zeros((4),dtype=int)
-        connection_indices = connection_indices.at[0:4].set(self.get_connections_1(data)[0:4,0].astype(int))
-        jax.debug.print('Connections: {x}', x=connection_indices)
-        jax.debug.print('Distances for feet: {x}', x=data.contact.dist[connection_indices])
-        #jax.debug.print('Distances: {x}', x=data.contact.dist)
+        connection_indices = connection_indices.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
 
-
-        #self.get_connections_1(data)
-        #jax.debug.print('Contact dimension:{x}', x =data.contact.dim)
-
-        # match_indices = jp.argwhere(self.matches)
-        # jax.debug.print('contact: {x}', x=match_indices)
+        # ----------------- Debugging ------------------- #
+        #jax.debug.print('Possible Contacts: {x}', x=data.contact.geom)
+        #jax.debug.print('Connections: {x}', x=connection_indices)
+        #jax.debug.print('Distances for feet: {x}', x=data.contact.dist[connection_indices])
+        foot_floor_dist = data.contact.dist[connection_indices]
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -335,11 +329,20 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Foot distance to ground: {x}', x=data.contact.dist[foot_ground_indices])
         #jax.debug.print('Geometries: {x}', x=data.contact.geom)
 
+        # Original foot contact management
+        # foot_contact_z = foot_pos[:, 2] - self._foot_radius
+        # contact = foot_contact_z < 1e-3  # a mm or less off the floor
+        # contact_filt_mm = contact | state.info['last_contact']
+        # contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
+        # first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
+        # state.info['contact'] = contact_filt_mm
+        # state.info['feet_air_time'] += self.dt
+        # state.info['feet_contact_time'] += self.dt
 
-        foot_contact_z = foot_pos[:, 2] - self._foot_radius
-        contact = foot_contact_z < 1e-3  # a mm or less off the floor
+        # Contact based foot management
+        contact = foot_floor_dist < 0.0  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
-        contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
+        contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         state.info['contact'] = contact_filt_mm
         state.info['feet_air_time'] += self.dt

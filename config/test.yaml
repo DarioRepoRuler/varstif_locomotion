@@ -22,4 +22,4 @@ ckpt_path: 'best_models/model_1950.pt'
 num_envs: 1
 episode_length: 100
 device: 'cuda:0'
-scene_xml: 'unitree_go2/scene.xml'
+scene_xml: 'unitree_go2/terrain.xml'
