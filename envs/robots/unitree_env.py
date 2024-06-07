@@ -162,10 +162,16 @@ class UnitreeEnv(MjxEnv):
         conn_indices = jp.zeros((4,1), dtype=int)
         geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
 
-        foot_connections = [
-            jp.isin(data.contact.geom, jp.array([self.floor_id ,self.feet_site_id[i]])) for i in range(4)
-        ]
-        jax.debug.print('Foot connections: {x}', x=foot_connections)
+        ground_mask = jp.isin(geom_temp, 0)[:,0]
+        
+        for i in range(4):
+            feet_mask=jp.isin(geom_temp, self.feet_geom_id[i])[:,1]
+            foot_cont = feet_mask*ground_mask
+            connection_index= jp.where(foot_cont, size=1)[0]
+            #jax.debug.print('Foot connection: {x}', x=jp.where(foot_cont,size=1)[0])
+            conn_indices = conn_indices.at[i,0].set(connection_index[0])
+        
+        #jax.debug.print('Foot connections: {x}', x=conn_indices)
         
         return conn_indices
 
@@ -302,14 +308,14 @@ class UnitreeEnv(MjxEnv):
         jax.debug.print('Possible Contacts: {x}', x=data.contact.geom)
 
 
-        # connection_indices = jp.zeros((4),dtype=int)
-        # connection_indices = connection_indices.at[0:4].set(self.get_connections(data)[0:4,0].astype(int))
-        # jax.debug.print('Connections: {x}', x=connection_indices)
-        # #jax.debug.print('Distances for feet: {x}', x=data.contact.dist[connection_indices])
-        # jax.debug.print('Distances: {x}', x=data.contact.dist)
+        connection_indices = jp.zeros((4),dtype=int)
+        connection_indices = connection_indices.at[0:4].set(self.get_connections_1(data)[0:4,0].astype(int))
+        jax.debug.print('Connections: {x}', x=connection_indices)
+        jax.debug.print('Distances for feet: {x}', x=data.contact.dist[connection_indices])
+        #jax.debug.print('Distances: {x}', x=data.contact.dist)
 
 
-        self.get_connections_1(data)
+        #self.get_connections_1(data)
         #jax.debug.print('Contact dimension:{x}', x =data.contact.dim)
 
         # match_indices = jp.argwhere(self.matches)
@@ -458,7 +464,7 @@ class UnitreeEnv(MjxEnv):
 
         return False
 
-    # ------------ reward functions---------------- #
+    ### ------------ Reward functions---------------- ###
     def _reward_tracking_lin_vel(
             self, commands: jax.Array, x: Transform, xd: Motion
     ) -> jax.Array:
@@ -500,8 +506,7 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.01*jp.linalg.norm(torques))
         #return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
-    # Related to smoothness of the actions:
-
+    ## Related to smoothness of the actions:
     def _reward_smooth_rate( # to be continued...(why the velocities?)
             self, joint_vel: jax.Array, last_vel: jax.Array
     ) -> jax.Array:
