@@ -66,6 +66,8 @@ def train(cfg: DictConfig):
 
     # Train the model
     if cfg.ckpt_path is not None:
+        # Interpreting as relative path
+        ckpt_path = os.path.join(os.getcwd(),ckpt_path)
         task.train_loop(num_learning_iterations=cfg.num_learning_iterations,
                     save_dir=save_dir, ckpt_path=cfg.ckpt_path)
     else:

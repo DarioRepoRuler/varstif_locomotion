@@ -20,6 +20,8 @@ def test(cfg: DictConfig):
     task = PPOTaskBase(cfg=cfg, env=env)
     # Get model path
     ckpt_path=cfg.ckpt_path
+    # Interpreting as relative path
+    ckpt_path = os.path.join(os.getcwd(),ckpt_path)
 
     if ckpt_path is not None:
         task.test_agent(num_iterations=10, ckpt_path=ckpt_path)
