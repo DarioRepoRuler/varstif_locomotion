@@ -56,53 +56,74 @@ class UnitreeEnv(MjxEnv):
         self._torso_idx = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
         
         feet_names = ['FR', 'FL', 'RR', 'RL'] # Feet IDs: 2,1,4,3
+        hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
+        torso_bodies = ['base_mirror_0', 'base_mirror_1', 'base_mirror_2', 'base_mirror_3', 'base_mirror_4']
+
+        geometries = [
+            "base_0", "base_1", "base_2", 
+            "FR_hip", "FR_thigh", "FR_calf_0", "FR_calf_1",  
+            "FL_hip", "FL_thigh", "FL_calf_0", "FL_calf_1", 
+            "RR_hip", "RR_thigh", "RR_calf_0", "RR_calf_1", 
+            "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
+            ]
         feet_site_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_names
         ]
         feet__geom_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, f) for f in feet_names
         ]
-
-        floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, 'floor')
-        self.floor_id = floor_id
-
-        assert not any(id_ == -1 for id_ in feet_site_id), 'Site not found.'
-        self.feet_site_id = jp.array(feet_site_id)
-
-        assert not any(id_ == -1 for id_ in feet__geom_id), 'Site not found.'
-        self.feet_geom_id= jp.array(feet__geom_id)
-        print(f"Feet site id: {feet_site_id}")
-        print(f"Feet Geom  IDs: {self.feet_geom_id}")
-
-        hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
-        hip_body_id = [
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
-        ]
-        torso_bodies = ['base_0', 'base_1', 'base_2', 'base_3', 'base_4']
-        torso_body_id = [ 
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i) for i in torso_bodies
-            ]
-        assert not any(id_ == -1 for id_ in torso_body_id), 'Site not found.'
-        self.torso_body_id = jp.array(torso_body_id)
-        print(f"Geom Torso body IDs: {self.torso_body_id}")
-
-        assert not any(id_ == -1 for id_ in hip_body), 'Hip not found.'
-        self.hip_body_id = jp.array(hip_body_id)
-
         foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
         foot_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, i) for i in foot_body
         ]
-        assert not any(id_ == -1 for id_ in foot_body), 'Foot not found.'
+
+        body_geom_id = [
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, f) for f in geometries
+        ]
+
+        floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, 'floor')
+        self.floor_id = floor_id
+
+        
+        hip_body_id = [
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
+        ]
+        
+        torso_body_id = [ 
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i) for i in torso_bodies
+            ]
+
+        assert not any(id_ == -1 for id_ in body_geom_id), 'Body Geom not found.'
+        self.body_geom_id = jp.array(body_geom_id)
+        
+        assert not any(id_ == -1 for id_ in feet_site_id), 'Feet Site not found.'
+        self.feet_site_id = jp.array(feet_site_id)
+
+        assert not any(id_ == -1 for id_ in feet__geom_id), 'Feet Geom not found.'
+        self.feet_geom_id= jp.array(feet__geom_id)
+
+        assert not any(id_ == -1 for id_ in torso_body_id), 'Torso Site not found.'
+        self.torso_body_id = jp.array(torso_body_id)
+        
+        assert not any(id_ == -1 for id_ in hip_body), 'Hip Body not found.'
+        self.hip_body_id = jp.array(hip_body_id)
+
+        assert not any(id_ == -1 for id_ in foot_body), 'Foot Body not found.'
         self.foot_body_id = jp.array(foot_body_id)
-        print(f"Torso ID: {self._torso_idx}")
+
+
+        print(f"Feet Geom  IDs: {self.feet_geom_id}")
+        print(f"Body Geom IDs: {self.body_geom_id}")
+        print(f"Body size: {self.body_geom_id.size}")
+        #print(f"Geom Torso body IDs: {self.torso_body_id}")
+        #print(f"Torso ID: {self._torso_idx}")
        
-        print(f"Floor ID: {floor_id}") # Floor ID: 0 
+        #print(f"Floor ID: {floor_id}") # Floor ID: 0 
         
         # # # interesting the foot and the torso seem to have the same value
-        # for i in range(60):
-        #     name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i)
-        #     print(f"Name of Geom {i}: {name}")
+        for i in range(60):
+            name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i)
+            print(f"Name of Geom {i}: {name}")
             # name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i)
             # print(f"Name of Body {i}: {name}")
         
@@ -175,8 +196,25 @@ class UnitreeEnv(MjxEnv):
         
         return conn_indices
 
+    def get_body_contacts(self, data)->jax.Array:
+        num_collisions = 21
+        geom_temp = jp.zeros((233,2),dtype=int)
+        conn_indices = jp.zeros((num_collisions,1), dtype=int)
+        geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
 
+        ground_mask = jp.isin(geom_temp, self.floor_id)[:,0]
+        #jax.debug.print('Geom temps: {x}', x=geom_temp )
+        for i in range(num_collisions):
+            # Body ids are all ids except the foot ids
+            #jax.debug.print('Searching for contact with ID: {x}', x=self.body_geom_id[i])       
+            body_mask=jp.isin(geom_temp, self.body_geom_id[i])[:,1]
+            #jax.debug.print('Found connection: {x}', x=jp.where(body_mask,size=1)[0])
+            body_contact = body_mask*ground_mask
+            #jax.debug.print('Body connection: {x}', x=jp.where(body_contact,size=1)[0])
+            connection_index= jp.where(body_contact, size=1)[0]
+            conn_indices = conn_indices.at[i,0].set(connection_index[0])
 
+        return conn_indices
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
         # Define constraints for the commands# From turtoial
@@ -306,14 +344,22 @@ class UnitreeEnv(MjxEnv):
         data = self.pipeline_step(data0, action)
         
         # Get connections
-        connection_indices = jp.zeros((4),dtype=int)
-        connection_indices = connection_indices.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
+        foot_contacts = jp.zeros((4),dtype=int)
+        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
 
         # ----------------- Debugging ------------------- #
         #jax.debug.print('Possible Contacts: {x}', x=data.contact.geom)
         #jax.debug.print('Connections: {x}', x=connection_indices)
         #jax.debug.print('Distances for feet: {x}', x=data.contact.dist[connection_indices])
-        foot_floor_dist = data.contact.dist[connection_indices]
+        foot_floor_dist = data.contact.dist[foot_contacts]
+        #jax.debug.print('Body geometry ids: {x}', x=self.body_geom_id)
+        body_contacts= jp.zeros((21),dtype=int)
+        body_contacts = body_contacts.at[0:21].set(self.get_body_contacts(data)[0:21,0].astype(int))
+        #body_contact = self.get_body_contacts(data)        
+        jax.debug.print('Body Contact distances: {x}', x=data.contact.dist[body_contacts])
+
+
+
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -322,6 +368,7 @@ class UnitreeEnv(MjxEnv):
 
         # foot contact data based on z-position
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
+
         #jax.debug.print('Position (Z) of feet: {x}', x=foot_pos[:,2])
         
         #foot_ground_indices = jp.array([7, 0],[12,0],[17,0],[22,0])
@@ -340,7 +387,7 @@ class UnitreeEnv(MjxEnv):
         # state.info['feet_contact_time'] += self.dt
 
         # Contact based foot management
-        contact = foot_floor_dist < 0.0  # a mm or less off the floor
+        contact = foot_floor_dist < 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
@@ -463,7 +510,7 @@ class UnitreeEnv(MjxEnv):
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
-        done |= data.xpos[self._torso_idx, 2] < self.min_z
+        #done |= data.xpos[self._torso_idx, 2] < self.min_z
 
         return False
 
