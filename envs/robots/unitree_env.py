@@ -178,42 +178,55 @@ class UnitreeEnv(MjxEnv):
         return conn_indices
     
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
-        # Get the connections of the robot
+        """
+        Returns the connection indices of foot contacts with the ground.
+
+        Args:
+            data: The data containing contact information.
+
+        Returns:
+            conn_indices: An array of connection indices representing foot contacts with the ground.
+        """
+        # Number of collisions and arrays are set statically due to brax troubles
+        num_collisions = 4
         geom_temp = jp.zeros((233,2))
-        conn_indices = jp.zeros((4,1), dtype=int)
+        conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
 
         ground_mask = jp.isin(geom_temp, 0)[:,0]
         
-        for i in range(4):
+        for i in range(num_collisions):
             feet_mask=jp.isin(geom_temp, self.feet_geom_id[i])[:,1]
             foot_cont = feet_mask*ground_mask
             connection_index= jp.where(foot_cont, size=1)[0]
-            #jax.debug.print('Foot connection: {x}', x=jp.where(foot_cont,size=1)[0])
-            conn_indices = conn_indices.at[i,0].set(connection_index[0])
-        
-        #jax.debug.print('Foot connections: {x}', x=conn_indices)
-        
+            conn_indices = conn_indices.at[i,0].set(connection_index[0])        
         return conn_indices
 
     def get_body_contacts(self, data)->jax.Array:
+        """
+        Returns the connection indices of body contacts with the ground.
+
+        Args:
+            data: The data containing contact information.
+
+        Returns:
+            conn_indices: An array of connection indices representing body contacts with the ground.
+        """
+        # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 21
         geom_temp = jp.zeros((233,2),dtype=int)
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
 
         ground_mask = jp.isin(geom_temp, self.floor_id)[:,0]
-        #jax.debug.print('Geom temps: {x}', x=geom_temp )
-        for i in range(num_collisions):
-            # Body ids are all ids except the foot ids
-            #jax.debug.print('Searching for contact with ID: {x}', x=self.body_geom_id[i])       
+
+        for i in range(num_collisions):  
             body_mask=jp.isin(geom_temp, self.body_geom_id[i])[:,1]
-            #jax.debug.print('Found connection: {x}', x=jp.where(body_mask,size=1)[0])
+            # Check if the body is in contact with the ground
             body_contact = body_mask*ground_mask
-            #jax.debug.print('Body connection: {x}', x=jp.where(body_contact,size=1)[0])
+            # Get indices of said bitmask
             connection_index= jp.where(body_contact, size=1)[0]
             conn_indices = conn_indices.at[i,0].set(connection_index[0])
-
         return conn_indices
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -248,15 +261,7 @@ class UnitreeEnv(MjxEnv):
 
         data = self.pipeline_init(self.default_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
-        command = self._resample_commands(rng3)
-        # At first the connections are empty
-        #self.get_connections(data)[0:4]
-        
-
-        # if is_training==False:
-        #     print(f"Testing forward vel.")
-        #     command = jp.array([1.0, 0.0, 0.0])
-        # print(f"Command: {command}")
+        command = self._resample_commands(rng3)     
 
         state_info = {
             'rng': rng,
@@ -344,22 +349,10 @@ class UnitreeEnv(MjxEnv):
         data = self.pipeline_step(data0, action)
         
         # Get connections
+        ## Foot contacts
         foot_contacts = jp.zeros((4),dtype=int)
         foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
-
-        # ----------------- Debugging ------------------- #
-        #jax.debug.print('Possible Contacts: {x}', x=data.contact.geom)
-        #jax.debug.print('Connections: {x}', x=connection_indices)
-        #jax.debug.print('Distances for feet: {x}', x=data.contact.dist[connection_indices])
         foot_floor_dist = data.contact.dist[foot_contacts]
-        #jax.debug.print('Body geometry ids: {x}', x=self.body_geom_id)
-        body_contacts= jp.zeros((21),dtype=int)
-        body_contacts = body_contacts.at[0:21].set(self.get_body_contacts(data)[0:21,0].astype(int))
-        #body_contact = self.get_body_contacts(data)        
-        jax.debug.print('Body Contact distances: {x}', x=data.contact.dist[body_contacts])
-
-
-
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -368,13 +361,6 @@ class UnitreeEnv(MjxEnv):
 
         # foot contact data based on z-position
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
-
-        #jax.debug.print('Position (Z) of feet: {x}', x=foot_pos[:,2])
-        
-        #foot_ground_indices = jp.array([7, 0],[12,0],[17,0],[22,0])
-        #foot_ground_indices = jp.array([7,12,17,22])
-        #jax.debug.print('Foot distance to ground: {x}', x=data.contact.dist[foot_ground_indices])
-        #jax.debug.print('Geometries: {x}', x=data.contact.geom)
 
         # Original foot contact management
         # foot_contact_z = foot_pos[:, 2] - self._foot_radius
@@ -511,6 +497,10 @@ class UnitreeEnv(MjxEnv):
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
         #done |= data.xpos[self._torso_idx, 2] < self.min_z
+        # New termination: If body touches the ground
+        body_contacts = self.get_body_contacts(data)
+        done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
+        #jax.debug.print('Is done?: {x}', x=jp.any(data.contact.dist[body_contacts] < 1e-3))
 
         return False
 

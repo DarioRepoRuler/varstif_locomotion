@@ -20,7 +20,7 @@ num_envs: 200
 episode_length: 200
 num_learning_iterations: 5001
 device: 'cuda:0'
-viz: False
+viz: True
 
 project: RL4Humanoids
 group: Bruce-P2
