@@ -13,15 +13,16 @@ env:
   is_training: True
 
 log: True
-ckpt_path: "best_models/model_1950.pt"
+#ckpt_path: "best_models/model_1950.pt"
+ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 200 
-episode_length: 200
+num_envs: 2000 
+episode_length: 100
 num_learning_iterations: 5001
 device: 'cuda:0'
-viz: True
+viz: False
 
-project: RL4Humanoids
+project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/terrain.xml'
+scene_xml: 'unitree_go2/scene.xml'

@@ -112,18 +112,18 @@ class UnitreeEnv(MjxEnv):
         self.foot_body_id = jp.array(foot_body_id)
 
 
-        print(f"Feet Geom  IDs: {self.feet_geom_id}")
-        print(f"Body Geom IDs: {self.body_geom_id}")
-        print(f"Body size: {self.body_geom_id.size}")
+        #print(f"Feet Geom  IDs: {self.feet_geom_id}")
+        #print(f"Body Geom IDs: {self.body_geom_id}")
+        #print(f"Body size: {self.body_geom_id.size}")
         #print(f"Geom Torso body IDs: {self.torso_body_id}")
         #print(f"Torso ID: {self._torso_idx}")
        
         #print(f"Floor ID: {floor_id}") # Floor ID: 0 
         
         # # # interesting the foot and the torso seem to have the same value
-        for i in range(60):
-            name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i)
-            print(f"Name of Geom {i}: {name}")
+        #for i in range(60):
+            #name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i)
+            #print(f"Name of Geom {i}: {name}")
             # name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i)
             # print(f"Name of Body {i}: {name}")
         
@@ -142,7 +142,7 @@ class UnitreeEnv(MjxEnv):
             "smooth_rate": 0.02, #action_rate from tutorial
             'feet_air_time': 0.5,
             'feet_contact_time': -0.2,
-            'termination': -1.0,
+            'termination': -10.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
             # Additional self created
@@ -350,9 +350,9 @@ class UnitreeEnv(MjxEnv):
         
         # Get connections
         ## Foot contacts
-        foot_contacts = jp.zeros((4),dtype=int)
-        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
-        foot_floor_dist = data.contact.dist[foot_contacts]
+        # foot_contacts = jp.zeros((4),dtype=int)
+        # foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
+        # foot_floor_dist = data.contact.dist[foot_contacts]
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -363,23 +363,23 @@ class UnitreeEnv(MjxEnv):
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
 
         # Original foot contact management
-        # foot_contact_z = foot_pos[:, 2] - self._foot_radius
-        # contact = foot_contact_z < 1e-3  # a mm or less off the floor
-        # contact_filt_mm = contact | state.info['last_contact']
-        # contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
-        # first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
-        # state.info['contact'] = contact_filt_mm
-        # state.info['feet_air_time'] += self.dt
-        # state.info['feet_contact_time'] += self.dt
-
-        # Contact based foot management
-        contact = foot_floor_dist < 1e-3  # a mm or less off the floor
+        foot_contact_z = foot_pos[:, 2] - self._foot_radius
+        contact = foot_contact_z < 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
-        contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
+        contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         state.info['contact'] = contact_filt_mm
         state.info['feet_air_time'] += self.dt
         state.info['feet_contact_time'] += self.dt
+
+        # Contact based foot management
+        # contact = foot_floor_dist< 1e-3  # a mm or less off the floor
+        # contact_filt_mm = contact | state.info['last_contact']
+        # contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
+        # first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
+        # state.info['contact'] = contact_filt_mm
+        # state.info['feet_air_time'] += self.dt
+        # state.info['feet_contact_time'] += self.dt
 
         # check termination
         done = self._check_terminate(data, x)
@@ -496,11 +496,12 @@ class UnitreeEnv(MjxEnv):
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
-        #done |= data.xpos[self._torso_idx, 2] < self.min_z
+        done |= data.xpos[self._torso_idx, 2] < self.min_z
+        
         # New termination: If body touches the ground
-        body_contacts = self.get_body_contacts(data)
-        done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
-        #jax.debug.print('Is done?: {x}', x=jp.any(data.contact.dist[body_contacts] < 1e-3))
+        #body_contacts = self.get_body_contacts(data)
+        #done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
+        #jax.debug.print('Is done?: {x}', x=done)
 
         return False
 
@@ -554,7 +555,7 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
 
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
-        return jp.exp(-jp.sum(jp.power(action - last_act, 2)))
+        return jp.exp(-0.4*jp.sum(jp.power(action - last_act, 2)))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
         return jp.exp(-0.4*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
