@@ -74,7 +74,7 @@ class UnitreeEnv(MjxEnv):
         ]
         foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
         foot_body_id = [
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, i) for i in foot_body
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in foot_body
         ]
 
         body_geom_id = [
