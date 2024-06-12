@@ -7,7 +7,7 @@ class HeightMapGenerator:
     def __init__(self, height=520, width=520):
         self.height = height
         self.width = width
-        self.height_map = np.zeros((self.height, self.width), dtype=np.float32)
+        self.height_map = np.zeros((self.height, self.width), dtype=np.uint8)
         
         
     def generate_perlin_noise(self, scale=100, octaves=6, persistence=0.5, lacunarity=2.0):
@@ -50,7 +50,7 @@ class HeightMapGenerator:
         :param hill_radius: Radius of each hill
         :return: numpy array representing the height map with Gaussian hills
         """
-        height_map_with_hills = np.zeros((self.height, self.width), dtype=np.float32)  # Create a copy of the original height map
+        height_map_with_hills = np.zeros((self.height, self.width), dtype=np.uint8)  # Create a copy of the original height map
 
         for _ in range(num_hills):
             # Randomly select the center of the hill
@@ -69,7 +69,7 @@ class HeightMapGenerator:
         self.height_map = height_map_with_hills
         return height_map_with_hills
     
-    def generate_linear_steps(self, num_steps=10):
+    def generate_linear_steps(self, num_steps=10, corner_x=0, corner_y=0, staircase_width=10, staircase_height=10, direction='horizontal_right'):
         """
         Generate a height map with linear steps from left to right.
         """
@@ -77,16 +77,57 @@ class HeightMapGenerator:
             raise ValueError("Number of steps must be at least 1.")
         
         height_map = np.zeros((self.height, self.width), dtype=np.uint8)
-        step_width = self.width // num_steps
+        step_width =    staircase_width // num_steps
+
+        if direction == 'horizontal_right':
+            start_y = corner_y
+            end_y = start_y + staircase_height
+            
+            for step in range(num_steps):
+                grayscale_value = int((step / (num_steps - 1)) * 255)
+                
+                start_x = corner_x + step * step_width
+                end_x = start_x + step_width 
+                
+                height_map[start_y:end_y, start_x:end_x] = grayscale_value
+
+        elif direction == 'horizontal_left':
+            start_y = corner_y
+            end_y = start_y + staircase_height
+            
+            for step in range(num_steps):
+                grayscale_value = int((step / (num_steps - 1)) * 255)
+                
+                start_x = corner_x + (num_steps-step) * step_width
+                end_x = start_x + step_width 
+                
+                height_map[start_y:end_y, start_x:end_x] = grayscale_value
         
+        self.height_map += height_map
+        return height_map
+    
+    def pyramid(self, num_steps=5, corner_x=0, corner_y=0, staircase_width=10):
+        if num_steps < 1:
+            raise ValueError("Number of steps must be at least 1.")
+        
+        height_map = np.zeros((self.height, self.width), dtype=np.uint8)
+        step_width =    staircase_width // (2*num_steps)
+        
+
         for step in range(num_steps):
             grayscale_value = int((step / (num_steps - 1)) * 255)
-            start_x = step * step_width
-            end_x = start_x + step_width if step != num_steps - 1 else self.width
-            height_map[:, start_x:end_x] = grayscale_value
-        
-        self.height_map = height_map
+
+            start_x = corner_x + step * step_width
+            end_x = corner_x + staircase_width - step * step_width
+            start_y = corner_y + step * step_width
+            end_y = corner_y + staircase_width - step * step_width
+
+            height_map[start_y:end_y, start_x:end_x] = grayscale_value
+
+        self.height_map +=height_map
         return height_map
+
+
 
 
     def save_height_map_as_image(self, filename):
@@ -102,18 +143,20 @@ class HeightMapGenerator:
 
 def main():
     # Define the size of the height map
-    width = 520
-    height = 520
+    width = 256
+    height = 256
     hm_gen = HeightMapGenerator(height, width)
     
     # Generate the Perlin noise height map
     #hm_gen.generate_perlin_noise()
     
     # Introduce steps to the height map
-    hm_gen.generate_linear_steps(num_steps=5)
-    
+    #hm_gen.generate_linear_steps(5, width//2, height//2, 20, 20, 'horizontal_left')
+    hm_gen.pyramid(5, width//2, height//2, 100)
+    hm_gen.pyramid(5, 20, 20, 50)
+
     # Define the filename
-    filename = 'perlin_noise_with_steps.png'
+    filename = 'steps.png'
     
     # Save the height map with steps as an image
     hm_gen.save_height_map_as_image(filename)
