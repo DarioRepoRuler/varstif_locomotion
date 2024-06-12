@@ -350,9 +350,9 @@ class UnitreeEnv(MjxEnv):
         
         # Get connections
         ## Foot contacts
-        # foot_contacts = jp.zeros((4),dtype=int)
-        # foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
-        # foot_floor_dist = data.contact.dist[foot_contacts]
+        foot_contacts = jp.zeros((4),dtype=int)
+        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
+        foot_floor_dist = data.contact.dist[foot_contacts]
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -363,23 +363,23 @@ class UnitreeEnv(MjxEnv):
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
 
         # Original foot contact management
-        foot_contact_z = foot_pos[:, 2] - self._foot_radius
-        contact = foot_contact_z < 1e-3  # a mm or less off the floor
-        contact_filt_mm = contact | state.info['last_contact']
-        contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
-        first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
-        state.info['contact'] = contact_filt_mm
-        state.info['feet_air_time'] += self.dt
-        state.info['feet_contact_time'] += self.dt
-
-        # Contact based foot management
-        # contact = foot_floor_dist< 1e-3  # a mm or less off the floor
+        # foot_contact_z = foot_pos[:, 2] - self._foot_radius
+        # contact = foot_contact_z < 1e-3  # a mm or less off the floor
         # contact_filt_mm = contact | state.info['last_contact']
-        # contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
+        # contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
         # first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         # state.info['contact'] = contact_filt_mm
         # state.info['feet_air_time'] += self.dt
         # state.info['feet_contact_time'] += self.dt
+
+        # Contact based foot management
+        contact = foot_floor_dist< 1e-3  # a mm or less off the floor
+        contact_filt_mm = contact | state.info['last_contact']
+        contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
+        first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
+        state.info['contact'] = contact_filt_mm
+        state.info['feet_air_time'] += self.dt
+        state.info['feet_contact_time'] += self.dt
 
         # check termination
         done = self._check_terminate(data, x)
@@ -499,8 +499,8 @@ class UnitreeEnv(MjxEnv):
         done |= data.xpos[self._torso_idx, 2] < self.min_z
         
         # New termination: If body touches the ground
-        #body_contacts = self.get_body_contacts(data)
-        #done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
+        body_contacts = self.get_body_contacts(data)
+        done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
         #jax.debug.print('Is done?: {x}', x=done)
 
         return False

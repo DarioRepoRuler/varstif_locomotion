@@ -3,9 +3,9 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.4
+  action_scale: 0.3
   control_mode: "P"
-  physics_steps_per_control_step: 4
+  physics_steps_per_control_step: 20
   obs_noise: 0.
   num_history: 1
   kick_vel: 0.1

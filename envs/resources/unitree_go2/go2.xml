@@ -1,11 +1,23 @@
 <mujoco model="go2">
   <compiler angle="radian" meshdir="assets" autolimits="false"/>
 
-  <option timestep="0.005" impratio="5"/>
+  <option timestep="0.001" impratio="5"/>
   <option cone="pyramidal" impratio="100" iterations="1" ls_iterations="5">
     <flag eulerdamp="disable"/>
   </option>
 
+  <contact>
+    <exclude body1="FR_thigh" body2="trunk"/>
+    <exclude body1="FL_thigh" body2="trunk"/>
+    <exclude body1="RR_thigh" body2="trunk"/>
+    <exclude body1="RL_thigh" body2="trunk"/>
+
+    <exclude body1="FR_calf" body2="FR_thigh"/>
+    <exclude body1="FL_calf" body2="FL_thigh"/>
+    <exclude body1="RR_calf" body2="RR_thigh"/>
+    <exclude body1="RL_calf" body2="RL_thigh"/>
+
+  </contact>
   <default>
     <default class="go2">
       <geom friction="0.6" condim="3"/>
