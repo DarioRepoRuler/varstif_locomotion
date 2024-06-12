@@ -57,7 +57,8 @@ def train(cfg: DictConfig):
     if log:
         wandb_logger = wandb.init(project=cfg.project,
                                   group=cfg.group,
-                                  name=log_name)
+                                  name=log_name,)
+                                  #config=cfg)
         
     # Create the task and save directory
     task = PPOTaskBase(cfg=cfg, env=env, wandb_logger=wandb_logger)

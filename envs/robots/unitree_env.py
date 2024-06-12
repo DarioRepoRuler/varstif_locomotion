@@ -87,14 +87,14 @@ class UnitreeEnv(MjxEnv):
             "smooth_rate": 0.02, #action_rate from tutorial
             'feet_air_time': 0.5,
             'feet_contact_time': -0.2,
-            'termination': -1.0,
+            'termination': -10.0,
             'stand_still': 0.5, #-0.5, # adapted
             "foot_slip": -0.1,
             # Additional self created
             "action_rate": 0.1,
             "action_rate2": 0.1,
             "abduction": 0.1,
-            "foot_clearance": 0.1
+            #"foot_clearance": 0.1
         }
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -269,7 +269,7 @@ class UnitreeEnv(MjxEnv):
             'action_rate': self.action_rate(action, state.info['last_act']),
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             'abduction': self.abduction(joint_angles),
-            'foot_clearance': self._reward_foot_clearance(xd, contact_filt_cm, foot_pos[:, 2], state.info['feet_air_time'], state.info['command'])
+            #'foot_clearance': self._reward_foot_clearance(xd, contact_filt_cm, foot_pos[:, 2], state.info['feet_air_time'], state.info['command'])
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -389,7 +389,7 @@ class UnitreeEnv(MjxEnv):
         # Penalize non flat base orientation
         up = jp.array([0.0, 0.0, 1.0])
         rot_up = math.rotate(up, x.rot[0])
-        return jp.exp(-2*jp.linalg.norm(rot_up[:2])) # change this
+        return jp.exp(-4*jp.linalg.norm(rot_up[:2])) # change this
         #return jp.sum(jp.square(rot_up[:2]))
 
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
@@ -406,15 +406,15 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
 
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
-        return jp.exp(-jp.sum(jp.power(action - last_act, 2)))
+        return jp.exp(-0.05*jp.sum(jp.power(action - last_act, 2)))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
-        return jp.exp(-0.4*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
+        return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
     
     def abduction(
             self, joint_angles: jax.Array
     ):
-        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[::3])))
+        return jp.exp(-4*jp.sum(jp.square(joint_angles[::3])))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
