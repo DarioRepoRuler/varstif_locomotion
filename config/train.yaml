@@ -3,9 +3,9 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.6
+  action_scale: 0.3
   control_mode: "P"
-  physics_steps_per_control_step: 4
+  physics_steps_per_control_step: 20
   obs_noise: 0.
   num_history: 1
   kick_vel: 0.1
@@ -13,16 +13,16 @@ env:
   is_training: True
 
 log: True
-#ckpt_path: "best_models/model_1950.pt"
-ckpt_path: null
+ckpt_path: "best_models/model_1950.pt"
+#ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 200 
+num_envs: 100 
 episode_length: 100
 num_learning_iterations: 5001
 device: 'cuda:0'
-viz: False
+viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/scene.xml'
+scene_xml: 'unitree_go2/terrain.xml'

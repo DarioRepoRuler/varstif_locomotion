@@ -15,8 +15,8 @@ env:
   cmd_y: 0.0
   cmd_ang: 0.0
 
-ckpt_path: 'best_models/model_1950.pt'
-#ckpt_path: null
+#ckpt_path: 'best_models/model_1950.pt'
+ckpt_path: null
 
 
 num_envs: 1
