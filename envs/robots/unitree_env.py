@@ -4,6 +4,7 @@ from brax import math
 from brax.base import Transform, Motion
 from typing import Any, Dict, Tuple, Union
 from jax import numpy as jp
+from jax import config
 from mujoco import mjx
 from mujoco.mjx._src.forward import _integrate_pos
 from mujoco.mjx._src.support import jac
@@ -14,6 +15,7 @@ from pathlib import Path
 import os
 import numpy as np
 
+config.update("jax_debug_nans", True)
 class UnitreeEnv(MjxEnv):
     def __init__(
             self,
@@ -350,9 +352,7 @@ class UnitreeEnv(MjxEnv):
         
         # Get connections
         ## Foot contacts
-        foot_contacts = jp.zeros((4),dtype=int)
-        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
-        foot_floor_dist = data.contact.dist[foot_contacts]
+        
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -373,6 +373,9 @@ class UnitreeEnv(MjxEnv):
         # state.info['feet_contact_time'] += self.dt
 
         # Contact based foot management
+        foot_contacts = jp.zeros((4),dtype=int)
+        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
+        foot_floor_dist = data.contact.dist[foot_contacts]
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
@@ -380,9 +383,11 @@ class UnitreeEnv(MjxEnv):
         state.info['contact'] = contact_filt_mm
         state.info['feet_air_time'] += self.dt
         state.info['feet_contact_time'] += self.dt
+        
 
         # check termination
         done = self._check_terminate(data, x)
+
 
         # get reward
         rewards = {
@@ -440,6 +445,11 @@ class UnitreeEnv(MjxEnv):
         obs = self._get_obs(data, state.info, state.obs)
 
         done = jp.float32(done)
+        # jax.debug.print('Observations: {x}', x=obs)
+        # #jax.debug.print('Foot contacts: {x}', x=foot_contacts)
+        # #jax.debug.print('Is done?: {x}', x=done)
+        # jax.debug.print('Reward: {x}', x=reward)
+
         state = state.replace(
             pipeline_state=data, obs=obs, reward=reward, done=done
         )
@@ -499,7 +509,8 @@ class UnitreeEnv(MjxEnv):
         done |= data.xpos[self._torso_idx, 2] < self.min_z
         
         # New termination: If body touches the ground
-        body_contacts = self.get_body_contacts(data)
+        body_contacts = jp.zeros((21),dtype=int)
+        body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
         #jax.debug.print('Is done?: {x}', x=done)
 

@@ -130,7 +130,7 @@
         <joint name="FL_hip_joint" class="abduction"/>
         <geom name="FL_hip_0" mesh="hip_0" material="metal" class="visual"/>
         <geom name="FL_hip_1" mesh="hip_1" material="gray" class="visual"/>
-        <geom name="FL_hip" size="0.046 0.02" pos="0 -0.08 0" quat="0.707107 0.707107 0 0" class="collision"/>
+        <geom name="FL_hip" size="0.046 0.02" pos="0 0.08 0" quat="0.707107 0.707107 0 0" class="collision"/>
         <body name="FL_thigh" pos="0 0.0955 0">
           <inertial pos="-0.00374 -0.0223 -0.0327" quat="0.829533 0.0847635 -0.0200632 0.551623" mass="1.152"
             diaginertia="0.00594973 0.00584149 0.000878787"/>
@@ -159,8 +159,8 @@
         <inertial pos="0.0054 -0.00194 -0.000105" quat="0.499245 0.497014 0.498237 0.505462" mass="0.678"
           diaginertia="0.00088403 0.000596003 0.000479967"/>
         <joint name="RR_hip_joint" class="abduction"/>
-        <geom name="RR_hip_0" mesh="hip_0" material="metal" class="visual" quat="4.63268e-05 1 0 0"/>
-        <geom name="RR_hip_1" mesh="hip_1" material="gray" class="visual" quat="4.63268e-05 1 0 0"/>
+        <geom name="RR_hip_0" mesh="hip_0" material="metal" class="visual" quat="2.14617e-09 4.63268e-05 4.63268e-05 -1"/>
+        <geom name="RR_hip_1" mesh="hip_1" material="gray" class="visual" quat="2.14617e-09 4.63268e-05 4.63268e-05 -1"/>
         <geom name="RR_hip" size="0.046 0.02" pos="0 -0.08 0" quat="0.707107 0.707107 0 0" class="collision"/>
         <body name="RR_thigh" pos="0 -0.0955 0">
           <inertial pos="-0.00374 0.0223 -0.0327" quat="0.551623 -0.0200632 0.0847635 0.829533" mass="1.152"
@@ -189,8 +189,8 @@
         <inertial pos="0.0054 0.00194 -0.000105" quat="0.505462 0.498237 0.497014 0.499245" mass="0.678"
           diaginertia="0.00088403 0.000596003 0.000479967"/>
         <joint name="RL_hip_joint" class="abduction"/>
-        <geom name="RL_hip_0" mesh="hip_0" material="metal" class="visual"/>
-        <geom name="RL_hip_1" mesh="hip_1" material="gray" class="visual"/>
+        <geom name="RL_hip_0" mesh="hip_0" material="metal" class="visual" quat="4.63268e-05 0 1 0"/>
+        <geom name="RL_hip_1" mesh="hip_1" material="gray" class="visual" quat="4.63268e-05 0 1 0"/>
         <geom name="RL_hip" size="0.046 0.02" pos="0 0.08 0" quat="0.707107 0.707107 0 0" class="collision"/>
         <body name="RL_thigh" pos="0 0.0955 0">
           <inertial pos="-0.00374 -0.0223 -0.0327" quat="0.829533 0.0847635 -0.0200632 0.551623" mass="1.152"
