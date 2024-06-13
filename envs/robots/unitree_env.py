@@ -192,17 +192,17 @@ class UnitreeEnv(MjxEnv):
         geom_temp = jp.zeros((233,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
-        feet_mask = jp.zeros((233),dtype=int)
-        foot_cont = jp.zeros((233),dtype=int)
+        body_mask = jp.zeros((233),dtype=int)
+        body_cont = jp.zeros((233),dtype=int)
         connection_index = jp.zeros((1),dtype=int)
         ground_mask = jp.zeros((233),dtype=int)
 
         ground_mask = ground_mask.at[0:233].set(jp.isin(geom_temp, 0)[:,0])
         
         for i in range(num_collisions):
-            feet_mask=feet_mask.at[0:233].set(jp.isin(geom_temp, self.feet_geom_id[i])[:,1])
-            foot_cont = foot_cont.at[0:233].set(feet_mask*ground_mask)
-            connection_index= connection_index.at[:].set(jp.where(foot_cont, size=1)[0])
+            body_mask=body_mask.at[0:233].set(jp.isin(geom_temp, self.body_geom_id[i])[:,1])
+            body_cont = body_cont.at[0:233].set(body_mask*ground_mask)
+            connection_index= connection_index.at[:].set(jp.where(body_cont, size=1)[0])
             #jax.debug.print('Connection index: {x}', x=connection_index)
             conn_indices = conn_indices.at[i,0].set(connection_index[0])        
         return conn_indices
@@ -528,7 +528,7 @@ class UnitreeEnv(MjxEnv):
         # New termination: If body touches the ground
         body_contacts = jp.zeros((21),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
-        done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
+        done |= jp.any(data.contact.dist[body_contacts] < 0.0)
         #done |= jp.any(jp.isnan(reward))
         jax.debug.print('Is done after?: {x}', x=done)
         #jax.debug.print('Is done?: {x}', x=done)
