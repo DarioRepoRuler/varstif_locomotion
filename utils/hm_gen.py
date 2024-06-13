@@ -38,7 +38,7 @@ class HeightMapGenerator:
         # Normalize the result to be between 0 and 255
         height_map = (height_map - height_map.min()) / (height_map.max() - height_map.min()) * 255
         height_map = height_map.astype(np.uint8)
-        self.height_map = height_map
+        self.height_map += height_map
         return height_map
     
     def generate_gaussian_hills(self, num_hills, hill_height=255, hill_radius=50):
@@ -66,7 +66,7 @@ class HeightMapGenerator:
 
         # Clip values to ensure they are within valid range
         height_map_with_hills = np.clip(height_map_with_hills, 0, 255)
-        self.height_map = height_map_with_hills
+        self.height_map += height_map_with_hills
         return height_map_with_hills
     
     def generate_linear_steps(self, num_steps=10, corner_x=0, corner_y=0, staircase_width=10, staircase_height=10, direction='horizontal_right'):
@@ -126,7 +126,60 @@ class HeightMapGenerator:
 
         self.height_map +=height_map
         return height_map
+    
+    def gen_multiple_pyramids(self, num_pyramids=5, num_steps=5, staircase_width=10):
+        corner_x = np.random.randint(0, self.width-1, size=num_pyramids)
+        corner_y = np.random.randint(0, self.height-1, size=num_pyramids)
+        for i in range(num_pyramids):
+            corner_x = np.random.randint(0, self.width-1)
+            corner_y = np.random.randint(0, self.height-1)
+            self.pyramid(num_steps, corner_x, corner_y, staircase_width)
 
+    def stripes(self, num_stripes=5, stripe_width=10, height=200,dircetion='horizontal'):
+        height_map = np.zeros((self.height, self.width), dtype=np.uint8)
+        
+        if dircetion == 'horizontal':
+            for i in range(num_stripes):
+                if i%2 == 0:
+                    grayscale_value = height
+                else:
+                    grayscale_value = 0
+                start_x = i * stripe_width
+                end_x = start_x + stripe_width
+                height_map[:, start_x:end_x] = grayscale_value
+        elif dircetion == 'vertical':
+            for i in range(num_stripes):
+                if i%2 == 0:
+                    grayscale_value = height
+                else:
+                    grayscale_value = 0
+                start_y = i * stripe_width
+                end_y = start_y + stripe_width
+                height_map[start_y:end_y, :] = grayscale_value        
+        
+        self.height_map += height_map
+        return height_map
+    
+    def checkerboard(self, num_squares=5, square_width=10, height=200):
+        height_map = np.zeros((self.height, self.width), dtype=np.uint8)
+        for i in range(num_squares):
+            if i%2 == 0:
+                grayscale_value = height
+            else:
+                grayscale_value = 0
+            start_y = i * square_width
+            end_y = start_y + square_width
+            for j in range(num_squares):
+                if j%2 == 0:
+                    grayscale_value = height
+                else:
+                    grayscale_value = 0
+                start_x = j * square_width
+                end_x = start_x + square_width
+                height_map[start_y:end_y, start_x:end_x] = grayscale_value
+        
+        self.height_map += height_map
+        return height_map
 
 
 
@@ -152,8 +205,14 @@ def main():
     
     # Introduce steps to the height map
     #hm_gen.generate_linear_steps(5, width//2, height//2, 20, 20, 'horizontal_left')
-    hm_gen.pyramid(5, width//2, height//2, 100)
-    hm_gen.pyramid(5, 20, 20, 50)
+    # hm_gen.pyramid(5, width//2, height//2, 100)
+    # hm_gen.pyramid(5, 20, 20, 50)
+    #
+    hm_gen.gen_multiple_pyramids(8, 5, 50)
+    #hm_gen.stripes(30, 10, 100, dircetion='vertical')
+    #hm_gen.stripes(30, 10, 100, dircetion='horizontal')
+    #hm_gen.checkerboard(20, 10, 10)
+    #hm_gen.generate_gaussian_hills(5, 100, 50)
 
     # Define the filename
     filename = 'steps.png'

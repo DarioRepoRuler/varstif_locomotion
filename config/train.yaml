@@ -25,4 +25,4 @@ viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/terrain.xml'
+scene_xml: 'unitree_go2/terrain_perlin.xml'

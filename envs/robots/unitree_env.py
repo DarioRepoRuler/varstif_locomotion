@@ -59,9 +59,13 @@ class UnitreeEnv(MjxEnv):
         hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
         torso_bodies = ['base_mirror_0', 'base_mirror_1', 'base_mirror_2', 'base_mirror_3', 'base_mirror_4']
 
-        geometries = [ "base", "FR_thigh", "FR_calf", "FL_thigh", "FL_calf",
-                       "RR_thigh", "RR_calf", "RL_thigh", "RL_calf"
-                       ]
+        geometries = [
+            "base_0", "base_1", "base_2", 
+            "FR_hip", "FR_thigh", "FR_calf_0", "FR_calf_1",  
+            "FL_hip", "FL_thigh", "FL_calf_0", "FL_calf_1", 
+            "RR_hip", "RR_thigh", "RR_calf_0", "RR_calf_1", 
+            "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
+            ]
 
         feet_site_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_names
@@ -154,7 +158,7 @@ class UnitreeEnv(MjxEnv):
         """
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 4
-        expected_total_cont=10
+        expected_total_cont=233
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
@@ -163,10 +167,10 @@ class UnitreeEnv(MjxEnv):
         connection_index = jp.zeros((1),dtype=int)
         ground_mask = jp.zeros((expected_total_cont),dtype=int)
 
-        ground_mask = ground_mask.at[0:22].set(jp.isin(geom_temp, 0)[:,0])
+        ground_mask = ground_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, 0)[:,0])
         
         for i in range(num_collisions):
-            feet_mask=feet_mask.at[0:22].set(jp.isin(geom_temp, self.feet_geom_id[i])[:,1])
+            feet_mask=feet_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, self.feet_geom_id[i])[:,1])
             foot_cont = foot_cont.at[0:expected_total_cont].set(feet_mask*ground_mask)
             connection_index= connection_index.at[:].set(jp.where(foot_cont, size=1)[0])
             #jax.debug.print('Connection index: {x}', x=connection_index)
@@ -493,9 +497,9 @@ class UnitreeEnv(MjxEnv):
         #done |= data.xpos[self._torso_idx, 2] < self.min_z
         
         # New termination: If body touches the ground
-        # body_contacts = jp.zeros((21),dtype=int)
-        # body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
-        # done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
+        body_contacts = jp.zeros((21),dtype=int)
+        body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
+        done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
         #done |= jp.any(jp.isnan(reward))
         #jax.debug.print('Is done?: {x}', x=done)
 
