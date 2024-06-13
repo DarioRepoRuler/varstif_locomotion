@@ -47,7 +47,6 @@
         <default class="foot">
           <geom size="0.0175" priority="1" solimp="0.015 1 0.031" condim="3"
             friction="0.8 0.02 0.01"/>
-
         </default>
       </default>
     </default>

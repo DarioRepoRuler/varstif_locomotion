@@ -13,8 +13,8 @@ env:
   is_training: True
 
 log: True
-ckpt_path: "best_models/model_1950.pt"
-#ckpt_path: null
+#ckpt_path: "best_models/model_1950.pt"
+ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
 num_envs: 100 
@@ -25,4 +25,4 @@ viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/terrain_perlin.xml'
+scene_xml: 'unitree_go2/terrain_new.xml'

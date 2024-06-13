@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
-
+import mujoco
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -114,6 +114,13 @@ class PPOTaskBase(nn.Module):
         for it in range(self.current_learning_iteration, num_total_iteration):
             self.agent_train_step(it)
             self.current_learning_iteration += 1
+
+            # if it % 1 == 0:
+            #     # Consider changing the paths
+            #     #self.env.model.paths = "b'checkboard.png\x00base_0.obj\x00base_1.obj\x00base_2.obj\x00base_3.obj\x00base_4.obj\x00hip_0.obj\x00hip_1.obj\x00thigh_0.obj\x00thigh_1.obj\x00thigh_mirror_0.obj\x00thigh_mirror_1.obj\x00calf_0.obj\x00calf_1.obj\x00calf_mirror_0.obj\x00calf_mirror_1.obj\x00foot.obj\x00'"
+            #     # Consider to delete and add a new object in mujoco
+            #     #print(mujoco.mj_name2id(self.env.model, mujoco.mjtObj.mjOBJ_BODY.value, 'floor'))
+            #     self.env.__init__(self.cfg.env, "/home/dspoljaric/Documents/TALocoMotion/envs/resources/unitree_go2/terrain_checkboard.xml")
 
             if it % self.eval_interval == 0:
                 self.agent_eval_step(it)

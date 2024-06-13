@@ -235,9 +235,35 @@ class UnitreeEnv(MjxEnv):
 
     def reset(self, rng: jp.ndarray) -> State:
         """Resets the environment to an initial state."""
-        rng, rng1, rng2, rng3 = jax.random.split(rng, 4)
+        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
+        
+        reset_pos = self.default_pos
+        # Get random x,y coordinates for the robot
+        x_pos = [-2, 2]
+        y_pos = [-3, -2]
+        reset_x=jax.random.uniform(rng1, (1,), minval=x_pos[0], maxval=x_pos[1])
+        reset_y=jax.random.uniform(rng2, (1,), minval=y_pos[0], maxval=y_pos[1])
 
-        data = self.pipeline_init(self.default_pos, jp.zeros((self.sys.nv,)))
+        # Get random theta and 
+        theta = [0, jp.pi/4] # in rad
+        a_x = [-1,1]
+        a_y = [-1,1]
+
+        a_x=jax.random.uniform(rng6, (1,), minval=a_x[0], maxval=a_x[1])
+        a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
+
+        a_x, a_y = a_x/jp.linalg.norm(jp.array([a_x, a_y])), a_y/jp.linalg.norm(jp.array([a_x, a_y]))
+        
+        theta = jax.random.uniform(rng5, (1,), minval=theta[0], maxval=theta[1])      
+        q1 = jp.cos(theta/2)
+        q2 = a_x*jp.sin(theta/2)
+        q3 = a_y*jp.sin(theta/2)
+        q4 = 0
+        reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4])) 
+        
+        #jax.debug.print('Reset position: {x}', x=reset_pos)
+
+        data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
         command = self._resample_commands(rng3)     
 
@@ -327,11 +353,8 @@ class UnitreeEnv(MjxEnv):
         data = self.pipeline_step(data0, action)
         
         # Get connections
-        ## Foot contacts
-        foot_contacts = jp.zeros((4),dtype=int)
-        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
-        foot_floor_dist = jp.zeros((4),dtype=float)
-        foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
+        
+        
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -352,6 +375,12 @@ class UnitreeEnv(MjxEnv):
         # state.info['feet_contact_time'] += self.dt
 
         # Contact based foot management
+        ## Foot contacts
+        foot_contacts = jp.zeros((4),dtype=int)
+        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
+        foot_floor_dist = jp.zeros((4),dtype=float)
+        foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
+        ## general contact management
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
@@ -495,12 +524,13 @@ class UnitreeEnv(MjxEnv):
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
         #done |= data.xpos[self._torso_idx, 2] < self.min_z
-        
+        jax.debug.print('Is done?: {x}', x=done)
         # New termination: If body touches the ground
         body_contacts = jp.zeros((21),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
         #done |= jp.any(jp.isnan(reward))
+        jax.debug.print('Is done after?: {x}', x=done)
         #jax.debug.print('Is done?: {x}', x=done)
 
         return False
