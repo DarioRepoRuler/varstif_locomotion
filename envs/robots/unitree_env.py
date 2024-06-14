@@ -459,7 +459,8 @@ class UnitreeEnv(MjxEnv):
         state.info['action_minus_2t'] = state.info['last_act'] 
         state.info['last_act'] = action
         state.info['last_vel'] = data.qvel
-
+        state.info['last_qpos'] = data.qpos
+        state.info['foot_pos_z'] = foot_pos[:, 2]
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics.update(state.info['rewards'])
@@ -499,13 +500,14 @@ class UnitreeEnv(MjxEnv):
         torso_z = data.qpos[2:3]
 
         local_v = math.rotate(xd.vel[0], inv_torso_rot)
-        local_w = math.rotate(xd.ang[0], inv_torso_rot)
+        local_w = math.rotate(xd.ang[0], inv_torso_rot) # yaw rate at index 2
+        
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
 
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             torso_z,
-            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate
+            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 5
             proj_gravity,
             data.qpos[7:],
             0.1 * data.qvel[6:],

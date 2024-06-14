@@ -4,6 +4,8 @@ from torch import nn
 from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
 import mujoco
+from utils.graphs_gen import eval_graph
+
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -43,48 +45,57 @@ class PPOTaskBase(nn.Module):
         next_obs_g, rewards, dones, infos = self.env.step(actions)
 
         self.algo.process_env_step(obs_g, rewards, dones, infos)
-
-        return next_obs_g, dones, infos['rewards']
+        return next_obs_g, dones, infos
 
     def rollout(self, is_training=True):
         """
         Steps through the environment for one episode and returns the final observation and statistics.
-        Rewards are average over the episode.
+        Episode infos represent the average reward
         """
         episode_infos = {}
+        # Gather evaluation information only in test mode
+        if not is_training:
+            eval_infos={'foot_pos_z': torch.zeros((self.cfg.episode_length, 4), device=self.device, dtype=torch.float32), 
+                        'q_vel': torch.zeros((self.cfg.episode_length,18), device=self.device, dtype=torch.float32), 
+                        'cmd': torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)} 
         with torch.inference_mode(): # No gradadient computation in torch domain
             obs_g = self.env.reset()
             for i in range(self.cfg.episode_length):
-                next_obs_g, dones, rew_info = self.step(obs_g, is_training)
+                next_obs_g, dones, info = self.step(obs_g, is_training)
+                rew_info= info['rewards']
                 for key in rew_info.keys():
                     if key not in episode_infos.keys():
                         episode_infos[key] = torch.mean(rew_info[key])
                     else:
                         episode_infos[key] += torch.mean(rew_info[key])
+                if not is_training:
+                    eval_infos['foot_pos_z'][i] = info['foot_pos_z']
+                    eval_infos['q_vel'][i] = info['last_vel']
+                    eval_infos['cmd'][i] = info['command']
+                    print(f"infos: {info}")
                 # update observation
                 obs_g = next_obs_g
-
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.episode_length
-        return obs_g, episode_infos
+        return obs_g, episode_infos, eval_infos
 
-    def simulate(self, is_training): # Simulates through one episode
+    def simulate(self, is_training=True): # Simulates through one episode
         """
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, episode_infos = self.rollout()
+        next_obs_g, episode_infos, eval_infos = self.rollout(is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_obs_g)
         # Store the statistics
         stat = self.algo.storage.statistics()
 
-        return stat, episode_infos
+        return stat, episode_infos, eval_infos
 
     def agent_train_step(self, it):
         self.algo.actor_critic.train() # Switch to training mode
         # Simulate through one episode
-        stat, episode_infos = self.simulate(is_training=True)
+        stat, episode_infos, _ = self.simulate(is_training=True)
         mean_value_loss, mean_actor_loss = self.algo.update()
 
         if self.wandb_logger:
@@ -104,7 +115,6 @@ class PPOTaskBase(nn.Module):
     def agent_eval_step(self, it):
         self.algo.actor_critic.eval()
         stat, episode_infos = self.simulate(is_training=False)
-
         if self.wandb_logger:
             self.wandb_logger.log({'val/avg_traverse': stat["avg_traverse"],
                                    'val/avg_reward': stat["avg_reward"],
@@ -150,12 +160,29 @@ class PPOTaskBase(nn.Module):
         return failure_ids
 
     def test_agent(self, num_iterations, ckpt_path=None):
+        """
+        Test loop for the agent.
+        """
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=False)
         self.algo.actor_critic.eval()
-        for _ in range(num_iterations):
-            self.simulate(is_training=False)
+        #eval_results = []
+        for i in range(num_iterations):
+            stat, episode_info, eval_infos = self.simulate(is_training=False)
+            #print(f"Observations: {stat['observations'][:,:,11] }")
+            #print(f"Feet pos z: {eval_infos['foot_pos_z']}")
+            #print(f"Single foot pos z: {eval_infos['foot_pos_z'][:,0]}")
+            # Command: 0, 1, obs
+            print(f"observations: {stat['observations']}")
+            eval_graph([eval_infos['foot_pos_z'][:,0], eval_infos['foot_pos_z'][:,1], 
+                        eval_infos['foot_pos_z'][:,2], eval_infos['foot_pos_z'][:,3]], 
+                        ['FR_foot','FL_foot','RR_foot','RL_foot'], 'Foot z position', 0.001)
+            
+            #eval_results.append(eval_infos)
             self.algo.storage.clear()
+
+        #print(f"Evaluation results: {eval_results}")
+
 
     def save(self, path, infos=None):
         torch.save({

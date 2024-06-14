@@ -23,9 +23,9 @@ def test(cfg: DictConfig):
     if cfg.ckpt_path is not None:
         # Get model path
         ckpt_path = os.path.join(os.getcwd(),cfg.ckpt_path)
-        task.test_agent(num_iterations=10, ckpt_path=ckpt_path)
+        task.test_agent(num_iterations=cfg.num_iterations, ckpt_path=ckpt_path)
     else:
-        task.test_agent(num_iterations=10)
+        task.test_agent(num_iterations=cfg.num_iterations)
 
 if __name__ == '__main__':
     test()
