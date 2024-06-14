@@ -46,9 +46,9 @@ class UnitreeEnv(MjxEnv):
         self.soft_limits = soft_limits
         self.single_obs_size = 53 # defined in _get_obs
         # Randomization ranges:
-        self.x_pos = [-2, -1]
+        self.x_pos = [-3, 3]
         self.y_pos = [-3, -2] 
-        self.theta = [0, jp.pi/16] # in rad
+        self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
         
@@ -245,20 +245,18 @@ class UnitreeEnv(MjxEnv):
         
         reset_pos = self.default_pos
         # Get random x,y coordinates for the robot
-        x_pos = 0#self.x_pos[0]
-        y_pos = 0#self.y_pos[0]
-        # reset_x=jax.random.uniform(rng1, (1,), minval=x_pos[0], maxval=x_pos[1])
-        # reset_y=jax.random.uniform(rng2, (1,), minval=y_pos[0], maxval=y_pos[1])
+        x_pos = self.x_pos
+        y_pos = self.y_pos
+        reset_x=jax.random.uniform(rng1, (1,), minval=x_pos[0], maxval=x_pos[1])
+        reset_y=jax.random.uniform(rng2, (1,), minval=y_pos[0], maxval=y_pos[1])
 
         # Get random theta and 
         theta = self.theta # in rad
-        a_x = self.a_x[0]
-        a_y = self.a_y[0]
+        a_x = self.a_x
+        a_y = self.a_y
 
-        #jax.debug.print('Reset x-position: {x}', x=x_pos)
-        #jax.debug.print('Reset y-position: {x}', x=y_pos)
-        # a_x=jax.random.uniform(rng6, (1,), minval=a_x[0], maxval=a_x[1])
-        # a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
+        a_x=jax.random.uniform(rng6, (1,), minval=a_x[0], maxval=a_x[1])
+        a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
 
         a_x, a_y = a_x/jp.linalg.norm(jp.array([a_x, a_y])), a_y/jp.linalg.norm(jp.array([a_x, a_y]))
         
@@ -267,10 +265,7 @@ class UnitreeEnv(MjxEnv):
         q2 = a_x*jp.sin(theta/2)
         q3 = a_y*jp.sin(theta/2)
         q4 = 0
-        #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
-        reset_pos = reset_pos.at[0:7].set(jp.array([ x_pos, y_pos, 0.27, q1[0], q2[0], q3[0], q4])) 
-        
-        #jax.debug.print('Reset position: {x}', x=reset_pos)
+        reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))        
 
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
@@ -360,10 +355,6 @@ class UnitreeEnv(MjxEnv):
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         data = self.pipeline_step(data0, action)
-        
-        # Get connections
-        
-        
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -403,7 +394,7 @@ class UnitreeEnv(MjxEnv):
 
         # check termination
         done = self._check_terminate(data, x)
-        jax.debug.print('Done: {x}', x=done)
+
         # get reward
         rewards = {
             'tracking_lin_vel': (
@@ -439,18 +430,8 @@ class UnitreeEnv(MjxEnv):
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
-        #assert jp.any(jp.isnan(rewards.values())) , f"Reward is NaN"
-        jax.debug.print('Reward termination: {x}', x=rewards['termination'])
-        # Assert if any of the rewards is NaN
-        #assert jp.any(jp.isnan(jp.array(rewards.values()))), "Reward is NaN"
-          
-        #jax.debug.print('Rewards: {x}', x=rewards)
+
         reward = sum(rewards.values())
-        #jax.debug.breakpoint()
-        #done |= jp.isnan(reward)  # done if any reward is negative
-        
-        #jax.debug.print('Reward: {x}', x=reward)
-        #assert jp.any(jp.isnan(reward)), "Reward is NaN"
 
         # state management
         state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation
@@ -463,9 +444,6 @@ class UnitreeEnv(MjxEnv):
         state.info['last_act'] = action
         state.info['last_vel'] = data.qvel
 
-        #jax.debug.print('Rewards: {x}', x=state.info['rewards'].values())
-        #jax.debug.breakpoint()
-
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics.update(state.info['rewards'])
@@ -473,8 +451,6 @@ class UnitreeEnv(MjxEnv):
         # observation
         obs = self._get_obs(data, state.info, state.obs)
         
-        #jax.debug.print('observation: {x}', x=obs)
-
         done = jp.float32(done)
         state = state.replace(
             pipeline_state=data, obs=obs, reward=reward, done=done
@@ -505,7 +481,7 @@ class UnitreeEnv(MjxEnv):
         local_w = math.rotate(xd.ang[0], inv_torso_rot)
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
 
-        # Observation space dimension: 1+6+3+12+12+12+3 = 49 #ols calculation
+        # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             torso_z,
             0.1 * jp.concatenate([local_v, local_w]),  # yaw rate
@@ -532,8 +508,8 @@ class UnitreeEnv(MjxEnv):
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
+        # Old termination: based on z-height
         #done |= data.xpos[self._torso_idx, 2] < self.min_z
-        #jax.debug.print('Is done?: {x}', x=done)
         # New termination: If body touches the ground
         body_contacts = jp.zeros((21),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
@@ -561,13 +537,11 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array:
         # Penalize z axis base linear velocity
-        #return jp.square(xd.vel[0, 2])
         return jp.exp(-6*jp.abs(xd.vel[0, 2]))
 
     def _reward_ang_vel_xy(self, x: Transform, xd: Motion) -> jax.Array:
         # Penalize xy axes base angular velocity
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
-        #return jp.sum(jp.square(base_ang_vel[:2]))
 
         return jp.exp(-4*jp.linalg.norm(base_ang_vel[:2])) 
 
@@ -576,12 +550,10 @@ class UnitreeEnv(MjxEnv):
         up = jp.array([0.0, 0.0, 1.0])
         rot_up = math.rotate(up, x.rot[0])
         return jp.exp(-6*jp.linalg.norm(rot_up[:2])) # change this
-        #return jp.sum(jp.square(rot_up[:2]))
 
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
         return jp.exp(-0.01*jp.linalg.norm(torques))
-        #return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
     ## Related to smoothness of the actions:
     def _reward_smooth_rate( # to be continued...(why the velocities?)
@@ -636,31 +608,8 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
         foot_indices = self.foot_body_id - 1
         foot_vel = xd.take(foot_indices).vel
-
         # Penalize large feet velocity for feet that are in contact with the ground.
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
-    
-    # def _reward_foot_clearance(
-    #         self, xd: Motion, contact_filt: jax.Array, foot_z: jax.Array, feet_air_time: jax.Array, commands: jax.Array, des_z = 0.2
-    # ) -> jax.Array:
-    #     foot_indices = self.foot_body_id - 1
-    #     foot_vel = xd.take(foot_indices).vel
-    #     # Take the foots that are not on the ground
-    #     feet_in_air =~ contact_filt.reshape((-1, 1))
-    #     feet_on_ground = contact_filt.reshape((-1, 1))
-    #     # Foot trajectory should be sinusoidal
-    #     T= jp.linalg.norm(commands[:2], ord=2)
-    #     des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * T * feet_air_time)) * feet_in_air
-
-    #     difference = (des_z - foot_z)*feet_in_air + foot_z * feet_on_ground
-    #     #difference = (des_z - foot_z)*feet_in_air + foot_z * feet_on_ground
-    #     # Penalize large feet velocity for feet that are in contact with the ground.
-    #     #return jp.exp(-2*jp.sum(jp.square(des_z - foot_z) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))*jp.any(feet_in_air)
-    #     rew_clearance =  jp.exp(-0.4*jp.sum(jp.square(difference) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))*jp.any(feet_in_air)
-    #     rew_clearance *= (
-    #             math.normalize(commands[:2])[1] > 0.05
-    #     )
-    #     return rew_clearance
         
 
     def _reward_termination(self, done: jax.Array) -> jax.Array:

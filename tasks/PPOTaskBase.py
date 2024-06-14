@@ -33,6 +33,9 @@ class PPOTaskBase(nn.Module):
         self.current_learning_iteration = 0
 
     def step(self, obs_g, is_training=True):
+        """
+        Performs action in the environment and returns the next observation.
+        """
         if is_training:
             actions = self.algo.act(obs_g)
         else:
@@ -44,12 +47,15 @@ class PPOTaskBase(nn.Module):
         return next_obs_g, dones, infos['rewards']
 
     def rollout(self, is_training=True):
+        """
+        Steps through the environment for one episode and returns the final observation and statistics.
+        Rewards are average over the episode.
+        """
         episode_infos = {}
-        with torch.inference_mode():
+        with torch.inference_mode(): # No gradadient computation in torch domain
             obs_g = self.env.reset()
             for i in range(self.cfg.episode_length):
                 next_obs_g, dones, rew_info = self.step(obs_g, is_training)
-
                 for key in rew_info.keys():
                     if key not in episode_infos.keys():
                         episode_infos[key] = torch.mean(rew_info[key])
@@ -62,16 +68,22 @@ class PPOTaskBase(nn.Module):
             episode_infos[key] = episode_infos[key] / self.cfg.episode_length
         return obs_g, episode_infos
 
-    def simulate(self, is_training):
+    def simulate(self, is_training): # Simulates through one episode
+        """
+        Simulate through one episode and store the statistics.
+        """
+        # Simulate through one episode
         next_obs_g, episode_infos = self.rollout()
         # get goal conditioned state
         self.algo.compute_returns(next_obs_g)
+        # Store the statistics
         stat = self.algo.storage.statistics()
 
         return stat, episode_infos
 
     def agent_train_step(self, it):
-        self.algo.actor_critic.train()
+        self.algo.actor_critic.train() # Switch to training mode
+        # Simulate through one episode
         stat, episode_infos = self.simulate(is_training=True)
         mean_value_loss, mean_actor_loss = self.algo.update()
 
@@ -115,12 +127,11 @@ class PPOTaskBase(nn.Module):
             self.agent_train_step(it)
             self.current_learning_iteration += 1
 
-            # if it % 1 == 0:
-            #     # Consider changing the paths
-            #     #self.env.model.paths = "b'checkboard.png\x00base_0.obj\x00base_1.obj\x00base_2.obj\x00base_3.obj\x00base_4.obj\x00hip_0.obj\x00hip_1.obj\x00thigh_0.obj\x00thigh_1.obj\x00thigh_mirror_0.obj\x00thigh_mirror_1.obj\x00calf_0.obj\x00calf_1.obj\x00calf_mirror_0.obj\x00calf_mirror_1.obj\x00foot.obj\x00'"
-            #     # Consider to delete and add a new object in mujoco
-            #     #print(mujoco.mj_name2id(self.env.model, mujoco.mjtObj.mjOBJ_BODY.value, 'floor'))
-            #     self.env.__init__(self.cfg.env, "/home/dspoljaric/Documents/TALocoMotion/envs/resources/unitree_go2/terrain_checkboard.xml")
+            # Attempt on changing the position of the robot
+            # if it % 2 ==0:
+            #     self.env.x_pos = [2, 3] # Thats not possible
+            #     self.env.y_pos = [2, 3]
+            #     print(f"Changed position to {self.env.x_pos}, {self.env.y_pos}")
 
             if it % self.eval_interval == 0:
                 self.agent_eval_step(it)
