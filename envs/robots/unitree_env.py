@@ -47,7 +47,12 @@ class UnitreeEnv(MjxEnv):
             self.cmd_yaw = cfg.cmd_ang
         self.soft_limits = soft_limits
         self.single_obs_size = 53 # defined in _get_obs
-        #self.connection_indices = jp.zeros((4), dtype=int)#([7,12,17,22])
+        # Randomization ranges:
+        self.x_pos = [-3, 3]
+        self.y_pos = [-3, -2] 
+        self.theta = [0, jp.pi/8] # in rad
+        self.a_x = [-1,1]
+        self.a_y = [-1,1]
         
         # set up robot properties
         self._setup()
@@ -57,7 +62,7 @@ class UnitreeEnv(MjxEnv):
 
         self._torso_idx = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
         
-        feet_names = ['FR', 'FL', 'RR', 'RL'] # Feet IDs: 2,1,4,3
+        feet_names = ['FR', 'FL', 'RR', 'RL'] 
         hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
         torso_bodies = ['base_mirror_0', 'base_mirror_1', 'base_mirror_2', 'base_mirror_3', 'base_mirror_4']
 
@@ -68,6 +73,7 @@ class UnitreeEnv(MjxEnv):
             "RR_hip", "RR_thigh", "RR_calf_0", "RR_calf_1", 
             "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
             ]
+
         feet_site_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_names
         ]
@@ -84,17 +90,11 @@ class UnitreeEnv(MjxEnv):
         ]
 
         floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, 'floor')
-        self.floor_id = floor_id
-
         
         hip_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
         ]
         
-        torso_body_id = [ 
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, i) for i in torso_bodies
-            ]
-
         assert not any(id_ == -1 for id_ in body_geom_id), 'Body Geom not found.'
         self.body_geom_id = jp.array(body_geom_id)
         
@@ -104,15 +104,14 @@ class UnitreeEnv(MjxEnv):
         assert not any(id_ == -1 for id_ in feet__geom_id), 'Feet Geom not found.'
         self.feet_geom_id= jp.array(feet__geom_id)
 
-        assert not any(id_ == -1 for id_ in torso_body_id), 'Torso Site not found.'
-        self.torso_body_id = jp.array(torso_body_id)
-        
         assert not any(id_ == -1 for id_ in hip_body), 'Hip Body not found.'
         self.hip_body_id = jp.array(hip_body_id)
 
         assert not any(id_ == -1 for id_ in foot_body), 'Foot Body not found.'
         self.foot_body_id = jp.array(foot_body_id)
 
+        assert floor_id != -1, 'Floor not found.'
+        self.floor_id = floor_id
 
         #print(f"Feet Geom  IDs: {self.feet_geom_id}")
         #print(f"Body Geom IDs: {self.body_geom_id}")
@@ -153,31 +152,6 @@ class UnitreeEnv(MjxEnv):
             "abduction": 0.1,
             #"foot_clearance": 0.5
         }
-    def get_connections(self, data)->jax.Array:
-        # Get the connections of the robot
-
-        #jax.debug.print('Matches: {x}', x=jp.isin(data.contact.geom, self.feet_site_id))
-        #feet_mask = jp.isin(data.contact.geom, self.feet_site_id)[:,1]
-        #ground_mask = jp.isin(data.contact.geom, 0)[:,0]
-        #feet_ground_mask = feet_mask * ground_mask
-        #jax.debug.print('Matches: {x}', x=jp.take(data.contact.geom, jp.where(feet_ground_mask, indices, 500),mode='drop'))
-        #jax.debug.print('Matches: {x}', x=jp.where(feet_ground_mask, jp.arange(0,233), -1))
-
-        #ground_contact_mask= data.contact.geom==0
-        #feet_ground_mask = feet_contact_mask * ground_contact_mask[:,0]
-        
-        geom_temp = jp.zeros((233,2))
-        conn_indices = jp.zeros((4,1), dtype=int)
-        geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
-        feet_mask = jp.isin(geom_temp, self.feet_geom_id)[:,1]
-        ground_mask = jp.isin(geom_temp, 0)[:,0]
-        feet_ground_mask = feet_mask * ground_mask
-        #jax.debug.print('Conn indices shape before: {x}', x=jp.shape(conn_indices))
-        conn_indices= conn_indices.at[0:4,0].set(jp.where(feet_ground_mask, size=4)[0])
-        #jax.debug.print('Conn indices after: {x}', x=conn_indices)
-        #self.connection_indices = self.connection_indices.at[0:4].set(conn_indices[0:4,0].astype(int))
-        #jax.debug.print('connections in self: {x}', x=self.connection_indices)
-        return conn_indices
     
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
         """
@@ -191,16 +165,22 @@ class UnitreeEnv(MjxEnv):
         """
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 4
-        geom_temp = jp.zeros((233,2))
+        expected_total_cont=221
+        geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
-        geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
+        geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
+        feet_mask = jp.zeros((expected_total_cont),dtype=int)
+        foot_cont = jp.zeros((expected_total_cont),dtype=int)
+        connection_index = jp.zeros((1),dtype=int)
+        ground_mask = jp.zeros((expected_total_cont),dtype=int)
 
-        ground_mask = jp.isin(geom_temp, 0)[:,0]
+        ground_mask = ground_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, 0)[:,0])
         
         for i in range(num_collisions):
-            feet_mask=jp.isin(geom_temp, self.feet_geom_id[i])[:,1]
-            foot_cont = feet_mask*ground_mask
-            connection_index= jp.where(foot_cont, size=1)[0]
+            feet_mask=feet_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, self.feet_geom_id[i])[:,1])
+            foot_cont = foot_cont.at[0:expected_total_cont].set(feet_mask*ground_mask)
+            connection_index= connection_index.at[:].set(jp.where(foot_cont, size=1)[0])
+            #jax.debug.print('Connection index: {x}', x=connection_index)
             conn_indices = conn_indices.at[i,0].set(connection_index[0])        
         return conn_indices
 
@@ -216,19 +196,23 @@ class UnitreeEnv(MjxEnv):
         """
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 21
-        geom_temp = jp.zeros((233,2),dtype=int)
+        expected_total_cont=221
+        geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
-        geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
+        geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
+        body_mask = jp.zeros((expected_total_cont),dtype=int)
+        body_cont = jp.zeros((expected_total_cont),dtype=int)
+        connection_index = jp.zeros((1),dtype=int)
+        ground_mask = jp.zeros((expected_total_cont),dtype=int)
 
-        ground_mask = jp.isin(geom_temp, self.floor_id)[:,0]
-
-        for i in range(num_collisions):  
-            body_mask=jp.isin(geom_temp, self.body_geom_id[i])[:,1]
-            # Check if the body is in contact with the ground
-            body_contact = body_mask*ground_mask
-            # Get indices of said bitmask
-            connection_index= jp.where(body_contact, size=1)[0]
-            conn_indices = conn_indices.at[i,0].set(connection_index[0])
+        ground_mask = ground_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, 0)[:,0])
+        
+        for i in range(num_collisions):
+            body_mask=body_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, self.body_geom_id[i])[:,1])
+            body_cont = body_cont.at[0:expected_total_cont].set(body_mask*ground_mask)
+            connection_index= connection_index.at[:].set(jp.where(body_cont, size=1)[0])
+            #jax.debug.print('Connection index: {x}', x=connection_index)
+            conn_indices = conn_indices.at[i,0].set(connection_index[0])        
         return conn_indices
 
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
@@ -259,9 +243,33 @@ class UnitreeEnv(MjxEnv):
 
     def reset(self, rng: jp.ndarray) -> State:
         """Resets the environment to an initial state."""
-        rng, rng1, rng2, rng3 = jax.random.split(rng, 4)
+        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
+        
+        reset_pos = self.default_pos
+        # Get random x,y coordinates for the robot
+        x_pos = self.x_pos
+        y_pos = self.y_pos
+        reset_x=jax.random.uniform(rng1, (1,), minval=x_pos[0], maxval=x_pos[1])
+        reset_y=jax.random.uniform(rng2, (1,), minval=y_pos[0], maxval=y_pos[1])
 
-        data = self.pipeline_init(self.default_pos, jp.zeros((self.sys.nv,)))
+        # Get random theta and 
+        theta = self.theta # in rad
+        a_x = self.a_x
+        a_y = self.a_y
+
+        a_x=jax.random.uniform(rng6, (1,), minval=a_x[0], maxval=a_x[1])
+        a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
+
+        a_x, a_y = a_x/jp.linalg.norm(jp.array([a_x, a_y])), a_y/jp.linalg.norm(jp.array([a_x, a_y]))
+        
+        theta = jax.random.uniform(rng5, (1,), minval=theta[0], maxval=theta[1])      
+        q1 = jp.cos(theta/2)
+        q2 = a_x*jp.sin(theta/2)
+        q3 = a_y*jp.sin(theta/2)
+        q4 = 0
+        reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))        
+
+        data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
         command = self._resample_commands(rng3)     
 
@@ -349,10 +357,6 @@ class UnitreeEnv(MjxEnv):
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         data = self.pipeline_step(data0, action)
-        
-        # Get connections
-        ## Foot contacts
-        
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -371,6 +375,24 @@ class UnitreeEnv(MjxEnv):
         # state.info['contact'] = contact_filt_mm
         # state.info['feet_air_time'] += self.dt
         # state.info['feet_contact_time'] += self.dt
+
+        # Contact based foot management
+        ## Foot contacts
+        foot_contacts = jp.zeros((4),dtype=int)
+        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
+        foot_floor_dist = jp.zeros((4),dtype=float)
+        foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
+        ## general contact management
+        contact = foot_floor_dist< 1e-3  # a mm or less off the floor
+        contact_filt_mm = contact | state.info['last_contact']
+        contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
+        first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
+        state.info['contact'] = contact_filt_mm
+        state.info['feet_air_time'] += self.dt
+        state.info['feet_contact_time'] += self.dt
+
+
+        #jax.debug.print('Foot contacts: {x}', x=contact)
 
         # Contact based foot management
         foot_contacts = jp.zeros((4),dtype=int)
@@ -424,6 +446,7 @@ class UnitreeEnv(MjxEnv):
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
+
         reward = sum(rewards.values())
 
         # state management
@@ -443,7 +466,7 @@ class UnitreeEnv(MjxEnv):
 
         # observation
         obs = self._get_obs(data, state.info, state.obs)
-
+        
         done = jp.float32(done)
         # jax.debug.print('Observations: {x}', x=obs)
         # #jax.debug.print('Foot contacts: {x}', x=foot_contacts)
@@ -479,7 +502,7 @@ class UnitreeEnv(MjxEnv):
         local_w = math.rotate(xd.ang[0], inv_torso_rot)
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
 
-        # Observation space dimension: 1+6+3+12+12+12+3 = 49 #ols calculation
+        # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             torso_z,
             0.1 * jp.concatenate([local_v, local_w]),  # yaw rate
@@ -498,7 +521,7 @@ class UnitreeEnv(MjxEnv):
 
         return obs
 
-    def _check_terminate(self, data: mjx.Data, x):
+    def _check_terminate(self, data: mjx.Data, x) -> bool:
         # done if joint limits are reached or robot is falling
         up = jp.array([0.0, 0.0, 1.0])
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
@@ -506,15 +529,14 @@ class UnitreeEnv(MjxEnv):
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
-        done |= data.xpos[self._torso_idx, 2] < self.min_z
-        
+        # Old termination: based on z-height
+        #done |= data.xpos[self._torso_idx, 2] < self.min_z
         # New termination: If body touches the ground
         body_contacts = jp.zeros((21),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
-        done |= jp.any(data.contact.dist[body_contacts] < 1e-3)
-        #jax.debug.print('Is done?: {x}', x=done)
+        done |= jp.any(data.contact.dist[body_contacts] < 0.0)
 
-        return False
+        return done
 
     ### ------------ Reward functions---------------- ###
     def _reward_tracking_lin_vel(
@@ -536,13 +558,11 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array:
         # Penalize z axis base linear velocity
-        #return jp.square(xd.vel[0, 2])
-        return jp.exp(-4*jp.abs(xd.vel[0, 2]))
+        return jp.exp(-6*jp.abs(xd.vel[0, 2]))
 
     def _reward_ang_vel_xy(self, x: Transform, xd: Motion) -> jax.Array:
         # Penalize xy axes base angular velocity
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
-        #return jp.sum(jp.square(base_ang_vel[:2]))
 
         return jp.exp(-4*jp.linalg.norm(base_ang_vel[:2])) 
 
@@ -550,13 +570,11 @@ class UnitreeEnv(MjxEnv):
         # Penalize non flat base orientation
         up = jp.array([0.0, 0.0, 1.0])
         rot_up = math.rotate(up, x.rot[0])
-        return jp.exp(-2*jp.linalg.norm(rot_up[:2])) # change this
-        #return jp.sum(jp.square(rot_up[:2]))
+        return jp.exp(-6*jp.linalg.norm(rot_up[:2])) # change this
 
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
         return jp.exp(-0.01*jp.linalg.norm(torques))
-        #return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
     ## Related to smoothness of the actions:
     def _reward_smooth_rate( # to be continued...(why the velocities?)
@@ -566,15 +584,15 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
 
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
-        return jp.exp(-0.4*jp.sum(jp.power(action - last_act, 2)))
+        return jp.exp(-0.05*jp.sum(jp.power(action - last_act, 2)))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
-        return jp.exp(-0.4*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
+        return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
     
     def abduction(
             self, joint_angles: jax.Array
     ):
-        return jp.exp(-2*jp.sum(jp.square(joint_angles[::3])))
+        return jp.exp(-4*jp.sum(jp.square(joint_angles[::3])))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -611,31 +629,8 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
         foot_indices = self.foot_body_id - 1
         foot_vel = xd.take(foot_indices).vel
-
         # Penalize large feet velocity for feet that are in contact with the ground.
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
-    
-    def _reward_foot_clearance(
-            self, xd: Motion, contact_filt: jax.Array, foot_z: jax.Array, feet_air_time: jax.Array, commands: jax.Array, des_z = 0.2
-    ) -> jax.Array:
-        foot_indices = self.foot_body_id - 1
-        foot_vel = xd.take(foot_indices).vel
-        # Take the foots that are not on the ground
-        feet_in_air =~ contact_filt.reshape((-1, 1))
-        feet_on_ground = contact_filt.reshape((-1, 1))
-        # Foot trajectory should be sinusoidal
-        T= jp.linalg.norm(commands[:2], ord=2)
-        des_foot_z = des_z * jp.abs(jp.sin(2 * jp.pi * T * feet_air_time)) * feet_in_air
-
-        difference = (des_z - foot_z)*feet_in_air + foot_z * feet_on_ground
-        #difference = (des_z - foot_z)*feet_in_air + foot_z * feet_on_ground
-        # Penalize large feet velocity for feet that are in contact with the ground.
-        #return jp.exp(-2*jp.sum(jp.square(des_z - foot_z) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))*jp.any(feet_in_air)
-        rew_clearance =  jp.exp(-0.4*jp.sum(jp.square(difference) * jp.linalg.norm(foot_vel[:, :2], axis=1)*feet_in_air ))*jp.any(feet_in_air)
-        rew_clearance *= (
-                math.normalize(commands[:2])[1] > 0.05
-        )
-        return rew_clearance
         
 
     def _reward_termination(self, done: jax.Array) -> jax.Array:

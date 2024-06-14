@@ -5,9 +5,9 @@ defaults:
 env:
   action_scale: 0.3
   control_mode: "P"
-  physics_steps_per_control_step: 20
+  physics_steps_per_control_step: 20 # corresponds to 50Hz
   obs_noise: 0.
-  num_history: 1
+  num_history: 15 # corresponds to 0.3s
   kick_vel: 0.1
   push_interval: 50
   is_training: True
@@ -25,4 +25,4 @@ viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/terrain.xml'
+scene_xml: 'unitree_go2/terrain_new.xml' 

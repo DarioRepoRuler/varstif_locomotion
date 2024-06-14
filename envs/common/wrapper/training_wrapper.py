@@ -68,6 +68,31 @@ class AutoResetWrapper(Wrapper):
         return state
 
     def step(self, state: State, action: jax.Array) -> State:
+        ## Original step function
+        # if 'steps' in state.info:
+        #     steps = state.info['steps']
+        #     steps = jp.where(state.done, jp.zeros_like(steps), steps)
+        #     state.info.update(steps=steps)
+        # state = state.replace(done=jp.zeros_like(state.done))
+        # state = self.env.step(state, action)
+
+        # def where_done(x, y):
+        #     done = state.done
+        #     if done.shape:
+        #         done = jp.reshape(done, [x.shape[0]] + [1] * (len(x.shape) - 1))  # type: ignore
+        #     return jp.where(done, x, y)
+
+        # pipeline_state = jax.tree.map(
+        #     where_done, state.info['first_pipeline_state'], state.pipeline_state
+        #     )
+        # obs = where_done(state.info['first_obs'], state.obs)
+        
+        
+        ## Custom step function
+        # if 'step' in state.info:
+        #     steps = state.info['step']
+        #     steps = jp.where(state.done, jp.zeros_like(steps), steps)
+        #     state.info.update(steps=steps)
         state = state.replace(done=jp.zeros_like(state.done))
         state = self.env.step(state, action)
 
@@ -86,6 +111,15 @@ class AutoResetWrapper(Wrapper):
         state.info['last_act'] = where_done(jp.zeros_like(state.info['last_act']), state.info['last_act'])
         state.info['last_vel'] = where_done(jp.zeros_like(state.info['last_vel']), state.info['last_vel'])
         state.info['step'] = where_done(jp.zeros_like(state.info['step']), state.info['step'])
+        # Additional custom reset information
+        state.info['feet_air_time'] =  where_done(jp.zeros_like(state.info['feet_air_time']), state.info['feet_air_time'])
+        state.info['feet_contact_time'] = where_done(jp.zeros_like(state.info['feet_contact_time']), state.info['feet_contact_time'])
+        state.info['last_contact'] = where_done(jp.zeros_like(state.info['last_contact']), state.info['last_contact'])
+        #state.info['rewards'] = where_done(jp.zeros_like(state.info['rewards']), state.info['rewards'])
+        state.info['step'] = where_done(jp.zeros_like(state.info['step']), state.info['step'])
+        state.info['rng'] =where_done(jp.zeros_like(state.info['rng']), state.info['rng'])
+        state.info['action_minus_2t'] = where_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
+        
 
         return state.replace(pipeline_state=pipeline_state, obs=obs)
 
