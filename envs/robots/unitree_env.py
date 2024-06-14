@@ -45,7 +45,12 @@ class UnitreeEnv(MjxEnv):
             self.cmd_yaw = cfg.cmd_ang
         self.soft_limits = soft_limits
         self.single_obs_size = 53 # defined in _get_obs
-        #self.connection_indices = jp.zeros((4), dtype=int)#([7,12,17,22])
+        # Randomization ranges:
+        self.x_pos = [-2, -1]
+        self.y_pos = [-3, -2] 
+        self.theta = [0, jp.pi/16] # in rad
+        self.a_x = [-1,1]
+        self.a_y = [-1,1]
         
         # set up robot properties
         self._setup()
@@ -158,7 +163,7 @@ class UnitreeEnv(MjxEnv):
         """
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 4
-        expected_total_cont=233
+        expected_total_cont=221
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
@@ -189,19 +194,20 @@ class UnitreeEnv(MjxEnv):
         """
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 21
-        geom_temp = jp.zeros((233,2))
+        expected_total_cont=221
+        geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
-        geom_temp = geom_temp.at[0:233,0:2].set(data.contact.geom[0:233,0:2])
-        body_mask = jp.zeros((233),dtype=int)
-        body_cont = jp.zeros((233),dtype=int)
+        geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
+        body_mask = jp.zeros((expected_total_cont),dtype=int)
+        body_cont = jp.zeros((expected_total_cont),dtype=int)
         connection_index = jp.zeros((1),dtype=int)
-        ground_mask = jp.zeros((233),dtype=int)
+        ground_mask = jp.zeros((expected_total_cont),dtype=int)
 
-        ground_mask = ground_mask.at[0:233].set(jp.isin(geom_temp, 0)[:,0])
+        ground_mask = ground_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, 0)[:,0])
         
         for i in range(num_collisions):
-            body_mask=body_mask.at[0:233].set(jp.isin(geom_temp, self.body_geom_id[i])[:,1])
-            body_cont = body_cont.at[0:233].set(body_mask*ground_mask)
+            body_mask=body_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, self.body_geom_id[i])[:,1])
+            body_cont = body_cont.at[0:expected_total_cont].set(body_mask*ground_mask)
             connection_index= connection_index.at[:].set(jp.where(body_cont, size=1)[0])
             #jax.debug.print('Connection index: {x}', x=connection_index)
             conn_indices = conn_indices.at[i,0].set(connection_index[0])        
@@ -239,18 +245,20 @@ class UnitreeEnv(MjxEnv):
         
         reset_pos = self.default_pos
         # Get random x,y coordinates for the robot
-        x_pos = [-2, 2]
-        y_pos = [-3, -2]
-        reset_x=jax.random.uniform(rng1, (1,), minval=x_pos[0], maxval=x_pos[1])
-        reset_y=jax.random.uniform(rng2, (1,), minval=y_pos[0], maxval=y_pos[1])
+        x_pos = 0#self.x_pos[0]
+        y_pos = 0#self.y_pos[0]
+        # reset_x=jax.random.uniform(rng1, (1,), minval=x_pos[0], maxval=x_pos[1])
+        # reset_y=jax.random.uniform(rng2, (1,), minval=y_pos[0], maxval=y_pos[1])
 
         # Get random theta and 
-        theta = [0, jp.pi/4] # in rad
-        a_x = [-1,1]
-        a_y = [-1,1]
+        theta = self.theta # in rad
+        a_x = self.a_x[0]
+        a_y = self.a_y[0]
 
-        a_x=jax.random.uniform(rng6, (1,), minval=a_x[0], maxval=a_x[1])
-        a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
+        #jax.debug.print('Reset x-position: {x}', x=x_pos)
+        #jax.debug.print('Reset y-position: {x}', x=y_pos)
+        # a_x=jax.random.uniform(rng6, (1,), minval=a_x[0], maxval=a_x[1])
+        # a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
 
         a_x, a_y = a_x/jp.linalg.norm(jp.array([a_x, a_y])), a_y/jp.linalg.norm(jp.array([a_x, a_y]))
         
@@ -259,7 +267,8 @@ class UnitreeEnv(MjxEnv):
         q2 = a_x*jp.sin(theta/2)
         q3 = a_y*jp.sin(theta/2)
         q4 = 0
-        reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4])) 
+        #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
+        reset_pos = reset_pos.at[0:7].set(jp.array([ x_pos, y_pos, 0.27, q1[0], q2[0], q3[0], q4])) 
         
         #jax.debug.print('Reset position: {x}', x=reset_pos)
 
@@ -394,7 +403,7 @@ class UnitreeEnv(MjxEnv):
 
         # check termination
         done = self._check_terminate(data, x)
-        
+        jax.debug.print('Done: {x}', x=done)
         # get reward
         rewards = {
             'tracking_lin_vel': (
@@ -431,7 +440,7 @@ class UnitreeEnv(MjxEnv):
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
         #assert jp.any(jp.isnan(rewards.values())) , f"Reward is NaN"
-        #
+        jax.debug.print('Reward termination: {x}', x=rewards['termination'])
         # Assert if any of the rewards is NaN
         #assert jp.any(jp.isnan(jp.array(rewards.values()))), "Reward is NaN"
           
@@ -524,16 +533,13 @@ class UnitreeEnv(MjxEnv):
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
         #done |= data.xpos[self._torso_idx, 2] < self.min_z
-        jax.debug.print('Is done?: {x}', x=done)
+        #jax.debug.print('Is done?: {x}', x=done)
         # New termination: If body touches the ground
         body_contacts = jp.zeros((21),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[body_contacts] < 0.0)
-        #done |= jp.any(jp.isnan(reward))
-        jax.debug.print('Is done after?: {x}', x=done)
-        #jax.debug.print('Is done?: {x}', x=done)
 
-        return False
+        return done
 
     ### ------------ Reward functions---------------- ###
     def _reward_tracking_lin_vel(
