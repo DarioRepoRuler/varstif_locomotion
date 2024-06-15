@@ -10,7 +10,7 @@ from envs.common.wrapper.render_wrapper import RenderWrapper
 from envs.common.wrapper.training_wrapper import VmapWrapper, AutoResetWrapper
 from tasks.PPOTaskBase import PPOTaskBase
 
-
+from omegaconf import OmegaConf
 
 
 def _create_env(env, num_envs, device, viz=False):
@@ -53,16 +53,20 @@ def train(cfg: DictConfig):
     # Set up logging using wandb
     log = cfg.log
     log_name = datetime.now().strftime("%Y-%m-%d/%H-%M-%S")
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+    print(f"Configuration {type(cfg)}")
     wandb_logger = None
     if log:
-        wandb_logger = wandb.init(project=cfg.project,
+        wandb_logger = wandb.init(
+                                  config=cfg_dict, 
+                                  project=cfg.project,
                                   group=cfg.group,
-                                  name=log_name)
+                                  name=log_name
+                                  )
         
     # Create the task and save directory
     task = PPOTaskBase(cfg=cfg, env=env, wandb_logger=wandb_logger)
     save_dir = os.path.join(os.getcwd(), 'outputs', log_name, 'checkpoints')
-    #save_dir = os.path.join(Path.home(), cfg.log_dir, log_name, 'checkpoints')
 
     # Train the model
     if cfg.ckpt_path is not None:

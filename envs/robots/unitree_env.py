@@ -16,6 +16,8 @@ import os
 import numpy as np
 
 config.update("jax_debug_nans", True)
+
+
 class UnitreeEnv(MjxEnv):
     def __init__(
             self,
@@ -41,6 +43,7 @@ class UnitreeEnv(MjxEnv):
         self._obs_noise = cfg.obs_noise
         self._kick_vel = cfg.kick_vel
         self.is_training = cfg.is_training
+        self.manual_control = cfg.manual_control
         if not self.is_training:
             self.cmd_x = cfg.cmd_x
             self.cmd_y = cfg.cmd_y
@@ -235,7 +238,7 @@ class UnitreeEnv(MjxEnv):
         new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
         
         # Just for test purposes!
-        if not self.is_training:
+        if self.manual_control:
             new_cmd = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
 
 
@@ -507,14 +510,14 @@ class UnitreeEnv(MjxEnv):
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             torso_z,
-            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 5
+            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
             proj_gravity,
             data.qpos[7:],
             0.1 * data.qvel[6:],
             state_info['last_act'], 
             state_info['contact'], #added
             #jp.array([state_info['step']]), #added  
-            state_info['command'] # 3 commands(can add more->observation space update needed)
+            state_info['command'] # 3 commands(can add more->observation space update needed) indices 
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"

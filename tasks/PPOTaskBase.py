@@ -4,7 +4,7 @@ from torch import nn
 from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
 import mujoco
-from utils.graphs_gen import eval_graph
+from utils.graphs_gen import eval_graph, create_multiple_box_plots
 
 
 class PPOTaskBase(nn.Module):
@@ -54,6 +54,7 @@ class PPOTaskBase(nn.Module):
         """
         episode_infos = {}
         # Gather evaluation information only in test mode
+        eval_infos = None
         if not is_training:
             eval_infos={'foot_pos_z': torch.zeros((self.cfg.episode_length, 4), device=self.device, dtype=torch.float32), 
                         'q_vel': torch.zeros((self.cfg.episode_length,18), device=self.device, dtype=torch.float32), 
@@ -72,7 +73,7 @@ class PPOTaskBase(nn.Module):
                     eval_infos['foot_pos_z'][i] = info['foot_pos_z']
                     eval_infos['q_vel'][i] = info['last_vel']
                     eval_infos['cmd'][i] = info['command']
-                    print(f"infos: {info}")
+
                 # update observation
                 obs_g = next_obs_g
         for key in episode_infos.keys():
@@ -114,7 +115,7 @@ class PPOTaskBase(nn.Module):
 
     def agent_eval_step(self, it):
         self.algo.actor_critic.eval()
-        stat, episode_infos = self.simulate(is_training=False)
+        stat, episode_infos, _ = self.simulate(is_training=False)
         if self.wandb_logger:
             self.wandb_logger.log({'val/avg_traverse': stat["avg_traverse"],
                                    'val/avg_reward': stat["avg_reward"],
@@ -167,18 +168,27 @@ class PPOTaskBase(nn.Module):
             self.load(ckpt_path, load_optimizer=False)
         self.algo.actor_critic.eval()
         #eval_results = []
+        single_obs_size = self.env.observation_size // self.cfg.env.num_history
         for i in range(num_iterations):
             stat, episode_info, eval_infos = self.simulate(is_training=False)
-            #print(f"Observations: {stat['observations'][:,:,11] }")
-            #print(f"Feet pos z: {eval_infos['foot_pos_z']}")
-            #print(f"Single foot pos z: {eval_infos['foot_pos_z'][:,0]}")
-            # Command: 0, 1, obs
-            print(f"observations: {stat['observations']}")
+
+            # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
+            # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
+            total_tracking_error = torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)
+            ang_tracking_error = torch.abs(stat['observations'][:,0,6] - stat['observations'][:,0,single_obs_size-1])
+            lin_tracking_error = torch.abs(eval_infos['q_vel'][:,:2] - stat['observations'][:,0,single_obs_size-3:single_obs_size-1])
+            total_tracking_error[:,0] = ang_tracking_error
+            total_tracking_error[:,1:3] = lin_tracking_error
+            lin_tracking_error = torch.linalg.norm(lin_tracking_error, dim=1)
+            #print(f"Total tracking error: {total_tracking_error} with shape {total_tracking_error.shape}")
+            total_tracking_error = torch.linalg.norm(total_tracking_error, dim=1)
+            #print(f"Total tracking error norm: {total_tracking_error} with shape {total_tracking_error.shape}")
+            create_multiple_box_plots([total_tracking_error, lin_tracking_error, ang_tracking_error], ['total error', 'linear vel error', 'angular vel error'], 'tracking_test_error')
+
             eval_graph([eval_infos['foot_pos_z'][:,0], eval_infos['foot_pos_z'][:,1], 
                         eval_infos['foot_pos_z'][:,2], eval_infos['foot_pos_z'][:,3]], 
-                        ['FR_foot','FL_foot','RR_foot','RL_foot'], 'Foot z position', 0.001)
+                        ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {i}', 0.001)
             
-            #eval_results.append(eval_infos)
             self.algo.storage.clear()
 
         #print(f"Evaluation results: {eval_results}")
