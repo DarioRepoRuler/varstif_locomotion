@@ -124,9 +124,9 @@ class PPOTaskBase(nn.Module):
             for key in episode_infos.keys():
                 self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
 
-    def agent_eval_step(self, it):
+    def agent_eval_step(self, it, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
-        stat, episode_infos, _ = self.simulate(it,is_training=False)
+        stat, episode_infos, _ = self.simulate(it,is_training=is_training)
         if self.wandb_logger:
             self.wandb_logger.log({'val/avg_traverse': stat["avg_traverse"],
                                    'val/avg_reward': stat["avg_reward"],
@@ -150,7 +150,7 @@ class PPOTaskBase(nn.Module):
             self.current_learning_iteration += 1
 
             if it % self.eval_interval == 0:
-                self.agent_eval_step(it)
+                self.agent_eval_step(it, is_training=True)
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
 
         self.current_learning_iteration = num_total_iteration
