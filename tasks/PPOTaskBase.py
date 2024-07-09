@@ -22,7 +22,7 @@ class PPOTaskBase(nn.Module):
         self.eval_interval = eval_interval
         self.save_interval = save_interval
         self.test_interval = test_interval
-        self.initial_xy = jp.array([[-2, -2]]) #starting in the first quadrant
+        self.initial_xy = jp.array([[-2, -2.5]]) #starting in the first quadrant
         self.env = env
         self.wandb_logger = wandb_logger
 
@@ -63,14 +63,14 @@ class PPOTaskBase(nn.Module):
                         'cmd': torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)}
         # Based on the learning iteration the initial position of the agent is changed 
         if it==1000:
-            self.initial_xy=jp.array([[2, -2]])
+            self.initial_xy=jp.array([[2, -2.5]])
         elif it==2000:
-            self.initial_xy=jp.array([[2, 2]])
-        elif it==3000:
-            self.initial_xy=jp.array([[-2, 2]])
+            self.initial_xy=jp.array([[2, 2.5]])
+        #elif it==3000:
+        #    self.initial_xy=jp.array([[-2, 2.5]])
         
         with torch.inference_mode(): # No gradadient computation in torch domain
-            print(f"Initial xy(in rollout function): {self.initial_xy}")
+            #print(f"Initial xy(in rollout function): {self.initial_xy}")
             obs_g = self.env.reset(initial_xy=self.initial_xy)
             for i in range(self.cfg.episode_length):
                 next_obs_g, dones, info = self.step(obs_g, is_training)
