@@ -22,7 +22,7 @@ num_envs: 100
 episode_length: 100
 num_learning_iterations: 5001
 device: 'cuda:0'
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2
