@@ -7,20 +7,20 @@ env:
   control_mode: "P"
   physics_steps_per_control_step: 20
   obs_noise: 0.
-  num_history: 15
+  num_history: 1
   kick_vel: 0.1
   push_interval: 50
   is_training: False
-  manual_control: False
-  cmd_x: 1.0
+  manual_control: True
+  cmd_x: 0.8
   cmd_y: 0.0
-  cmd_ang: 0.1
+  cmd_ang: 0.0
 
-ckpt_path: 'outputs/2024-06-14/13-43-20/checkpoints/model_4750.pt'
-#ckpt_path: null
+#ckpt_path: 'outputs/2024-06-14/13-43-20/checkpoints/model_4750.pt'
+ckpt_path: best_models/model_1950.pt
 
-num_iterations: 1
+num_iterations: 3
 num_envs: 1
-episode_length: 50
+episode_length: 100
 device: 'cuda:0'
 scene_xml: 'unitree_go2/terrain_new.xml'

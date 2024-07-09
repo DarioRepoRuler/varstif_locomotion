@@ -45,10 +45,11 @@ class VmapWrapper(Wrapper):
         self.data = env.data
         self.batch_size = batch_size
 
-    def reset(self, rng: jax.Array) -> State:
+    def reset(self, rng: jax.Array, initial_xy: jax.Array) -> State:
         if self.batch_size is not None:
             rng = jax.random.split(rng, self.batch_size)
-        return jax.vmap(self.env.reset)(rng)
+            initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
+        return jax.vmap(self.env.reset)(rng, initial_xy)
 
     def step(self, state: State, action: jax.Array) -> State:
         return jax.vmap(self.env.step)(state, action)
@@ -61,8 +62,8 @@ class AutoResetWrapper(Wrapper):
         self.model = env.model
         self.data = env.data
 
-    def reset(self, rng: jax.Array) -> State:
-        state = self.env.reset(rng)
+    def reset(self, rng: jax.Array, initial_xy: jax.Array) -> State:
+        state = self.env.reset(rng, initial_xy)
         state.info['first_pipeline_state'] = state.pipeline_state
         state.info['first_obs'] = state.obs
         return state

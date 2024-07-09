@@ -51,8 +51,8 @@ class UnitreeEnv(MjxEnv):
         self.soft_limits = soft_limits
         self.single_obs_size = 53 # defined in _get_obs
         # Randomization ranges:
-        self.x_pos = [-3, 3]
-        self.y_pos = [-3, -2] 
+        self.x_pos = [-1, 1]#[-3, 3]
+        self.y_pos = [-1, 1]#[-3, -2] 
         self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
@@ -244,18 +244,28 @@ class UnitreeEnv(MjxEnv):
 
         return new_cmd
 
-    def reset(self, rng: jp.ndarray) -> State:
-        """Resets the environment to an initial state."""
-        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
+    def reset(self, rng: jp.ndarray, initial_xy=jp.array([0,0])) -> State:
+        """Resets the environment to an initial state.
         
-        reset_pos = self.default_pos
-        # Get random x,y coordinates for the robot
-        x_pos = self.x_pos
-        y_pos = self.y_pos
-        reset_x=jax.random.uniform(rng1, (1,), minval=x_pos[0], maxval=x_pos[1])
-        reset_y=jax.random.uniform(rng2, (1,), minval=y_pos[0], maxval=y_pos[1])
+        Args:
+            rng: random number generator
+            initial_xy: offset position for the robot
+        
+        Returns:
+            state: the initial state of the environment
+        """
 
-        # Get random theta and 
+        
+        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
+         
+        reset_pos = self.default_pos
+
+        jax.debug.print('initial xy(in reset function): {x}', x=initial_xy)
+        # Get random x,y coordinates for the robot
+        reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.x_pos[0], maxval=self.x_pos[1])
+        reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.y_pos[0], maxval=self.y_pos[1])
+
+        # Get random theta and rotation vector
         theta = self.theta # in rad
         a_x = self.a_x
         a_y = self.a_y
@@ -270,7 +280,9 @@ class UnitreeEnv(MjxEnv):
         q2 = a_x*jp.sin(theta/2)
         q3 = a_y*jp.sin(theta/2)
         q4 = 0
+        
         reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))        
+        #reset_pos = reset_pos.at[0:7].set(jp.array([0, 0, 0.27, q1[0], q2[0], q3[0], q4]))
 
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)

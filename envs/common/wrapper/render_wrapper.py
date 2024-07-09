@@ -2,7 +2,7 @@ from typing import Optional
 import mujoco
 from envs.common.wrapper.torch_wrapper import TorchWrapper
 from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
-
+import jax
 
 class RenderWrapper:
     """Wrapper that converts Jax tensors to PyTorch tensors."""
@@ -34,8 +34,8 @@ class RenderWrapper:
             self.model, self.data, default_camera_config
         )
 
-    def reset(self):
-        return self._env.reset()
+    def reset(self, initial_xy: jax.Array):
+        return self._env.reset(initial_xy)
 
     def step(self, action):
         obs, reward, done, info = self._env.step(action)

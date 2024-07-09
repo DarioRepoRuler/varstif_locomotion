@@ -5,7 +5,8 @@ from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
 import mujoco
 from utils.graphs_gen import eval_graph, create_multiple_box_plots
-
+import jax.numpy as jp
+import jax
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -21,7 +22,7 @@ class PPOTaskBase(nn.Module):
         self.eval_interval = eval_interval
         self.save_interval = save_interval
         self.test_interval = test_interval
-
+        self.initial_xy = jp.array([[-2, -2]]) #starting in the first quadrant
         self.env = env
         self.wandb_logger = wandb_logger
 
@@ -47,7 +48,7 @@ class PPOTaskBase(nn.Module):
         self.algo.process_env_step(obs_g, rewards, dones, infos)
         return next_obs_g, dones, infos
 
-    def rollout(self, is_training=True):
+    def rollout(self,it, is_training=True):
         """
         Steps through the environment for one episode and returns the final observation and statistics.
         Episode infos represent the average reward
@@ -55,12 +56,22 @@ class PPOTaskBase(nn.Module):
         episode_infos = {}
         # Gather evaluation information only in test mode
         eval_infos = None
+        #initial_xy=jp.array([[-2, -2]])
         if not is_training:
             eval_infos={'foot_pos_z': torch.zeros((self.cfg.episode_length, 4), device=self.device, dtype=torch.float32), 
                         'q_vel': torch.zeros((self.cfg.episode_length,18), device=self.device, dtype=torch.float32), 
-                        'cmd': torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)} 
+                        'cmd': torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)}
+        # Based on the learning iteration the initial position of the agent is changed 
+        if it==1000:
+            self.initial_xy=jp.array([[2, -2]])
+        elif it==2000:
+            self.initial_xy=jp.array([[2, 2]])
+        elif it==3000:
+            self.initial_xy=jp.array([[-2, 2]])
+        
         with torch.inference_mode(): # No gradadient computation in torch domain
-            obs_g = self.env.reset()
+            print(f"Initial xy(in rollout function): {self.initial_xy}")
+            obs_g = self.env.reset(initial_xy=self.initial_xy)
             for i in range(self.cfg.episode_length):
                 next_obs_g, dones, info = self.step(obs_g, is_training)
                 rew_info= info['rewards']
@@ -80,12 +91,12 @@ class PPOTaskBase(nn.Module):
             episode_infos[key] = episode_infos[key] / self.cfg.episode_length
         return obs_g, episode_infos, eval_infos
 
-    def simulate(self, is_training=True): # Simulates through one episode
+    def simulate(self,it, is_training=True): # Simulates through one episode
         """
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, episode_infos, eval_infos = self.rollout(is_training=is_training)
+        next_obs_g, episode_infos, eval_infos = self.rollout(it,is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_obs_g)
         # Store the statistics
@@ -96,7 +107,7 @@ class PPOTaskBase(nn.Module):
     def agent_train_step(self, it):
         self.algo.actor_critic.train() # Switch to training mode
         # Simulate through one episode
-        stat, episode_infos, _ = self.simulate(is_training=True)
+        stat, episode_infos, _ = self.simulate(it,is_training=True)
         mean_value_loss, mean_actor_loss = self.algo.update()
 
         if self.wandb_logger:
@@ -115,7 +126,7 @@ class PPOTaskBase(nn.Module):
 
     def agent_eval_step(self, it):
         self.algo.actor_critic.eval()
-        stat, episode_infos, _ = self.simulate(is_training=False)
+        stat, episode_infos, _ = self.simulate(it,is_training=False)
         if self.wandb_logger:
             self.wandb_logger.log({'val/avg_traverse': stat["avg_traverse"],
                                    'val/avg_reward': stat["avg_reward"],
@@ -138,12 +149,6 @@ class PPOTaskBase(nn.Module):
             self.agent_train_step(it)
             self.current_learning_iteration += 1
 
-            # Attempt on changing the position of the robot
-            # if it % 2 ==0:
-            #     self.env.x_pos = [2, 3] # Thats not possible
-            #     self.env.y_pos = [2, 3]
-            #     print(f"Changed position to {self.env.x_pos}, {self.env.y_pos}")
-
             if it % self.eval_interval == 0:
                 self.agent_eval_step(it)
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
@@ -151,11 +156,11 @@ class PPOTaskBase(nn.Module):
         self.current_learning_iteration = num_total_iteration
         self.save(os.path.join(save_dir, f'last.pt'))
 
-    def validate_agent(self, ckpt_path=None):
+    def validate_agent(self, ckpt_path=None): # not used
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=False)
-
-        self.rollout(is_training=False)
+        it =0
+        self.rollout(it,is_training=False)
         failure_ids = self.algo.storage.find_failures()
         self.algo.storage.clear()
         return failure_ids
@@ -169,14 +174,21 @@ class PPOTaskBase(nn.Module):
         self.algo.actor_critic.eval()
         #eval_results = []
         single_obs_size = self.env.observation_size // self.cfg.env.num_history
-        for i in range(num_iterations):
-            stat, episode_info, eval_infos = self.simulate(is_training=False)
+        for it in range(num_iterations):
+            stat, episode_info, eval_infos = self.simulate(it,is_training=False)
 
             # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
             # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
             total_tracking_error = torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)
             ang_tracking_error = torch.abs(stat['observations'][:,0,6] - stat['observations'][:,0,single_obs_size-1])
+            #print(f"Observed ang. vel: {stat['observations'][:,0,6]}")
+            #print(f"Observed lin. vel: {eval_infos['q_vel'][:,:2]}")
+            #print(f"Commanded vel: {eval_infos['cmd']}")
+            #print(f"Command ang: {stat['observations'][:,0,single_obs_size-1]}")
+            #print(f"Command lin: {stat['observations'][:,0,single_obs_size-3:single_obs_size-1]}")
+
             lin_tracking_error = torch.abs(eval_infos['q_vel'][:,:2] - stat['observations'][:,0,single_obs_size-3:single_obs_size-1])
+            #print(f"Lin tracking error: {lin_tracking_error}")
             total_tracking_error[:,0] = ang_tracking_error
             total_tracking_error[:,1:3] = lin_tracking_error
             lin_tracking_error = torch.linalg.norm(lin_tracking_error, dim=1)
@@ -187,7 +199,7 @@ class PPOTaskBase(nn.Module):
 
             eval_graph([eval_infos['foot_pos_z'][:,0], eval_infos['foot_pos_z'][:,1], 
                         eval_infos['foot_pos_z'][:,2], eval_infos['foot_pos_z'][:,3]], 
-                        ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {i}', 0.001)
+                        ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
             
             self.algo.storage.clear()
 
