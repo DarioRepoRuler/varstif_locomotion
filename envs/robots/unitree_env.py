@@ -259,8 +259,12 @@ class UnitreeEnv(MjxEnv):
         rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
          
         reset_pos = self.default_pos
-
-        jax.debug.print('initial xy(in reset function): {x}', x=initial_xy)
+        jax.debug.print('Friction: {x}', x=self.sys.geom_friction)
+        #jax.debug.print('initial xy(in reset function): {x}', x=initial_xy)
+        #jax.debug.print('Gravity: {x}', x=self.model.opt.gravity)
+        #jax.debug.print('Gravity type: {x}', x=type(self.model.opt.gravity))
+        #self.model.opt.gravity = np.array([0., -1., 0.], dtype=np.float32)
+        #jax.debug.print('Gravity: {x}', x=self.model.opt.gravity)
         # Get random x,y coordinates for the robot
         reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.x_pos[0], maxval=self.x_pos[1])
         reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.y_pos[0], maxval=self.y_pos[1])

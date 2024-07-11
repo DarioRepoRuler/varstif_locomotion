@@ -5,7 +5,7 @@ defaults:
 env:
   action_scale: 0.3
   control_mode: "P"
-  physics_steps_per_control_step: 20
+  physics_steps_per_control_step: 4
   obs_noise: 0.
   num_history: 1
   kick_vel: 0.1
@@ -23,4 +23,5 @@ num_iterations: 3
 num_envs: 1
 episode_length: 100
 device: 'cuda:0'
+randomisation: True
 scene_xml: 'unitree_go2/terrain_new.xml'

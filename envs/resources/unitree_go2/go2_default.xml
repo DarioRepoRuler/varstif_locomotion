@@ -1,7 +1,7 @@
 <mujoco model="go2">
   <compiler angle="radian" meshdir="assets" autolimits="false"/>
 
-  <option timestep="0.001" impratio="5"/>
+  <option timestep="0.005" impratio="5"/>
   <option cone="pyramidal" impratio="100" iterations="1" ls_iterations="5">
     <flag eulerdamp="disable"/>
   </option>
