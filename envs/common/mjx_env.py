@@ -8,7 +8,7 @@ from brax.envs.base import Env
 from flax import struct
 import mujoco
 from mujoco import mjx
-
+from brax.io import mjcf
 
 @struct.dataclass
 class State(Base):
@@ -50,6 +50,7 @@ class MjxEnv(Env):
         self.model = mj_model
         self.data = mujoco.MjData(mj_model)
         self.sys = mjx.put_model(mj_model)
+        #self.sys = mjcf.load_model(mj_model)
         self.mjx_data = None
 
         self._physics_steps_per_control_step = physics_steps_per_control_step
@@ -73,6 +74,7 @@ class MjxEnv(Env):
                 None,
             )
         data, _ = jax.lax.scan(f, data, (), self._physics_steps_per_control_step)
+        
         return data
 
     @abc.abstractmethod

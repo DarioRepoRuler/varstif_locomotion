@@ -38,7 +38,7 @@ class ReplayBuffer:
         self.rewards = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.actions = torch.zeros(num_transitions_per_env, num_envs, num_actions, device=self.device)
         self.dones = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device).byte()
-        self.progress = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
+        self.progress = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device) # represents the time step in the episode in percentage
 
         # For PPO
         self.actions_log_prob = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
@@ -47,6 +47,8 @@ class ReplayBuffer:
         self.advantages = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.mu = torch.zeros(num_transitions_per_env, num_envs, num_actions, device=self.device)
         self.sigma = torch.zeros(num_transitions_per_env, num_envs, num_actions, device=self.device)
+
+        # Maybe something for logging?
 
     def add_transitions(self, transition: Transition):
         if self.step >= self.num_transitions_per_env:
@@ -85,6 +87,10 @@ class ReplayBuffer:
         self.advantages[:self.step] = (self.advantages[:self.step] - self.advantages[:self.step].mean()) / (self.advantages[:self.step].std() + 1e-8)
 
     def statistics(self):
+        """
+        This function returns the statistics of the rollout buffer.
+        This includes the average traverse, average reward, number of dones, and the done rate.
+        """
         row_idx, col_idx = torch.where(self.dones[..., 0] == 1)
         if len(row_idx) == 0:
             avg_traverse = self.step
@@ -98,6 +104,7 @@ class ReplayBuffer:
 
         avg_reward = torch.mean(self.rewards[:self.step])
         stat = {
+            "observations": self.observations[:self.step],
             "avg_traverse": avg_traverse,
             "avg_reward": avg_reward,
             "dones": num_dones,

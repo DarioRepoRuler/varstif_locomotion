@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.4
+  action_scale: 0.3
   control_mode: "P"
   physics_steps_per_control_step: 4
   obs_noise: 0.
@@ -11,13 +11,17 @@ env:
   kick_vel: 0.1
   push_interval: 50
   is_training: False
-  cmd_x: 0.3
+  manual_control: True
+  cmd_x: 0.8
   cmd_y: 0.0
   cmd_ang: 0.0
 
-ckpt_path: '/home/dspoljaric/Documents/TALocoMotion/outputs/2024-06-11/16-08-33/checkpoints/model_4000.pt'
+#ckpt_path: 'outputs/2024-06-14/13-43-20/checkpoints/model_4750.pt'
+ckpt_path: best_models/model_1950.pt
 
-
+num_iterations: 3
 num_envs: 1
 episode_length: 100
 device: 'cuda:0'
+randomisation: True
+scene_xml: 'unitree_go2/terrain_new.xml'
