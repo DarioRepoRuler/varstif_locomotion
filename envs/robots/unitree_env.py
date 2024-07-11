@@ -259,13 +259,11 @@ class UnitreeEnv(MjxEnv):
         rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
          
         reset_pos = self.default_pos
-        jax.debug.print('Friction: {x}', x=self.sys.geom_friction)
+        #jax.debug.print('Friction: {x}', x=self.sys.geom_friction)
         #jax.debug.print('initial xy(in reset function): {x}', x=initial_xy)
         #jax.debug.print('Gravity: {x}', x=self.model.opt.gravity)
-        #jax.debug.print('Gravity type: {x}', x=type(self.model.opt.gravity))
-        #self.model.opt.gravity = np.array([0., -1., 0.], dtype=np.float32)
-        #jax.debug.print('Gravity: {x}', x=self.model.opt.gravity)
-        # Get random x,y coordinates for the robot
+        #jax.debug.print('Gravity: {x}', x=self.sys.opt.gravity)
+
         reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.x_pos[0], maxval=self.x_pos[1])
         reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.y_pos[0], maxval=self.y_pos[1])
 
@@ -308,7 +306,7 @@ class UnitreeEnv(MjxEnv):
             'step': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
-        obs = self._get_obs(data, state_info, obs_history)
+        obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
         obs = obs.at[self.single_obs_size:].set(jp.tile(obs[:self.single_obs_size], self.num_history-1))
         metrics = {'total_dist': 0.0}
         for k in state_info['rewards']:
@@ -369,12 +367,16 @@ class UnitreeEnv(MjxEnv):
             state: current state
             action: action to take
         """
-        rng, cmd_rng, kick_noise = jax.random.split(state.info['rng'], 3)
+        rng, obs_rng, kick_noise, action_rng = jax.random.split(state.info['rng'], 4)
         # kick robot
         state = self.kick_robot(state, kick_noise)
 
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
+        jax.debug.print('Action: {x}', x=action)
+        action_noise = jax.random.uniform(action_rng, (12,), minval=-0.01, maxval=0.01)
+        action = action.at[:].add(action_noise)
+        jax.debug.print('Action with noise: {x}', x=action)
         data = self.pipeline_step(data0, action)
 
         # ----------------- Compute rewards --------------- #
@@ -485,7 +487,7 @@ class UnitreeEnv(MjxEnv):
         state.metrics.update(state.info['rewards'])
 
         # observation
-        obs = self._get_obs(data, state.info, state.obs)
+        obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
         
         done = jp.float32(done)
         # jax.debug.print('Observations: {x}', x=obs)
@@ -502,7 +504,8 @@ class UnitreeEnv(MjxEnv):
     def _get_obs(self,
                   data: mjx.Data,
                   state_info: dict[str, Any],
-                  obs_history: jax.Array
+                  obs_history: jax.Array,
+                  obs_rng: jp.ndarray ,
                  ) -> jp.ndarray:
         """
         Get observation from the environment. The observation is a numpy array containing the following
@@ -537,6 +540,11 @@ class UnitreeEnv(MjxEnv):
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
+        #jax.debug.print('observation: {x}', x=obs)
+        obs_noise = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-0.01, maxval=0.01)
+        #jax.debug.print('Observation noise shape: {x}', x=obs_noise.shape)
+        obs = obs.at[:].add(obs_noise)
+        #jax.debug.print('Observation with noise: {x}', x=obs)
         # Stack observations through time
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
 
