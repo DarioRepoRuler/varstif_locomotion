@@ -21,7 +21,7 @@ class GO2Env(UnitreeEnv):
         self.torque_limits = jp.array([23.7, 23.7, 35.55] * 4)
 
         self.default_pos = jp.array(
-            [0, 0, 0.32, 1, 0, 0, 0, # base coord + quat, former height 0.27
+            [0, 0, 0.27, 1, 0, 0, 0, # base coord + quat, former height 0.27
              -0.1, 0.9, -1.8, #FR
              0.1, 0.9, -1.8,  #FL
              -0.1, 0.9, -1.8, #RR

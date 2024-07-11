@@ -372,10 +372,10 @@ class UnitreeEnv(MjxEnv):
 
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
-        jax.debug.print('Action: {x}', x=action)
+        #jax.debug.print('Action: {x}', x=action)
         action_noise = jax.random.uniform(action_rng, (12,), minval=-0.01, maxval=0.01)
         action = action.at[:].add(action_noise)
-        jax.debug.print('Action with noise: {x}', x=action)
+        #jax.debug.print('Action with noise: {x}', x=action)
         data = self.pipeline_step(data0, action)
 
         # ----------------- Compute rewards --------------- #
