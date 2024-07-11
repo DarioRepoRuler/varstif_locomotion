@@ -27,4 +27,4 @@ viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/terrain_new.xml' 
+scene_xml: 'unitree_go2/flat.xml' 
