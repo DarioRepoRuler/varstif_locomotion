@@ -22,7 +22,7 @@ class PPOTaskBase(nn.Module):
         self.eval_interval = eval_interval
         self.save_interval = save_interval
         self.test_interval = test_interval
-        self.initial_xy = jp.array([[0, 0]]) #starting in the first quadrant
+        self.initial_xy = jp.array([0, 0]) #starting in the first quadrant
         self.env = env
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
@@ -34,6 +34,7 @@ class PPOTaskBase(nn.Module):
                         device=self.device)
 
         self.current_learning_iteration = 0
+        self.level = 0
 
     def step(self, obs_g, is_training=True):
         """
@@ -56,34 +57,30 @@ class PPOTaskBase(nn.Module):
         episode_infos = {}
         # Gather evaluation information only in test mode
         eval_infos = None
-        #initial_xy=jp.array([[-2, -2]])
+
         if not is_training:
             eval_infos={'foot_pos_z': torch.zeros((self.cfg.episode_length, 4), device=self.device, dtype=torch.float32), 
                         'q_vel': torch.zeros((self.cfg.episode_length,18), device=self.device, dtype=torch.float32), 
                         'cmd': torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)}
-        # Based on the learning iteration the initial position of the agent is changed 
-        if self.curriculum:
-            if it==0:
-                self.initial_xy=jp.array([[-2, -2.5]])
-            elif it==1000:
-                self.initial_xy=jp.array([[2, -2.5]])
-            elif it==2000:
-                self.initial_xy=jp.array([[2, 2.5]])
-            elif it==3000:
-                self.initial_xy=jp.array([[-2, 2.5]])
-
         
+
         with torch.inference_mode(): # No gradadient computation in torch domain
-            #print(f"Initial xy(in rollout function): {self.initial_xy}")
-            obs_g = self.env.reset(initial_xy=self.initial_xy)
+            print(f"Set initial position to: {self.initial_xy}")
+            obs_g = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control)
+            pos_x = torch.zeros(self.cfg.episode_length, device=self.device, dtype=torch.float32)
+            
             for i in range(self.cfg.episode_length):
                 next_obs_g, dones, info = self.step(obs_g, is_training)
+                #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
+                pos_x[i] = info['last_qpos'][0,0]
+                
                 for key in rew_info.keys():
                     if key not in episode_infos.keys():
                         episode_infos[key] = torch.mean(rew_info[key])
                     else:
                         episode_infos[key] += torch.mean(rew_info[key])
+                
                 if not is_training:
                     eval_infos['foot_pos_z'][i] = info['foot_pos_z']
                     eval_infos['q_vel'][i] = info['last_vel']
@@ -91,6 +88,10 @@ class PPOTaskBase(nn.Module):
 
                 # update observation
                 obs_g = next_obs_g
+
+        
+        self.pos_x = pos_x
+
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.episode_length
         return obs_g, episode_infos, eval_infos
@@ -105,6 +106,7 @@ class PPOTaskBase(nn.Module):
         self.algo.compute_returns(next_obs_g)
         # Store the statistics
         stat = self.algo.storage.statistics()
+        self.update_level()
 
         return stat, episode_infos, eval_infos
 
@@ -131,6 +133,7 @@ class PPOTaskBase(nn.Module):
     def agent_eval_step(self, it, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
         stat, episode_infos, _ = self.simulate(it,is_training=is_training)
+
         if self.wandb_logger:
             self.wandb_logger.log({'val/avg_traverse': stat["avg_traverse"],
                                    'val/avg_reward': stat["avg_reward"],
@@ -143,19 +146,45 @@ class PPOTaskBase(nn.Module):
 
         self.algo.storage.clear()
 
+    def update_level(self):
+        """
+        Check the level of the agent.
+        """
+        max_distance =max(self.pos_x[:] - self.pos_x[0])
+        print(f"Max distance: {max_distance}")
+        if max_distance>0.7:
+            self.level += 1
+        print(f"Level: {self.level}")
+        if self.level==0:
+            self.initial_xy = jp.array([-2, -2.5])
+        elif self.level==1:
+            self.initial_xy = jp.array([2, -2.5])
+        elif self.level==2:
+            self.initial_xy = jp.array([2, 2.5])
+        elif self.level==3:
+            self.initial_xy = jp.array([-2, 2.5])
+        print(f"Set next position to: {self.initial_xy}")
+
     def train_loop(self, num_learning_iterations, save_dir, ckpt_path=None):
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=True)
         os.makedirs(save_dir, exist_ok=False)
 
+        if self.cfg.curriculum:
+            self.initial_xy = jp.array([-2., -2.5])
+
         num_total_iteration = num_learning_iterations + self.current_learning_iteration
         for it in range(self.current_learning_iteration, num_total_iteration):
+            #print(f"Current position: {self.initial_xy}")
             self.agent_train_step(it)
             self.current_learning_iteration += 1
 
             if it % self.eval_interval == 0:
                 self.agent_eval_step(it, is_training=True)
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
+                # if self.curriculum:
+                #    self.update_level()
+            
 
         self.current_learning_iteration = num_total_iteration
         self.save(os.path.join(save_dir, f'last.pt'))
@@ -163,7 +192,7 @@ class PPOTaskBase(nn.Module):
     def validate_agent(self, ckpt_path=None): # not used
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=False)
-        it =0
+        it = 0
         self.rollout(it,is_training=False)
         failure_ids = self.algo.storage.find_failures()
         self.algo.storage.clear()
@@ -179,7 +208,14 @@ class PPOTaskBase(nn.Module):
         #eval_results = []
         single_obs_size = self.env.observation_size // self.cfg.env.num_history
         for it in range(num_iterations):
+            print(f"iteration: {it} ")
+            #print(f"configuration of env: {self.cfg.env}")
+            if it ==1:
+                self.cfg.env.manual_control = True
+
             stat, episode_info, eval_infos = self.simulate(it,is_training=False)
+            
+
 
             # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
             # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv

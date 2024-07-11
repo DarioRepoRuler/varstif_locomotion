@@ -41,18 +41,20 @@ class UnitreeEnv(MjxEnv):
         self.action_scale = cfg.action_scale
         self.num_history = cfg.num_history
         self._obs_noise = cfg.obs_noise
+        self._act_noise = cfg.act_noise
         self._kick_vel = cfg.kick_vel
         self.is_training = cfg.is_training
         self.manual_control = cfg.manual_control
-        if not self.is_training:
-            self.cmd_x = cfg.cmd_x
-            self.cmd_y = cfg.cmd_y
-            self.cmd_yaw = cfg.cmd_ang
+
+        self.cmd_x = cfg.cmd_x
+        self.cmd_y = cfg.cmd_y
+        self.cmd_yaw = cfg.cmd_ang
+
         self.soft_limits = soft_limits
         self.single_obs_size = 53 # defined in _get_obs
         # Randomization ranges:
-        self.x_pos = [-1, 1]#[-3, 3]
-        self.y_pos = [-1, 1]#[-3, -2] 
+        self.x_pos = [-0.1, 0.1]#[-3, 3]
+        self.y_pos = [-0.1, 0.1]#[-3, -2] 
         self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
@@ -233,17 +235,15 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = jax.random.uniform(
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
-
-        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
-        
-        # Just for test purposes!
-        if self.manual_control:
-            new_cmd = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
-
+        rand_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
+        #Construct manual command
+        manual_command = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
+        # Decide whether to use manual control or random command
+        new_cmd = jp.where(self.manual_control, manual_command, rand_cmd)
 
         return new_cmd
 
-    def reset(self, rng: jp.ndarray, initial_xy=jp.array([0,0])) -> State:
+    def reset(self, rng: jp.ndarray, initial_xy=jp.array([0.,0.]), manual_control = False) -> State:
         """Resets the environment to an initial state.
         
         Args:
@@ -253,10 +253,12 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the initial state of the environment
         """
+        self.manual_control = manual_control
 
-        
+        #jax.debug.print('Manual control is: {x}', x=manual_control)
         rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
-         
+        
+        jax.debug.print('Initial xy: {x}', x=initial_xy)
         reset_pos = self.default_pos
         #jax.debug.print('Friction: {x}', x=self.sys.geom_friction)
         #jax.debug.print('initial xy(in reset function): {x}', x=initial_xy)
@@ -281,10 +283,11 @@ class UnitreeEnv(MjxEnv):
         q2 = a_x*jp.sin(theta/2)
         q3 = a_y*jp.sin(theta/2)
         q4 = 0
-        
+
         #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
         reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, 1, 0, 0, 0]))        
-        
+        #jax.debug.print('Resulting position: {x}', x=reset_pos)        
+
         #reset_pos = reset_pos.at[0:7].set(jp.array([0, 0, 0.27, q1[0], q2[0], q3[0], q4]))
 
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
@@ -367,6 +370,9 @@ class UnitreeEnv(MjxEnv):
         Args:
             state: current state
             action: action to take
+
+        Returns:
+            state: the new state of the environment
         """
         rng, obs_rng, kick_noise, action_rng = jax.random.split(state.info['rng'], 4)
         # kick robot
@@ -375,20 +381,18 @@ class UnitreeEnv(MjxEnv):
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         #jax.debug.print('Action: {x}', x=action)
-        action_noise = jax.random.uniform(action_rng, (12,), minval=-0.01, maxval=0.01)
+        action_noise = jax.random.uniform(action_rng, (12,), minval=-self._act_noise, maxval=self._act_noise)
         action = action.at[:].add(action_noise)
         #jax.debug.print('Action with noise: {x}', x=action)
-        data = self.pipeline_step(data0, action)
+        data = self.pipeline_step(data0, action) #passed data is action as angle -> convert to torque in mjx
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
         joint_angles = data.qpos[7:]
-        joint_vel = data.qvel
-
-        # foot contact data based on z-position
-        foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
+        joint_vel = data.qvel       
 
         # Original foot contact management
+        foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
         # foot_contact_z = foot_pos[:, 2] - self._foot_radius
         # contact = foot_contact_z < 1e-3  # a mm or less off the floor
         # contact_filt_mm = contact | state.info['last_contact']
@@ -412,22 +416,6 @@ class UnitreeEnv(MjxEnv):
         state.info['contact'] = contact_filt_mm
         state.info['feet_air_time'] += self.dt
         state.info['feet_contact_time'] += self.dt
-
-
-        #jax.debug.print('Foot contacts: {x}', x=contact)
-
-        # Contact based foot management
-        foot_contacts = jp.zeros((4),dtype=int)
-        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
-        foot_floor_dist = data.contact.dist[foot_contacts]
-        contact = foot_floor_dist< 1e-3  # a mm or less off the floor
-        contact_filt_mm = contact | state.info['last_contact']
-        contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
-        first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
-        state.info['contact'] = contact_filt_mm
-        state.info['feet_air_time'] += self.dt
-        state.info['feet_contact_time'] += self.dt
-        
 
         # check termination
         done = self._check_terminate(data, x)
@@ -537,12 +525,12 @@ class UnitreeEnv(MjxEnv):
             state_info['last_act'], 
             state_info['contact'], #added
             #jp.array([state_info['step']]), #added  
-            state_info['command'] # 3 commands(can add more->observation space update needed) indices 
+            state_info['command'] 
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
         #jax.debug.print('observation: {x}', x=obs)
-        obs_noise = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-0.01, maxval=0.01)
+        obs_noise = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-self._obs_noise, maxval=self._obs_noise)
         #jax.debug.print('Observation noise shape: {x}', x=obs_noise.shape)
         obs = obs.at[:].add(obs_noise)
         #jax.debug.print('Observation with noise: {x}', x=obs)

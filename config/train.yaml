@@ -6,24 +6,28 @@ env:
   action_scale: 0.3
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
-  obs_noise: 0.
+  obs_noise: 0.01
+  act_noise: 0.01
   num_history: 1 # number of previous observations to stack
   kick_vel: 0.15
   push_interval: 50
   is_training: True
-  manual_control: False
+  manual_control: True
+  cmd_x: 0.8
+  cmd_y: 0.0
+  cmd_ang: 0.0
 
 log: True
-#ckpt_path: '/home/dario/Documents/TALocoMotion/best_models/model_1950.pt'
-ckpt_path: null
+ckpt_path: '/home/dario/Documents/TALocoMotion/best_models/model_1950.pt'
+#ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 100 
+num_envs: 10 
 episode_length: 100
 num_learning_iterations: 3001
 device: 'cuda:0'
 randomisation: True
-curriculum: False
+curriculum: True
 viz: True
 
 project: PositionControlled

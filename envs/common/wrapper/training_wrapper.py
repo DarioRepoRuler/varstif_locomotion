@@ -46,11 +46,11 @@ class VmapWrapper(Wrapper):
         self.data = env.data
         self.batch_size = batch_size
 
-    def reset(self, rng: jax.Array, initial_xy: jax.Array) -> State:
+    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_control:bool= False) -> State:
         if self.batch_size is not None:
             rng = jax.random.split(rng, self.batch_size)
             initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
-        return jax.vmap(self.env.reset)(rng, initial_xy)
+        return jax.vmap(self.env.reset)(rng, initial_xy,  manual_control)
 
     def step(self, state: State, action: jax.Array) -> State:
         return jax.vmap(self.env.step)(state, action)
@@ -77,15 +77,17 @@ class DomainRandomizationVmapWrapper(Wrapper):
         env.unwrapped.sys = sys
         return env
 
-    def reset(self, rng: jax.Array, initial_xy: jax.Array) -> State:
-        def reset(sys, rng, initial_xy=initial_xy):
+    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_control:bool= False) -> State:
+        def reset(sys, rng, initial_xy=initial_xy, manual_control=manual_control):
             env = self._env_fn(sys=sys)
-            initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
-            return env.reset(rng, initial_xy=initial_xy)
+            return env.reset(rng, initial_xy=initial_xy, manual_control=manual_control)
+        
+        initial_xy = jp.expand_dims(initial_xy, 0)
+        initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
         rng= jp.expand_dims(rng, 0)
         rng = jp.repeat(rng, self.batch_size, axis=0)
         #print(f"Randomised friction from sys_v: {self._sys_v.geom_friction}")
-        state = jax.vmap(reset, in_axes=[self._in_axes, 0])(self._sys_v, rng)
+        state = jax.vmap(reset, in_axes=[self._in_axes, 0])(self._sys_v, rng, initial_xy=initial_xy )
         return state
 
     def step(self, state: State, action: jax.Array) -> State:
@@ -122,6 +124,7 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
         friction = sys.geom_friction.at[:, 0].add(friction)
         # gravity
         gravity = jax.random.uniform(key, (3,), minval=-0.2, maxval=0.2)
+        #gravity = sys.opt.gravity.at[:].add(jp.array([0.,0.,-10]))
         gravity = sys.opt.gravity.at[:].add(gravity)
         # masses
         masses = jax.random.uniform(key, (sys.body_mass.shape[0],), minval=-0.01, maxval=0.01)
@@ -168,8 +171,8 @@ class AutoResetWrapper(Wrapper):
         self.model = env.model
         self.data = env.data
 
-    def reset(self, rng: jax.Array, initial_xy: jax.Array) -> State:
-        state = self.env.reset(rng, initial_xy)
+    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_control:bool=False) -> State:
+        state = self.env.reset(rng, initial_xy, manual_control=manual_control)
         state.info['first_pipeline_state'] = state.pipeline_state
         state.info['first_obs'] = state.obs
         return state

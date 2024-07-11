@@ -34,8 +34,8 @@ class RenderWrapper:
             self.model, self.data, default_camera_config
         )
 
-    def reset(self, initial_xy: jax.Array):
-        return self._env.reset(initial_xy)
+    def reset(self, initial_xy: jax.Array, manual_control: bool = False):
+        return self._env.reset(initial_xy, manual_control)
 
     def step(self, action):
         obs, reward, done, info = self._env.step(action)
