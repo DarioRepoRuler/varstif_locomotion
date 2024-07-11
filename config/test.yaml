@@ -24,4 +24,5 @@ num_envs: 1
 episode_length: 100
 device: 'cuda:0'
 randomisation: True
-scene_xml: 'unitree_go2/terrain_new.xml'
+curriculum: False
+scene_xml: 'unitree_go2/flat.xml'

@@ -282,7 +282,9 @@ class UnitreeEnv(MjxEnv):
         q3 = a_y*jp.sin(theta/2)
         q4 = 0
         
-        reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))        
+        #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
+        reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, 1, 0, 0, 0]))        
+        
         #reset_pos = reset_pos.at[0:7].set(jp.array([0, 0, 0.27, q1[0], q2[0], q3[0], q4]))
 
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
