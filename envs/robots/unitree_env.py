@@ -169,9 +169,10 @@ class UnitreeEnv(MjxEnv):
         """
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 4
-        expected_total_cont=221
+        expected_total_cont=23#221
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
+        #jax.debug.print('Shape of contacts:  {x}', x=data.contact.geom.shape)
         geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
         feet_mask = jp.zeros((expected_total_cont),dtype=int)
         foot_cont = jp.zeros((expected_total_cont),dtype=int)
@@ -199,8 +200,8 @@ class UnitreeEnv(MjxEnv):
             conn_indices: An array of connection indices representing body contacts with the ground.
         """
         # Number of collisions and arrays are set statically due to brax troubles
-        num_collisions = 21
-        expected_total_cont=221
+        num_collisions = 19
+        expected_total_cont=23
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
@@ -550,9 +551,10 @@ class UnitreeEnv(MjxEnv):
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
         # Old termination: based on z-height
-        #done |= data.xpos[self._torso_idx, 2] < self.min_z
+        # done |= data.xpos[self._torso_idx, 2] < self.min_z
+        
         # New termination: If body touches the ground
-        body_contacts = jp.zeros((21),dtype=int)
+        body_contacts = jp.zeros((19),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[body_contacts] < 0.0)
 

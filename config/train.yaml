@@ -28,7 +28,7 @@ num_learning_iterations: 3001
 device: 'cuda:0'
 randomisation: False
 curriculum: False
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2
