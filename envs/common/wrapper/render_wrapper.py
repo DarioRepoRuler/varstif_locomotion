@@ -26,6 +26,8 @@ class RenderWrapper:
         self.camera_id = camera_id
         self.camera_name = camera_name
         self.observation_size = self._env.observation_size
+        self.single_obs_size = self._env.single_observation_size
+        self.priviledged_observation_size = self._env.priviledged_observation_size
         self.action_size = self._env.action_size
 
         from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer

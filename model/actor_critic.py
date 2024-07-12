@@ -9,6 +9,7 @@ class ActorCritic(nn.Module):
     def __init__(self,
                  config,
                  num_obs,
+                 num_priv_obs,
                  num_actions):
         super().__init__()
 
@@ -20,7 +21,7 @@ class ActorCritic(nn.Module):
                          output_act=nn.Tanh(),
                          using_norm=False)
 
-        self.critic = MLP(in_features=num_obs,
+        self.critic = MLP(in_features=num_priv_obs,
                           hidden_features=config.hidden_dim,
                           out_features=1,
                           n_layers=config.n_layers,

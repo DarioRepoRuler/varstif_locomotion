@@ -52,6 +52,7 @@ class UnitreeEnv(MjxEnv):
 
         self.soft_limits = soft_limits
         self.single_obs_size = 42 # defined in _get_obs
+        self.priviledged_obs_size = 53 
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 

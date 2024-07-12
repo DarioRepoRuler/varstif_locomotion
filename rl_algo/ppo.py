@@ -12,6 +12,7 @@ class PPO(nn.Module):
                  episode_length,
                  num_actions,
                  num_env_obs,
+                 num_priv_obs,
                  num_robots=1,
                  device='cpu'
                  ):
@@ -23,6 +24,7 @@ class PPO(nn.Module):
         # PPO compoments
         self.actor_critic = ActorCritic(self.cfg.network,
                                         num_obs=num_env_obs,
+                                        num_priv_obs=num_priv_obs,
                                         num_actions=num_actions
                                         ).to(self.device)
 
@@ -44,9 +46,9 @@ class PPO(nn.Module):
         self.transition.action_sigma = self.actor_critic.action_std.detach()
         return self.transition.actions
 
-    def act_eval(self, obs_g):
+    def act_eval(self, obs_g, priv_obs_g):
         self.transition.actions = self.actor_critic.act(obs_g).detach()
-        self.transition.values = self.actor_critic.evaluate(obs_g).detach()
+        self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach()
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
         self.transition.action_sigma = self.actor_critic.action_std.detach()

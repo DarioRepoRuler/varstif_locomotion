@@ -17,6 +17,7 @@ class GO2Env(UnitreeEnv):
         self._foot_radius = 0.023
         self.max_z = 0.43
         self.min_z = 0.1
+        
 
         self.torque_limits = jp.array([23.7, 23.7, 35.55] * 4)
 

@@ -21,6 +21,9 @@ class TorchWrapper:
         self.seed()
         self.state = None
         self.observation_size = self._env.observation_size
+        self.single_observation_size = self._env.single_obs_size
+        self.priviledged_observation_size = self._env.priviledged_obs_size
+        
         self.action_size = self._env.action_size
 
         def reset_mjx(key, initial_xy=None, manual_control=False):
@@ -39,7 +42,9 @@ class TorchWrapper:
 
     def reset(self, initial_xy: jax.Array, manual_control: bool = False):
         self.state, obs, priviledged_obs, self._key = self._reset_jit(self._key, initial_xy, manual_control)
-        return torch.jax_to_torch(obs, device=self.device)
+        obs = torch.jax_to_torch(obs, device=self.device)
+        priviledged_obs = torch.jax_to_torch(priviledged_obs, device=self.device)
+        return obs, priviledged_obs
 
     def step(self, action):
         action = torch.torch_to_jax(action)

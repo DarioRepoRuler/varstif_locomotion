@@ -25,7 +25,7 @@ def _create_env(env, num_envs, device, viz=False, randomisation=True):
         env=wrap(env, num_envs=num_envs, randomization_fn=domain_randomize)
     else:
         env = wrap(env, num_envs=num_envs)
-        
+
     if device == 'cpu':
         env = TorchWrapper(env, device=device, backend='cpu')
     else:

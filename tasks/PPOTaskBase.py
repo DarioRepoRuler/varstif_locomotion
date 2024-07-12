@@ -26,27 +26,30 @@ class PPOTaskBase(nn.Module):
         self.env = env
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
+        print(f"Observation size: {self.env.single_obs_size* self.cfg.env.num_history}")
+        print(f"Observation size: {self.env.observation_size}")
         self.algo = PPO(cfg=self.cfg.policy,
                         num_envs=self.cfg.num_envs,
                         num_actions=self.env.action_size,
                         episode_length=self.cfg.episode_length,
                         num_env_obs=self.env.observation_size,
+                        num_priv_obs=53,
                         device=self.device)
 
         self.current_learning_iteration = 0
         self.level = 0
 
-    def step(self, obs_g, is_training=True):
+    def step(self, obs_g, priviledged_obs_g, is_training=True):
         """
         Performs action in the environment and returns the next observation.
         """
         if is_training:
-            actions = self.algo.act(obs_g)
+            actions = self.algo.act(obs_g, priviledged_obs_g)
         else:
-            actions = self.algo.act_eval(obs_g)
+            actions = self.algo.act_eval(obs_g, priviledged_obs_g)
         next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
-        print(f"Observations: {obs_g}")
-        print(f"Priviledged observations: {next_priv_obs_g}")
+        #print(f"Observations: {obs_g}")
+        #print(f"Priviledged observations: {next_priv_obs_g}")
 
         self.algo.process_env_step(obs_g, rewards, dones, infos)
         return next_obs_g, next_priv_obs_g, dones, infos
@@ -68,11 +71,13 @@ class PPOTaskBase(nn.Module):
 
         with torch.inference_mode(): # No gradadient computation in torch domain
             #print(f"Set initial position to: {self.initial_xy}")
-            obs_g = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control)
+            obs_g, priviledged_obs_g = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control)
+            #print(f"Initial position: {obs_g}")
+            #print(f"Initial priviledged position: {priviledged_obs_g}")
             pos_x = torch.zeros(self.cfg.episode_length, device=self.device, dtype=torch.float32)
             
             for i in range(self.cfg.episode_length):
-                next_obs_g, next_priv_obs_g, dones, info = self.step(obs_g, is_training)
+                next_obs_g, next_priv_obs_g, dones, info = self.step(obs_g, priviledged_obs_g, is_training)
                 #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
                 pos_x[i] = info['last_qpos'][0,0]
@@ -91,19 +96,20 @@ class PPOTaskBase(nn.Module):
                 # update observation
                 obs_g = next_obs_g
 
+
         
         self.pos_x = pos_x
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.episode_length
-        return obs_g, episode_infos, eval_infos
+        return obs_g,episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode
         """
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, next_priv_obs_g , episode_infos, eval_infos = self.rollout(it,is_training=is_training)
+        next_obs_g, episode_infos, eval_infos = self.rollout(it,is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_obs_g)
         # Store the statistics
