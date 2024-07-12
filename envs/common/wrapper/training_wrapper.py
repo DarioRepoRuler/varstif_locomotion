@@ -29,7 +29,7 @@ def wrap(
       wrapped.
     """
     if randomization_fn is None:
-        env = VmapWrapper(env)
+        env = VmapWrapper(env, batch_size=num_envs)
     else:
         env = DomainRandomizationVmapWrapper(env, randomization_fn=randomization_fn, batch_size=num_envs)
     env = AutoResetWrapper(env)
@@ -49,8 +49,15 @@ class VmapWrapper(Wrapper):
     def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_control:bool= False) -> State:
         if self.batch_size is not None:
             rng = jax.random.split(rng, self.batch_size)
+            # Match dimensions for vmaping at axis=0
+            initial_xy = jp.expand_dims(initial_xy, 0)
             initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
-        return jax.vmap(self.env.reset)(rng, initial_xy,  manual_control)
+            
+            manual_control = jp.array(manual_control, dtype=jp.bool)
+            manual_control = jp.expand_dims(manual_control, 0)
+            manual_control = jp.repeat(manual_control, self.batch_size,0)
+            
+        return jax.vmap(self.env.reset)(rng, initial_xy, manual_control)
 
     def step(self, state: State, action: jax.Array) -> State:
         return jax.vmap(self.env.step)(state, action)
@@ -86,7 +93,6 @@ class DomainRandomizationVmapWrapper(Wrapper):
         initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
         rng= jp.expand_dims(rng, 0)
         rng = jp.repeat(rng, self.batch_size, axis=0)
-        #print(f"Randomised friction from sys_v: {self._sys_v.geom_friction}")
         state = jax.vmap(reset, in_axes=[self._in_axes, 0])(self._sys_v, rng, initial_xy=initial_xy )
         return state
 

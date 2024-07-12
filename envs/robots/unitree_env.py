@@ -258,7 +258,7 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Manual control is: {x}', x=manual_control)
         rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
         
-        jax.debug.print('Initial xy: {x}', x=initial_xy)
+        #jax.debug.print('Initial xy: {x}', x=initial_xy)
         reset_pos = self.default_pos
         #jax.debug.print('Friction: {x}', x=self.sys.geom_friction)
         #jax.debug.print('initial xy(in reset function): {x}', x=initial_xy)
@@ -394,6 +394,7 @@ class UnitreeEnv(MjxEnv):
         # Original foot contact management
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
         # foot_contact_z = foot_pos[:, 2] - self._foot_radius
+        # jax.debug.print('Foot distance(deprecated): {x}', x=foot_contact_z)
         # contact = foot_contact_z < 1e-3  # a mm or less off the floor
         # contact_filt_mm = contact | state.info['last_contact']
         # contact_filt_cm = (foot_contact_z < 1e-2) | state.info['last_contact']
@@ -408,6 +409,7 @@ class UnitreeEnv(MjxEnv):
         foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
         foot_floor_dist = jp.zeros((4),dtype=float)
         foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
+        #jax.debug.print('Foot distance: {x}', x=foot_floor_dist)
         ## general contact management
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']

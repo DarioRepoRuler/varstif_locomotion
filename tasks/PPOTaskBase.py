@@ -65,7 +65,7 @@ class PPOTaskBase(nn.Module):
         
 
         with torch.inference_mode(): # No gradadient computation in torch domain
-            print(f"Set initial position to: {self.initial_xy}")
+            #print(f"Set initial position to: {self.initial_xy}")
             obs_g = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control)
             pos_x = torch.zeros(self.cfg.episode_length, device=self.device, dtype=torch.float32)
             
@@ -106,7 +106,7 @@ class PPOTaskBase(nn.Module):
         self.algo.compute_returns(next_obs_g)
         # Store the statistics
         stat = self.algo.storage.statistics()
-        self.update_level()
+        #self.update_level()
 
         return stat, episode_infos, eval_infos
 
@@ -116,16 +116,19 @@ class PPOTaskBase(nn.Module):
         stat, episode_infos, _ = self.simulate(it,is_training=True)
         mean_value_loss, mean_actor_loss = self.algo.update()
 
+        loss_info = {'loss/critic': mean_value_loss,
+                     'loss/actor': mean_actor_loss,
+                     'action_std': self.algo.actor_critic.std.mean()
+                     }
+        train_info = {'train/avg_traverse': stat["avg_traverse"],
+                      'train/avg_reward': stat["avg_reward"],
+                      'train/dones': stat["dones"],
+                      'train/done_rate': stat["done_rate"],
+                      }
+        print(loss_info, train_info)
         if self.wandb_logger:
-            self.wandb_logger.log({'loss/critic': mean_value_loss,
-                                   'loss/actor': mean_actor_loss,
-                                   'action_std': self.algo.actor_critic.std.mean()
-                                   }, step=it)
-            self.wandb_logger.log({'train/avg_traverse': stat["avg_traverse"],
-                                   'train/avg_reward': stat["avg_reward"],
-                                   'train/dones': stat["dones"],
-                                   'train/done_rate': stat["done_rate"],
-                                   }, step=it)
+            self.wandb_logger.log(loss_info, step=it)
+            self.wandb_logger.log(train_info, step=it)
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
                 self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
@@ -176,15 +179,25 @@ class PPOTaskBase(nn.Module):
         num_total_iteration = num_learning_iterations + self.current_learning_iteration
         for it in range(self.current_learning_iteration, num_total_iteration):
             #print(f"Current position: {self.initial_xy}")
+            print(f"Epoch: {it}")
             self.agent_train_step(it)
             self.current_learning_iteration += 1
-
+            
             if it % self.eval_interval == 0:
+                print(f"Do evaluation at epoch: {it}")
                 self.agent_eval_step(it, is_training=True)
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
-                # if self.curriculum:
-                #    self.update_level()
-            
+
+            if self.curriculum and it % (self.eval_interval+1) ==0:
+                # Update level according to paper(Learn to walk in minutes)
+                print(f"Do system level update at epoch: {it}")
+                temp = self.cfg.env.manual_control
+                self.cfg.env.manual_control = True # walk straight
+                self.agent_eval_step(it, is_training=True)
+                self.save(os.path.join(save_dir, f'model_{it}.pt'))
+                # Move to different terrain if successfull
+                self.update_level()
+                self.cfg.env.manual_control = temp # TODO: improve layout and yaml
 
         self.current_learning_iteration = num_total_iteration
         self.save(os.path.join(save_dir, f'last.pt'))
@@ -208,7 +221,7 @@ class PPOTaskBase(nn.Module):
         #eval_results = []
         single_obs_size = self.env.observation_size // self.cfg.env.num_history
         for it in range(num_iterations):
-            print(f"iteration: {it} ")
+            #print(f"iteration: {it} ")
             #print(f"configuration of env: {self.cfg.env}")
             if it ==1:
                 self.cfg.env.manual_control = True
