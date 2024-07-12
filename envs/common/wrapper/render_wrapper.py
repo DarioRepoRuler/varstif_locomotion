@@ -38,7 +38,7 @@ class RenderWrapper:
         return self._env.reset(initial_xy, manual_control)
 
     def step(self, action):
-        obs, reward, done, info = self._env.step(action)
+        obs, priviledged_obs, reward, done, info = self._env.step(action)
 
         if self.render_mode == "human":
             data = self._env.state.pipeline_state
@@ -47,7 +47,7 @@ class RenderWrapper:
             mujoco.mj_forward(self.model, self.data)
 
             self.render()
-        return obs, reward, done, info
+        return obs, priviledged_obs,reward, done, info
 
     def render(self):
         return self.mujoco_renderer.render(

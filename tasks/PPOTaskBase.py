@@ -44,10 +44,12 @@ class PPOTaskBase(nn.Module):
             actions = self.algo.act(obs_g)
         else:
             actions = self.algo.act_eval(obs_g)
-        next_obs_g, rewards, dones, infos = self.env.step(actions)
+        next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
+        print(f"Observations: {obs_g}")
+        print(f"Priviledged observations: {next_priv_obs_g}")
 
         self.algo.process_env_step(obs_g, rewards, dones, infos)
-        return next_obs_g, dones, infos
+        return next_obs_g, next_priv_obs_g, dones, infos
 
     def rollout(self,it, is_training=True):
         """
@@ -70,7 +72,7 @@ class PPOTaskBase(nn.Module):
             pos_x = torch.zeros(self.cfg.episode_length, device=self.device, dtype=torch.float32)
             
             for i in range(self.cfg.episode_length):
-                next_obs_g, dones, info = self.step(obs_g, is_training)
+                next_obs_g, next_priv_obs_g, dones, info = self.step(obs_g, is_training)
                 #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
                 pos_x[i] = info['last_qpos'][0,0]
@@ -101,7 +103,7 @@ class PPOTaskBase(nn.Module):
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, episode_infos, eval_infos = self.rollout(it,is_training=is_training)
+        next_obs_g, next_priv_obs_g , episode_infos, eval_infos = self.rollout(it,is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_obs_g)
         # Store the statistics

@@ -26,10 +26,12 @@ class State(Base):
 
     pipeline_state: mjx.Data
     obs: jax.Array
+    priviledged_obs: jax.Array
     reward: jax.Array
     done: jax.Array
     metrics: Dict[str, jax.Array] = struct.field(default_factory=dict)
     info: Dict[str, Any] = struct.field(default_factory=dict)
+    
 
 
 class MjxEnv(Env):

@@ -51,7 +51,7 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 53 # defined in _get_obs
+        self.single_obs_size = 42 # defined in _get_obs
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 
@@ -309,15 +309,17 @@ class UnitreeEnv(MjxEnv):
             'rewards': {reward_: jp.array(0.) for reward_ in self.reward_scales.keys()},
             'kick': jp.array([0.0, 0.0]),
             'step': jp.array(0.),
+            'priviledged_obs': jp.zeros(53, dtype=jp.float32),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
-        obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
+        obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
         obs = obs.at[self.single_obs_size:].set(jp.tile(obs[:self.single_obs_size], self.num_history-1))
         metrics = {'total_dist': 0.0}
         for k in state_info['rewards']:
             metrics[k] = state_info['rewards'][k]
         return State(pipeline_state=data,
                      obs=obs,
+                     priviledged_obs=priviledged_obs,
                      reward=reward,
                      done=done,
                      metrics=metrics,
@@ -479,8 +481,8 @@ class UnitreeEnv(MjxEnv):
         state.metrics.update(state.info['rewards'])
 
         # observation
-        obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
-        
+        obs, priviledged_obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
+        #jax.debug.print('Observation: {x}', x=priviledged_obs)
         done = jp.float32(done)
         # jax.debug.print('Observations: {x}', x=obs)
         # #jax.debug.print('Foot contacts: {x}', x=foot_contacts)
@@ -488,9 +490,9 @@ class UnitreeEnv(MjxEnv):
         # jax.debug.print('Reward: {x}', x=reward)
 
         state = state.replace(
-            pipeline_state=data, obs=obs, reward=reward, done=done
+            pipeline_state=data, obs=obs, reward=reward, done=done, priviledged_obs=priviledged_obs
         )
-
+        
         return state
 
     def _get_obs(self,
@@ -520,15 +522,24 @@ class UnitreeEnv(MjxEnv):
 
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
-            torso_z,
-            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
-            proj_gravity,
-            data.qpos[7:],
-            0.1 * data.qvel[6:],
-            state_info['last_act'], 
-            state_info['contact'], #added
+            proj_gravity, # this can be measured, IMU
+            data.qpos[7:], # this can be measured
+            0.1 * data.qvel[6:], # this can be measured
+            state_info['last_act'], # this can be stored    
             #jp.array([state_info['step']]), #added  
-            state_info['command'] 
+            state_info['command']  # this can be stored
+        ])
+
+        priviledged_obs = jp.concatenate([
+            torso_z, # can not be measured
+            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
+            proj_gravity, # this can be measured, IMU
+            data.qpos[7:], # this can be measured
+            0.1 * data.qvel[6:], # this can be measured
+            state_info['last_act'], # this can be stored    
+            state_info['contact'], # not sure if this can be measured
+            #jp.array([state_info['step']]), #added  
+            state_info['command']  # this can be stored
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
@@ -540,7 +551,7 @@ class UnitreeEnv(MjxEnv):
         # Stack observations through time
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
 
-        return obs
+        return obs, priviledged_obs
 
     def _check_terminate(self, data: mjx.Data, x) -> bool:
         # done if joint limits are reached or robot is falling

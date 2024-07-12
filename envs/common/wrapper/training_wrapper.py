@@ -181,6 +181,7 @@ class AutoResetWrapper(Wrapper):
         state = self.env.reset(rng, initial_xy, manual_control=manual_control)
         state.info['first_pipeline_state'] = state.pipeline_state
         state.info['first_obs'] = state.obs
+        state.info['first_priviledged_obs'] = state.priviledged_obs
         return state
 
     def step(self, state: State, action: jax.Array) -> State:
@@ -223,6 +224,7 @@ class AutoResetWrapper(Wrapper):
             where_done, state.info['first_pipeline_state'], state.pipeline_state
         )
         obs = where_done(state.info['first_obs'], state.obs)
+        priviledged_obs = where_done(state.info['first_priviledged_obs'], state.priviledged_obs)
         # reset information
         state.info['last_act'] = where_done(jp.zeros_like(state.info['last_act']), state.info['last_act'])
         state.info['last_vel'] = where_done(jp.zeros_like(state.info['last_vel']), state.info['last_vel'])
@@ -237,4 +239,4 @@ class AutoResetWrapper(Wrapper):
         state.info['action_minus_2t'] = where_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
         
 
-        return state.replace(pipeline_state=pipeline_state, obs=obs)
+        return state.replace(pipeline_state=pipeline_state, obs=obs, priviledged_obs=priviledged_obs)
