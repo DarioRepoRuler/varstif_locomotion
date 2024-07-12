@@ -404,6 +404,7 @@ class UnitreeEnv(MjxEnv):
         foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
         foot_floor_dist = jp.zeros((4),dtype=float)
         foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
+        jax.debug.print('Foot distances: {x}', x=foot_floor_dist)
         ## general contact management
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
@@ -411,23 +412,7 @@ class UnitreeEnv(MjxEnv):
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         state.info['contact'] = contact_filt_mm
         state.info['feet_air_time'] += self.dt
-        state.info['feet_contact_time'] += self.dt
-
-
-        #jax.debug.print('Foot contacts: {x}', x=contact)
-
-        # Contact based foot management
-        foot_contacts = jp.zeros((4),dtype=int)
-        foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
-        foot_floor_dist = data.contact.dist[foot_contacts]
-        contact = foot_floor_dist< 1e-3  # a mm or less off the floor
-        contact_filt_mm = contact | state.info['last_contact']
-        contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
-        first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
-        state.info['contact'] = contact_filt_mm
-        state.info['feet_air_time'] += self.dt
-        state.info['feet_contact_time'] += self.dt
-        
+        state.info['feet_contact_time'] += self.dt     
 
         # check termination
         done = self._check_terminate(data, x)
