@@ -1,6 +1,6 @@
 network:
   hidden_dim: 256
-  n_layers: 6
+  n_layers: 4
   init_std: 1.0
 
 num_epochs: 4 

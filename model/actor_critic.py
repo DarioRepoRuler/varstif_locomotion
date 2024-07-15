@@ -20,17 +20,17 @@ class ActorCritic(nn.Module):
         
 
         self.encoder = LSTM(in_features=num_single_obs,                           
-                            lstm_hidden_size=124,
+                            lstm_hidden_size=256,
                             dim_out=60,
-                            num_lstm_layers=2,
+                            num_lstm_layers=1,
                             )
         
         self.decoder = MLP(in_features=60,
-                            hidden_features=config.hidden_dim,
+                            hidden_features=124,
                             out_features=num_priv_obs,
-                            n_layers=config.n_layers,
+                            n_layers=2,
                             act=nn.ELU(),
-                            output_act=nn.Tanh(),
+                            output_act=None,
                             using_norm=False)
 
         self.actor = MLP(in_features=60,
@@ -79,6 +79,7 @@ class ActorCritic(nn.Module):
         latent = self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs)) # batch_size, seq_len, num_single_obs
         # actor
         self.update_distribution(latent, priv_obs_g)
+
         return self.distribution_action.sample(), self.decoder(latent) # policy, state estimation 
 
     def get_actions_log_prob(self, actions):
@@ -88,13 +89,6 @@ class ActorCritic(nn.Module):
         with torch.no_grad():
             actions_mean = self.actor(observations)
         return actions_mean
-    
-    # not sure about that
-    def get_state_pred(self, observations, **kwargs):
-        latent = self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs))
-        state_estimate = self.decoder(latent)
-        return state_estimate
-
 
     def evaluate(self, critic_observations, **kwargs):
         value = self.critic(critic_observations)

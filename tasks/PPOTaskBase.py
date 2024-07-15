@@ -26,9 +26,7 @@ class PPOTaskBase(nn.Module):
         self.env = env
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
-        #print(f"Observation size: {self.env.single_obs_size* self.cfg.env.num_history}")
-        #print(f"Observation size: {self.env.observation_size}")
-        #print(f"Priviledged observation size: {self.env.priviledged_observation_size}")
+
         self.algo = PPO(cfg=self.cfg.policy,
                         num_envs=self.cfg.num_envs,
                         num_actions=self.env.action_size,

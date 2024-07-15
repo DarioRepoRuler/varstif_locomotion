@@ -39,7 +39,6 @@ class PPO(nn.Module):
                                     device=self.device)
         self.transition = ReplayBuffer.Transition()
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.cfg.lr)
-        self.optimizer_states = optim.Adam(self.actor_critic.parameters(), lr=self.cfg.lr)
 
     def act(self, obs_g, priv_obs_g):
         # Compute the actions and values
@@ -96,15 +95,11 @@ class PPO(nn.Module):
         for obs_batch,priv_obs_batch, priv_obs_estimations_batch ,actions_batch, target_values_batch , \
             advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch in generator:
 
-            #print(f"Obs batch: {obs_batch.shape}, priv obs batch: {priv_obs_batch.shape}")
-            #print(f"ACTIONS BATCH: {actions_batch.requires_grad}")
-            self.actor_critic.act(obs_batch, priv_obs_batch)
+
+            _, state_estimation_batch = self.actor_critic.act(obs_batch, priv_obs_batch)
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
             value_batch = self.actor_critic.evaluate(priv_obs_batch)
-            state_estimation_batch = self.actor_critic.get_state_pred(obs_batch)
         
-
-
             mu_batch = self.actor_critic.action_mean
             sigma_batch = self.actor_critic.action_std
             entropy_batch = self.actor_critic.entropy
@@ -143,10 +138,10 @@ class PPO(nn.Module):
             else:
                 value_loss = (returns_batch - value_batch).pow(2).mean()
 
-            loss = actor_loss + self.cfg.value_loss_coef * value_loss - self.cfg.entropy_coef * entropy_batch.mean()
+            # State estimation loss
             denoising_loss = (state_estimation_batch - priv_obs_batch).pow(2).mean()
-
-            loss += denoising_loss
+            
+            loss = actor_loss + self.cfg.value_loss_coef * value_loss - self.cfg.entropy_coef * entropy_batch.mean() + denoising_loss
 
             # Gradient step
             self.optimizer.zero_grad()
