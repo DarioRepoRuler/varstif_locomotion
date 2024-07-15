@@ -33,6 +33,7 @@ class PPOTaskBase(nn.Module):
                         num_envs=self.cfg.num_envs,
                         num_actions=self.env.action_size,
                         episode_length=self.cfg.episode_length,
+                        num_single_obs = self.env.observation_size // self.cfg.env.num_history,
                         num_env_obs=self.env.observation_size,
                         num_priv_obs=self.env.priviledged_observation_size,
                         device=self.device)
@@ -44,6 +45,7 @@ class PPOTaskBase(nn.Module):
         """
         Performs action in the environment and returns the next observation.
         """
+        #print(f"Observations: {obs_g.shape}")
         if is_training:
             actions = self.algo.act(obs_g, priviledged_obs_g)
         else:
@@ -52,7 +54,7 @@ class PPOTaskBase(nn.Module):
         #print(f"Observations: {obs_g}")
         #print(f"Priviledged observations: {next_priv_obs_g}")
 
-        self.algo.process_env_step(obs_g, rewards, dones, infos)
+        self.algo.process_env_step(obs_g, priviledged_obs_g,rewards, dones, infos)
         return next_obs_g, next_priv_obs_g, dones, infos
 
     def rollout(self,it, is_training=True):
@@ -96,6 +98,7 @@ class PPOTaskBase(nn.Module):
 
                 # update observation
                 obs_g = next_obs_g
+                priv_obs_g = next_priv_obs_g
 
 
         
@@ -103,16 +106,16 @@ class PPOTaskBase(nn.Module):
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.episode_length
-        return obs_g,episode_infos, eval_infos
+        return obs_g, priv_obs_g,episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode
         """
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, episode_infos, eval_infos = self.rollout(it,is_training=is_training)
+        next_obs_g, next_priv_obs_g,episode_infos, eval_infos = self.rollout(it,is_training=is_training)
         # get goal conditioned state
-        self.algo.compute_returns(next_obs_g)
+        self.algo.compute_returns(next_priv_obs_g)
         # Store the statistics
         stat = self.algo.storage.statistics()
         #self.update_level()
@@ -123,11 +126,12 @@ class PPOTaskBase(nn.Module):
         self.algo.actor_critic.train() # Switch to training mode
         # Simulate through one episode
         stat, episode_infos, _ = self.simulate(it,is_training=True)
-        mean_value_loss, mean_actor_loss = self.algo.update()
+        mean_value_loss, mean_actor_loss, mean_state_estimation_loss = self.algo.update()
 
         loss_info = {'loss/critic': mean_value_loss,
                      'loss/actor': mean_actor_loss,
-                     'action_std': self.algo.actor_critic.std.mean()
+                     'loss/state_estimation': mean_state_estimation_loss,
+                     'action_std': self.algo.actor_critic.std_action.mean()
                      }
         train_info = {'train/avg_traverse': stat["avg_traverse"],
                       'train/avg_reward': stat["avg_reward"],

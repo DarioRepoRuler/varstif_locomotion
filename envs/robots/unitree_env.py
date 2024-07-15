@@ -548,8 +548,7 @@ class UnitreeEnv(MjxEnv):
         obs_noise = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-self._obs_noise, maxval=self._obs_noise)
         #jax.debug.print('Observation noise shape: {x}', x=obs_noise.shape)
         obs = obs.at[:].add(obs_noise)
-        #jax.debug.print('Observation with noise: {x}', x=obs)
-        # Stack observations through time
+        # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
 
         return obs, priviledged_obs

@@ -5,6 +5,8 @@ class ReplayBuffer:
     class Transition:
         def __init__(self):
             self.observations = None
+            self.priv_obs = None # Privileged observations for the critic 
+            self.priv_estimations = None
             self.actions = None
             self.rewards = None
             self.dones = None
@@ -21,6 +23,7 @@ class ReplayBuffer:
                  num_envs,
                  num_transitions_per_env,
                  num_obs,
+                 num_priv_obs,
                  num_actions,
                  num_robots=1,
                  device='cpu'):
@@ -40,6 +43,10 @@ class ReplayBuffer:
         self.dones = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device).byte()
         self.progress = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device) # represents the time step in the episode in percentage
 
+        ## Advanced
+        self.priv_obs = torch.zeros(num_transitions_per_env, num_envs, num_priv_obs, device=self.device) # Privileged observations for the critic
+        self.priv_estimations = torch.zeros(num_transitions_per_env, num_envs, num_priv_obs, device=self.device) # Estimations of the privileged observations
+        
         # For PPO
         self.actions_log_prob = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.values = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
@@ -55,6 +62,8 @@ class ReplayBuffer:
             raise AssertionError("Rollout buffer overflow")
 
         self.observations[self.step].copy_(transition.observations)
+        self.priv_obs[self.step].copy_(transition.priv_obs) ## Privileged observations for the critic
+        self.priv_estimations[self.step].copy_(transition.priv_estimations) ## estimations of the privileged observations
         self.actions[self.step].copy_(transition.actions)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
         self.dones[self.step].copy_(transition.dones.view(-1, 1))
@@ -105,6 +114,7 @@ class ReplayBuffer:
         avg_reward = torch.mean(self.rewards[:self.step])
         stat = {
             "observations": self.observations[:self.step],
+            "priv_obs": self.priv_obs[:self.step],
             "avg_traverse": avg_traverse,
             "avg_reward": avg_reward,
             "dones": num_dones,
@@ -116,7 +126,7 @@ class ReplayBuffer:
     def mini_batch_generator(self, num_batches, num_epochs=8):
         batch_size = self.num_envs * self.step // num_batches # integer floor division
 
-        obs_g = self.observations[:self.step].flatten(0, 1)
+        obs_g = self.observations[:self.step].flatten(0, 1)       
         actions = self.actions[:self.step].flatten(0, 1)
         values = self.values[:self.step].flatten(0, 1)
         returns = self.returns[:self.step].flatten(0, 1)
@@ -124,6 +134,9 @@ class ReplayBuffer:
         advantages = self.advantages[:self.step].flatten(0, 1)
         old_mu = self.mu[:self.step].flatten(0, 1)
         old_sigma = self.sigma[:self.step].flatten(0, 1)
+
+        priv_obs_g = self.priv_obs[:self.step].flatten(0, 1)
+        priv_obs_estimations_g = self.priv_estimations[:self.step].flatten(0, 1)
 
         for epoch in range(num_epochs):
             indices = torch.randperm(num_batches * batch_size, requires_grad=False, device=self.device)
@@ -133,6 +146,8 @@ class ReplayBuffer:
                 batch_idx = indices[start:end]
 
                 obs_batch = obs_g[batch_idx]
+                priv_obs_batch = priv_obs_g[batch_idx]
+                priv_obs_estimations_batch = priv_obs_estimations_g[batch_idx]
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
                 returns_batch = returns[batch_idx]
@@ -140,5 +155,5 @@ class ReplayBuffer:
                 advantages_batch = advantages[batch_idx]
                 old_mu_batch = old_mu[batch_idx]
                 old_sigma_batch = old_sigma[batch_idx]
-                yield (obs_batch, actions_batch, target_values_batch, advantages_batch,
+                yield (obs_batch,priv_obs_batch, priv_obs_estimations_batch ,actions_batch, target_values_batch, advantages_batch,
                        returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch)

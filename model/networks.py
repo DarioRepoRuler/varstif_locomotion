@@ -1,5 +1,5 @@
 from torch import nn
-
+import torch
 
 class Dense(nn.Module):
     def __init__(self, in_features, out_features, activation=None, using_norm=True):
@@ -63,6 +63,47 @@ class MLP(nn.Module):
         x = self.model(x)
 
         return x
+
+class LSTM(nn.Module):
+    def __init__(self, in_features, lstm_hidden_size, dim_out, num_lstm_layers=1):
+        super(LSTM, self).__init__()
+        self.num_lstm_layers = num_lstm_layers
+        self.lstm_hidden_size = lstm_hidden_size
+        
+        self.lstm = nn.LSTM(in_features, lstm_hidden_size, num_layers=num_lstm_layers, batch_first=True)
+        
+        # Create final layer to get desired size    
+        self.lin = Dense(lstm_hidden_size, dim_out, activation=nn.Tanh(), using_norm=False)
+        
+        # Initialize hidden state (h0) and cell state (c0)
+        # self.hx = None
+        # self.cx = None
+
+    def forward(self, x):
+        #batch_size = x.size(0)
+        
+        # Initialize hidden state (h0) and cell state (c0) if they are None
+        #if self.hx is None or self.cx is None or self.hx.size(1) != batch_size:
+        # self.h0 = torch.zeros(self.num_lstm_layers, batch_size, self.lstm_hidden_size).to(x.device)
+        # self.c0 = torch.zeros(self.num_lstm_layers, batch_size, self.lstm_hidden_size).to(x.device)
+        
+        # Apply LSTM
+        out, (hx, cx) = self.lstm(x)
+        
+        # # Update the stored hidden and cell states
+        # self.hx = hx.detach()
+        # self.cx = cx.detach()
+        
+        # Get the final hidden state of the LSTM module (from the last layer)
+        out = hx[-1]
+        
+        # Projection
+        out = self.lin(out)
+        return out
+
+    def reset_hidden_state(self):
+        self.hx = None
+        self.cx = None
 
 
 class Discriminator(nn.Module):

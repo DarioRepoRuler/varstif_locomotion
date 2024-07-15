@@ -11,6 +11,7 @@ class PPO(nn.Module):
                  num_envs,
                  episode_length,
                  num_actions,
+                 num_single_obs,
                  num_env_obs,
                  num_priv_obs,
                  num_robots=1,
@@ -23,6 +24,7 @@ class PPO(nn.Module):
 
         # PPO compoments
         self.actor_critic = ActorCritic(self.cfg.network,
+                                        num_single_obs=num_single_obs,
                                         num_obs=num_env_obs,
                                         num_priv_obs=num_priv_obs,
                                         num_actions=num_actions
@@ -31,24 +33,34 @@ class PPO(nn.Module):
         self.storage = ReplayBuffer(num_envs=num_envs,
                                     num_transitions_per_env=episode_length * num_robots,
                                     num_obs=num_env_obs,
+                                    num_priv_obs=num_priv_obs,
                                     num_actions=num_actions,
                                     num_robots=num_robots,
                                     device=self.device)
         self.transition = ReplayBuffer.Transition()
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.cfg.lr)
+        self.optimizer_states = optim.Adam(self.actor_critic.parameters(), lr=self.cfg.lr)
 
-    def act(self, obs_g):
+    def act(self, obs_g, priv_obs_g):
         # Compute the actions and values
-        self.transition.actions = self.actor_critic.act(obs_g).detach()
-        self.transition.values = self.actor_critic.evaluate(obs_g).detach()
+        self.transition.actions, self.transition.priv_estimations = self.actor_critic.act(obs_g, priv_obs_g)
+        self.transition.actions = self.transition.actions.detach()
+        self.transition.priv_estimations = self.transition.priv_estimations.detach()
+
+        #print(f"Actions shape: {self.transition.actions.shape}")
+        self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach()
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
         self.transition.action_sigma = self.actor_critic.action_std.detach()
         return self.transition.actions
 
     def act_eval(self, obs_g, priv_obs_g):
-        self.transition.actions = self.actor_critic.act(obs_g).detach()
-        self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach()
+
+        self.transition.actions, self.transition.priv_estimations = self.actor_critic.act(obs_g, priv_obs_g)
+        self.transition.actions = self.transition.actions.detach()
+        self.transition.priv_estimations = self.transition.priv_estimations.detach()
+    
+        self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach() # calls just the critic
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
         self.transition.action_sigma = self.actor_critic.action_std.detach()
@@ -56,9 +68,11 @@ class PPO(nn.Module):
 
     def inference(self, obs_g):
         return self.actor_critic.act_inference(obs_g)
+    
 
-    def process_env_step(self, obs, rewards, dones, infos):
+    def process_env_step(self, obs, priviledged_obs_g,rewards, dones, infos):
         self.transition.observations = obs.detach()
+        self.transition.priv_obs = priviledged_obs_g.detach()
         self.transition.rewards = rewards.detach()
         self.transition.dones = dones.detach()
         self.transition.progress = infos["step"].detach() / self.episode_length
@@ -74,15 +88,23 @@ class PPO(nn.Module):
     def update(self):
         mean_value_loss = 0
         mean_actor_loss = 0
+        mean_denoising_loss = 0
+
         generator = self.storage.mini_batch_generator(num_batches=self.cfg.num_batches, num_epochs=self.cfg.num_epochs)
 
         num_update = 1
-        for obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, \
-            old_actions_log_prob_batch, old_mu_batch, old_sigma_batch in generator:
+        for obs_batch,priv_obs_batch, priv_obs_estimations_batch ,actions_batch, target_values_batch , \
+            advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch in generator:
 
-            self.actor_critic.act(obs_batch)
+            #print(f"Obs batch: {obs_batch.shape}, priv obs batch: {priv_obs_batch.shape}")
+            #print(f"ACTIONS BATCH: {actions_batch.requires_grad}")
+            self.actor_critic.act(obs_batch, priv_obs_batch)
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
-            value_batch = self.actor_critic.evaluate(obs_batch)
+            value_batch = self.actor_critic.evaluate(priv_obs_batch)
+            state_estimation_batch = self.actor_critic.get_state_pred(obs_batch)
+        
+
+
             mu_batch = self.actor_critic.action_mean
             sigma_batch = self.actor_critic.action_std
             entropy_batch = self.actor_critic.entropy
@@ -106,12 +128,12 @@ class PPO(nn.Module):
 
             # Actor loss
             ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
+
             actor_loss = -torch.squeeze(advantages_batch) * ratio
             actor_loss_clipped = -torch.squeeze(advantages_batch) * torch.clamp(ratio, 1.0 - self.cfg.clip_param,
                                                                                 1.0 + self.cfg.clip_param)
             actor_loss = torch.max(actor_loss, actor_loss_clipped).mean()
 
-            # Value function loss
             if self.cfg.use_clipped_value_loss:
                 value_clipped = (target_values_batch +
                                  (value_batch - target_values_batch).clamp(-self.cfg.clip_param, self.cfg.clip_param))
@@ -122,19 +144,28 @@ class PPO(nn.Module):
                 value_loss = (returns_batch - value_batch).pow(2).mean()
 
             loss = actor_loss + self.cfg.value_loss_coef * value_loss - self.cfg.entropy_coef * entropy_batch.mean()
+            denoising_loss = (state_estimation_batch - priv_obs_batch).pow(2).mean()
+
+            loss += denoising_loss
 
             # Gradient step
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.cfg.max_grad_norm)
-            self.optimizer.step()
+            self.optimizer.step()            
 
             mean_value_loss += value_loss.item()
             mean_actor_loss += actor_loss.item()
+            
+            mean_denoising_loss += denoising_loss.item()
+
             num_update += 1
 
         mean_value_loss /= num_update
         mean_actor_loss /= num_update
+
+        mean_denoising_loss /= num_update
+
         self.storage.clear()
 
-        return mean_value_loss, mean_actor_loss
+        return mean_value_loss, mean_actor_loss, mean_denoising_loss
