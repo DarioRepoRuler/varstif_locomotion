@@ -99,7 +99,11 @@ class ActorCritic(nn.Module):
             self.update_distribution(observations)
             return self.distribution_action.sample()
 
-         
+    def get_states(self, observations):
+        latent=  self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs))
+        self.update_distribution(latent)
+        return latent, self.decoder(latent)
+
 
     def get_actions_log_prob(self, actions):
         return self.distribution_action.log_prob(actions).sum(dim=-1)

@@ -101,7 +101,8 @@ class PPO(nn.Module):
             advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch in generator:
 
             if self.use_encoder_decoder:
-                _, state_estimation_batch = self.actor_critic.act(obs_batch)
+                #_, state_estimation_batch = self.actor_critic.act(obs_batch)
+                latent_batch, state_estimation_batch = self.actor_critic.get_states(obs_batch)
             else:
                 self.actor_critic.act(obs_batch)
                 state_estimation_batch = None
@@ -151,7 +152,7 @@ class PPO(nn.Module):
 
             # State estimation loss
             if self.use_encoder_decoder:
-                denoising_loss = (state_estimation_batch - priv_obs_batch).pow(2).mean()
+                denoising_loss = (state_estimation_batch - priv_obs_batch).pow(2).mean() + torch.abs(latent_batch).mean()
                 loss = loss + denoising_loss
                 mean_denoising_loss += denoising_loss.item()
 
