@@ -10,7 +10,7 @@ gamma: 0.99
 lamb: 0.95
 value_loss_coef: 1.0
 entropy_coef: 0.01
-lr: 3e-4
+lr: 1e-3
 max_grad_norm: 1.0
 use_clipped_value_loss: True
 schedule: "adaptive"

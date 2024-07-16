@@ -25,10 +25,11 @@ class Dense(nn.Module):
 class DenseBlock(nn.Module):
     def __init__(self, hidden_features, activation=None, using_norm=True):
         super().__init__()
-        self.activation = activation
+        
         self.dense1 = Dense(hidden_features, hidden_features, activation, using_norm)
         self.dense2 = Dense(hidden_features, hidden_features, using_norm=using_norm)
-
+        self.activation = activation
+        
     def forward(self, x):
         y = self.dense1(x)
         y = self.dense2(y)
@@ -73,37 +74,22 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(in_features, lstm_hidden_size, num_layers=num_lstm_layers, batch_first=True)
         
         # Create final layer to get desired size    
-        self.lin = Dense(lstm_hidden_size, dim_out, activation=nn.Tanh(), using_norm=False)
-        
-        # Initialize hidden state (h0) and cell state (c0)
-        # self.hx = None
-        # self.cx = None
+        self.dense1 = Dense(lstm_hidden_size, lstm_hidden_size , activation=nn.ELU(), using_norm=False)
+        self.dense2 = Dense(lstm_hidden_size, dim_out, activation=nn.Tanh(),using_norm=False)
 
-    def forward(self, x):
-        #batch_size = x.size(0)
-        
-        # Initialize hidden state (h0) and cell state (c0) if they are None
-        #if self.hx is None or self.cx is None or self.hx.size(1) != batch_size:
-        # self.h0 = torch.zeros(self.num_lstm_layers, batch_size, self.lstm_hidden_size).to(x.device)
-        # self.c0 = torch.zeros(self.num_lstm_layers, batch_size, self.lstm_hidden_size).to(x.device)
-        
+
+    def forward(self, x):  
         # Apply LSTM
         out, (hx, cx) = self.lstm(x)
-        
-        # # Update the stored hidden and cell states
-        # self.hx = hx.detach()
-        # self.cx = cx.detach()
         
         # Get the final hidden state of the LSTM module (from the last layer)
         out = hx[-1]
         
         # Projection
-        out = self.lin(out)
-        return out
+        out = self.dense1(out)
+        out = self.dense2(out)
 
-    def reset_hidden_state(self):
-        self.hx = None
-        self.cx = None
+        return out
 
 
 class Discriminator(nn.Module):

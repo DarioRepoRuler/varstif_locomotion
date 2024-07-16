@@ -21,22 +21,22 @@ class ActorCritic(nn.Module):
 
         self.encoder = LSTM(in_features=num_single_obs,                           
                             lstm_hidden_size=256,
-                            dim_out=60,
+                            dim_out=40,
                             num_lstm_layers=1,
                             )
         
-        self.decoder = MLP(in_features=60,
+        self.decoder = MLP(in_features=40,
                             hidden_features=124,
                             out_features=num_priv_obs,
                             n_layers=2,
                             act=nn.ELU(),
                             output_act=None,
                             using_norm=False)
-
-        self.actor = MLP(in_features=60,
+        
+        self.actor = MLP(in_features=40,
                          hidden_features=config.hidden_dim,
                          out_features=num_actions,
-                         n_layers=config.n_layers,
+                         n_layers=2,
                          act=nn.ELU(),
                          output_act=nn.Tanh(),
                          using_norm=False)
@@ -45,11 +45,16 @@ class ActorCritic(nn.Module):
         self.critic = MLP(in_features=num_priv_obs,
                           hidden_features=config.hidden_dim,
                           out_features=1,
-                          n_layers=config.n_layers,
+                          n_layers=4,
                           act=nn.ELU(),
                           output_act=None,
                           using_norm=False)
 
+        # print(f"Encoder: {self.encoder}")
+        # print(f"Decoder: {self.decoder}")
+        # print(f"Actor: {self.actor}")
+        # print(f"Critic: {self.critic}")
+        
         # Action distribution
         self.std_action = nn.Parameter(config.init_std * torch.ones(num_actions))
         self.distribution_action = None
