@@ -39,7 +39,10 @@ class PPO(nn.Module):
                                     num_robots=num_robots,
                                     device=self.device)
         self.transition = ReplayBuffer.Transition()
+
         params = list(self.actor_critic.actor.parameters()) + list(self.actor_critic.critic.parameters())
+        params.append(self.actor_critic.std_action)
+
         self.optimizer = optim.Adam(params, lr=self.cfg.lr)
         
         if self.use_encoder_decoder:
@@ -153,12 +156,12 @@ class PPO(nn.Module):
                 value_loss = torch.max(value_losses, value_losses_clipped).mean()
             else:
                 value_loss = (returns_batch - value_batch).pow(2).mean()
-            #print(f"Value loss dim: {(returns_batch - value_batch).pow(2).shape}")
-            # print(f"entropy batch dim: {entropy_batch.shape}")
+
             loss = actor_loss + self.cfg.value_loss_coef * value_loss - self.cfg.entropy_coef * entropy_batch.mean()
 
             # Gradient step
-            params = list(self.actor_critic.actor.parameters()) + list(self.actor_critic.critic.parameters())
+            params = list(self.actor_critic.actor.parameters())+list(self.actor_critic.critic.parameters())
+            params.append(self.actor_critic.std_action)
 
             self.optimizer.zero_grad()
             loss.backward()
