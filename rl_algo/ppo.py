@@ -22,6 +22,7 @@ class PPO(nn.Module):
         self.device = device
         self.episode_length = episode_length
         self.use_encoder_decoder = cfg.use_encoder_decoder
+
         # PPO compoments
         self.actor_critic = ActorCritic(self.cfg,
                                         num_single_obs=num_single_obs,
@@ -38,7 +39,12 @@ class PPO(nn.Module):
                                     num_robots=num_robots,
                                     device=self.device)
         self.transition = ReplayBuffer.Transition()
-        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.cfg.lr)
+        params = list(self.actor_critic.actor.parameters()) + list(self.actor_critic.critic.parameters())
+        self.optimizer = optim.Adam(params, lr=self.cfg.lr)
+        
+        if self.use_encoder_decoder:
+            params = list(self.actor_critic.encoder.parameters()) + list(self.actor_critic.decoder.parameters())
+            self.encode_decoder_optimizer = optim.Adam(params, lr=self.cfg.lr_encoder)
 
     def act(self, obs_g, priv_obs_g):
         # Compute the actions and values
@@ -101,8 +107,8 @@ class PPO(nn.Module):
             advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch in generator:
 
             if self.use_encoder_decoder:
-                #_, state_estimation_batch = self.actor_critic.act(obs_batch)
-                latent_batch, state_estimation_batch = self.actor_critic.get_states(obs_batch)
+                self.actor_critic.act(obs_batch)
+                #latent_batch, state_estimation_batch = self.actor_critic.get_states(obs_batch)
             else:
                 self.actor_critic.act(obs_batch)
                 state_estimation_batch = None
@@ -147,20 +153,35 @@ class PPO(nn.Module):
                 value_loss = torch.max(value_losses, value_losses_clipped).mean()
             else:
                 value_loss = (returns_batch - value_batch).pow(2).mean()
-
+            #print(f"Value loss dim: {(returns_batch - value_batch).pow(2).shape}")
+            # print(f"entropy batch dim: {entropy_batch.shape}")
             loss = actor_loss + self.cfg.value_loss_coef * value_loss - self.cfg.entropy_coef * entropy_batch.mean()
+
+            # Gradient step
+            params = list(self.actor_critic.actor.parameters()) + list(self.actor_critic.critic.parameters())
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(params, self.cfg.max_grad_norm)
+            self.optimizer.step()    
+
 
             # State estimation loss
             if self.use_encoder_decoder:
-                denoising_loss = (state_estimation_batch - priv_obs_batch).pow(2).mean() + torch.abs(latent_batch).mean()
-                loss = loss + denoising_loss
-                mean_denoising_loss += denoising_loss.item()
+                for epoch in range(self.cfg.num_epochs_encoder):
+                    latent_batch, state_estimation_batch = self.actor_critic.get_states(obs_batch)
+                    denoising_loss = self.cfg.denoise_loss_coef *(state_estimation_batch - priv_obs_batch).pow(2).sum(axis=1).mean() + self.cfg.latent_loss_coef * torch.abs(latent_batch).sum(axis=1).mean()
 
-            # Gradient step
-            self.optimizer.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.cfg.max_grad_norm)
-            self.optimizer.step()            
+                    params = list(self.actor_critic.encoder.parameters()) + list(self.actor_critic.decoder.parameters())
+
+                    self.encode_decoder_optimizer.zero_grad()
+                    denoising_loss.backward()
+                    nn.utils.clip_grad_norm_(params, self.cfg.max_grad_norm)
+                    self.encode_decoder_optimizer.step()
+
+                    #loss = loss + denoising_loss
+                    mean_denoising_loss += denoising_loss.item()
+                    
 
             mean_value_loss += value_loss.item()
             mean_actor_loss += actor_loss.item()

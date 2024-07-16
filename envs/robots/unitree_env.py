@@ -51,8 +51,8 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 42 # defined in _get_obs
-        self.priviledged_obs_size = 53 
+        self.single_obs_size = 47 # defined in _get_obs
+        self.priviledged_obs_size = 75 
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 
@@ -387,7 +387,7 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Action: {x}', x=action)
         action_noise = jax.random.uniform(action_rng, (12,), minval=-self._act_noise, maxval=self._act_noise)
         action = action.at[:].add(action_noise)
-        #jax.debug.print('Action with noise: {x}', x=action)
+
         data = self.pipeline_step(data0, action) #passed data is action as angle -> convert to torque in mjx
 
         # ----------------- Compute rewards --------------- #
@@ -520,30 +520,48 @@ class UnitreeEnv(MjxEnv):
         local_w = math.rotate(xd.ang[0], inv_torso_rot) # yaw rate at index 2
         
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
+        base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
+        reward = jp.array([sum(state_info['rewards'].values())])
+        foot_pos = data.site_xpos[self.feet_site_id]
+        #torques =  self.compute_torque(state_info['last_act'])
 
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
-            proj_gravity, # this can be measured, IMU
-            data.qpos[7:], # this can be measured
-            0.1 * data.qvel[6:], # this can be measured
-            state_info['last_act'], # this can be stored    
-            #jp.array([state_info['step']]), #added  
-            state_info['command']  # this can be stored
+            jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
+            state_info['command'],  # this can be stored   
+            data.qpos[7:],
+            data.qvel[6:],
+            base_ang_vel,
+            proj_gravity, 
+            state_info['last_act'], 
+
         ])
 
         priviledged_obs = jp.concatenate([
-            torso_z, # can not be measured
+            # Privileged
+            torso_z, 
             0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
-            proj_gravity, # this can be measured, IMU
-            data.qpos[7:], # this can be measured
-            0.1 * data.qvel[6:], # this can be measured
-            state_info['last_act'], # this can be stored    
+            xd.vel[0,:3].flatten(), # base linear velocity
+            jp.array([state_info['step']*self.dt]), # cycle time
+            reward,
+            foot_pos.flatten(),
+            #torques,
+
+
+            # Normal observations
+            jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
+            state_info['command'],  # this can be stored   
+            data.qpos[7:],
+            0.1* data.qvel[6:],
+            base_ang_vel,
+            proj_gravity, 
+            state_info['last_act'], 
             state_info['contact'], # not sure if this can be measured
-            #jp.array([state_info['step']]), #added  
-            state_info['command']  # this can be stored
+
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
+        assert priviledged_obs.shape[0] == self.priviledged_obs_size, f"priviledged_obs.shape {priviledged_obs.shape}"
         #jax.debug.print('observation: {x}', x=obs)
         obs_noise = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-self._obs_noise, maxval=self._obs_noise)
         #jax.debug.print('Observation noise shape: {x}', x=obs_noise.shape)

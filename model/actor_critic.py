@@ -101,7 +101,7 @@ class ActorCritic(nn.Module):
 
     def get_states(self, observations):
         latent=  self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs))
-        self.update_distribution(latent)
+        #self.update_distribution(latent)
         return latent, self.decoder(latent)
 
 
