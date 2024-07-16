@@ -6,7 +6,7 @@ class ReplayBuffer:
         def __init__(self):
             self.observations = None
             self.priv_obs = None # Privileged observations for the critic 
-            self.priv_estimations = None
+            #self.priv_estimations = None
             self.actions = None
             self.rewards = None
             self.dones = None
@@ -45,7 +45,7 @@ class ReplayBuffer:
 
         ## Advanced
         self.priv_obs = torch.zeros(num_transitions_per_env, num_envs, num_priv_obs, device=self.device) # Privileged observations for the critic
-        self.priv_estimations = torch.zeros(num_transitions_per_env, num_envs, num_priv_obs, device=self.device) # Estimations of the privileged observations
+        #self.priv_estimations = torch.zeros(num_transitions_per_env, num_envs, num_priv_obs, device=self.device) # Estimations of the privileged observations
         
         # For PPO
         self.actions_log_prob = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
@@ -63,7 +63,7 @@ class ReplayBuffer:
 
         self.observations[self.step].copy_(transition.observations)
         self.priv_obs[self.step].copy_(transition.priv_obs) ## Privileged observations for the critic
-        self.priv_estimations[self.step].copy_(transition.priv_estimations) ## estimations of the privileged observations
+        #self.priv_estimations[self.step].copy_(transition.priv_estimations) ## estimations of the privileged observations
         self.actions[self.step].copy_(transition.actions)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
         self.dones[self.step].copy_(transition.dones.view(-1, 1))
@@ -136,7 +136,7 @@ class ReplayBuffer:
         old_sigma = self.sigma[:self.step].flatten(0, 1)
 
         priv_obs_g = self.priv_obs[:self.step].flatten(0, 1)
-        priv_obs_estimations_g = self.priv_estimations[:self.step].flatten(0, 1)
+        #priv_obs_estimations_g = self.priv_estimations[:self.step].flatten(0, 1)
 
         for epoch in range(num_epochs):
             indices = torch.randperm(num_batches * batch_size, requires_grad=False, device=self.device)
@@ -147,7 +147,7 @@ class ReplayBuffer:
 
                 obs_batch = obs_g[batch_idx]
                 priv_obs_batch = priv_obs_g[batch_idx]
-                priv_obs_estimations_batch = priv_obs_estimations_g[batch_idx]
+                #priv_obs_estimations_batch = priv_obs_estimations_g[batch_idx]
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
                 returns_batch = returns[batch_idx]
@@ -155,5 +155,5 @@ class ReplayBuffer:
                 advantages_batch = advantages[batch_idx]
                 old_mu_batch = old_mu[batch_idx]
                 old_sigma_batch = old_sigma[batch_idx]
-                yield (obs_batch,priv_obs_batch, priv_obs_estimations_batch ,actions_batch, target_values_batch, advantages_batch,
+                yield (obs_batch,priv_obs_batch, actions_batch, target_values_batch, advantages_batch,
                        returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch)

@@ -17,35 +17,44 @@ class ActorCritic(nn.Module):
         self.num_single_obs = num_single_obs
         self.num_obs = num_obs
         self.num_priv_obs = num_priv_obs
-        
+        self.use_encoder_decoder = config.use_encoder_decoder
 
-        self.encoder = LSTM(in_features=num_single_obs,                           
-                            lstm_hidden_size=256,
-                            dim_out=40,
-                            num_lstm_layers=1,
-                            )
-        
-        self.decoder = MLP(in_features=40,
-                            hidden_features=124,
-                            out_features=num_priv_obs,
-                            n_layers=2,
+        if self.use_encoder_decoder:
+            self.encoder = LSTM(in_features=num_single_obs,                           
+                                lstm_hidden_size=config.encoding_arch.encoder.hidden_dim,
+                                dim_out=config.encoding_arch.latent_dim,
+                                num_lstm_layers=config.encoding_arch.encoder.n_layers,
+                                )
+            
+            self.decoder = MLP(in_features=config.encoding_arch.latent_dim,
+                                hidden_features=config.encoding_arch.decoder.hidden_dim,
+                                out_features=num_priv_obs,
+                                n_layers=config.encoding_arch.decoder.n_layers,
+                                act=nn.ELU(),
+                                output_act=None,
+                                using_norm=False)
+            
+            self.actor = MLP(in_features=config.encoding_arch.latent_dim,
+                            hidden_features=config.actor.hidden_dim,
+                            out_features=num_actions,
+                            n_layers=config.actor.n_layers,
                             act=nn.ELU(),
-                            output_act=None,
+                            output_act=nn.Tanh(),
                             using_norm=False)
         
-        self.actor = MLP(in_features=40,
-                         hidden_features=config.hidden_dim,
-                         out_features=num_actions,
-                         n_layers=2,
-                         act=nn.ELU(),
-                         output_act=nn.Tanh(),
-                         using_norm=False)
-        
+        else:
+            self.actor = MLP(in_features=num_obs,
+                          hidden_features=config.actor.hidden_dim,
+                          out_features=num_actions,
+                          n_layers=config.actor.n_layers,
+                          act=nn.ELU(),
+                          output_act=nn.Tanh(),
+                          using_norm=False)
 
         self.critic = MLP(in_features=num_priv_obs,
-                          hidden_features=config.hidden_dim,
+                          hidden_features=config.critic.hidden_dim,
                           out_features=1,
-                          n_layers=4,
+                          n_layers=config.critic.n_layers,
                           act=nn.ELU(),
                           output_act=None,
                           using_norm=False)
@@ -56,7 +65,7 @@ class ActorCritic(nn.Module):
         # print(f"Critic: {self.critic}")
         
         # Action distribution
-        self.std_action = nn.Parameter(config.init_std * torch.ones(num_actions))
+        self.std_action = nn.Parameter(config.actor.init_std * torch.ones(num_actions))
         self.distribution_action = None
         
         # disable args validation for speedup
@@ -74,18 +83,23 @@ class ActorCritic(nn.Module):
     def entropy(self):
         return self.distribution_action.entropy().sum(dim=-1)
 
-    def update_distribution(self, observations, priv_obs_g):
+    def update_distribution(self, observations):
         mean_action = self.actor(observations)
         self.distribution_action = Normal(mean_action, torch.abs(self.std_action))
         
 
-    def act(self, observations, priv_obs_g, **kwargs):
-        # encode
-        latent = self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs)) # batch_size, seq_len, num_single_obs
-        # actor
-        self.update_distribution(latent, priv_obs_g)
+    def act(self, observations,**kwargs):
+        if self.use_encoder_decoder:
+            # encode
+            latent = self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs)) # batch_size, seq_len, num_single_obs
+            # actor
+            self.update_distribution(latent)
+            return self.distribution_action.sample(), self.decoder(latent) # policy, state estimation
+        else:
+            self.update_distribution(observations)
+            return self.distribution_action.sample()
 
-        return self.distribution_action.sample(), self.decoder(latent) # policy, state estimation 
+         
 
     def get_actions_log_prob(self, actions):
         return self.distribution_action.log_prob(actions).sum(dim=-1)

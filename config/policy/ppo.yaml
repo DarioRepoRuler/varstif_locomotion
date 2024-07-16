@@ -1,7 +1,23 @@
-network:
+actor:
+  hidden_dim: 256
+  n_layers: 2
+  init_std: 1.0
+
+critic:
   hidden_dim: 256
   n_layers: 4
-  init_std: 1.0
+
+use_encoder_decoder: True
+
+encoding_arch:
+  latent_dim: 40
+  encoder:
+    hidden_dim: 256
+    n_layers: 1
+  decoder:
+    hidden_dim: 124
+    n_layers: 2
+
 
 num_epochs: 4 
 num_batches: 8

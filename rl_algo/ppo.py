@@ -21,9 +21,9 @@ class PPO(nn.Module):
         self.cfg = cfg
         self.device = device
         self.episode_length = episode_length
-
+        self.use_encoder_decoder = cfg.use_encoder_decoder
         # PPO compoments
-        self.actor_critic = ActorCritic(self.cfg.network,
+        self.actor_critic = ActorCritic(self.cfg,
                                         num_single_obs=num_single_obs,
                                         num_obs=num_env_obs,
                                         num_priv_obs=num_priv_obs,
@@ -42,9 +42,13 @@ class PPO(nn.Module):
 
     def act(self, obs_g, priv_obs_g):
         # Compute the actions and values
-        self.transition.actions, self.transition.priv_estimations = self.actor_critic.act(obs_g, priv_obs_g)
+        if self.use_encoder_decoder:
+            self.transition.actions, _ = self.actor_critic.act(obs_g)
+            #self.transition.priv_estimations = self.transition.priv_estimations.detach()
+
+        else:
+            self.transition.actions= self.actor_critic.act(obs_g)
         self.transition.actions = self.transition.actions.detach()
-        self.transition.priv_estimations = self.transition.priv_estimations.detach()
 
         #print(f"Actions shape: {self.transition.actions.shape}")
         self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach()
@@ -54,11 +58,12 @@ class PPO(nn.Module):
         return self.transition.actions
 
     def act_eval(self, obs_g, priv_obs_g):
-
-        self.transition.actions, self.transition.priv_estimations = self.actor_critic.act(obs_g, priv_obs_g)
+        if self.use_encoder_decoder:
+            self.transition.actions, _ = self.actor_critic.act(obs_g)
+            #self.transition.priv_estimations = self.transition.priv_estimations.detach()
+        else:
+            self.transition.actions= self.actor_critic.act(obs_g)
         self.transition.actions = self.transition.actions.detach()
-        self.transition.priv_estimations = self.transition.priv_estimations.detach()
-    
         self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach() # calls just the critic
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
@@ -92,11 +97,15 @@ class PPO(nn.Module):
         generator = self.storage.mini_batch_generator(num_batches=self.cfg.num_batches, num_epochs=self.cfg.num_epochs)
 
         num_update = 1
-        for obs_batch,priv_obs_batch, priv_obs_estimations_batch ,actions_batch, target_values_batch , \
+        for obs_batch, priv_obs_batch, actions_batch, target_values_batch , \
             advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch in generator:
 
-
-            _, state_estimation_batch = self.actor_critic.act(obs_batch, priv_obs_batch)
+            if self.use_encoder_decoder:
+                _, state_estimation_batch = self.actor_critic.act(obs_batch)
+            else:
+                self.actor_critic.act(obs_batch)
+                state_estimation_batch = None
+            
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
             value_batch = self.actor_critic.evaluate(priv_obs_batch)
         
@@ -138,10 +147,13 @@ class PPO(nn.Module):
             else:
                 value_loss = (returns_batch - value_batch).pow(2).mean()
 
+            loss = actor_loss + self.cfg.value_loss_coef * value_loss - self.cfg.entropy_coef * entropy_batch.mean()
+
             # State estimation loss
-            denoising_loss = (state_estimation_batch - priv_obs_batch).pow(2).mean()
-            
-            loss = actor_loss + self.cfg.value_loss_coef * value_loss - self.cfg.entropy_coef * entropy_batch.mean() + denoising_loss
+            if self.use_encoder_decoder:
+                denoising_loss = (state_estimation_batch - priv_obs_batch).pow(2).mean()
+                loss = loss + denoising_loss
+                mean_denoising_loss += denoising_loss.item()
 
             # Gradient step
             self.optimizer.zero_grad()
@@ -152,8 +164,6 @@ class PPO(nn.Module):
             mean_value_loss += value_loss.item()
             mean_actor_loss += actor_loss.item()
             
-            mean_denoising_loss += denoising_loss.item()
-
             num_update += 1
 
         mean_value_loss /= num_update
