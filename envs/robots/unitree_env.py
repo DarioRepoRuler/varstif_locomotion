@@ -51,8 +51,8 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 47 # defined in _get_obs
-        self.priviledged_obs_size = 75 
+        self.single_obs_size = 52 # defined in _get_obs
+        self.priviledged_obs_size = 53+12 
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 
@@ -334,6 +334,7 @@ class UnitreeEnv(MjxEnv):
         """
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
+        action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
@@ -496,6 +497,23 @@ class UnitreeEnv(MjxEnv):
         
         return state
 
+    def _get_jacobian(self, data, qpos):
+        d = smooth.kinematics(self.sys, data.replace(qpos=qpos))
+        d = smooth.com_pos(self.sys, d)
+        foot_pos = d.xpos[self.foot_body_id]
+        jacp_FR, jacr_FR = jac(self.sys, d, foot_pos[0], self.foot_body_id[0])
+        jacp_FL, jacr_FL = jac(self.sys, d, foot_pos[1], self.foot_body_id[1])
+        jacp_RR, jacr_RR = jac(self.sys, d, foot_pos[2], self.foot_body_id[2])
+        jacp_RL, jacr_RL = jac(self.sys, d, foot_pos[3], self.foot_body_id[3])
+
+        J_FR = jacp_FR
+        J_FL = jacp_FL
+        J_RR = jacp_RR
+        J_RL = jacp_RL
+
+        J = jp.concatenate([J_FR.T, J_FL.T, J_RR.T, J_RL.T], axis=0)
+        return J
+
     def _get_obs(self,
                   data: mjx.Data,
                   state_info: dict[str, Any],
@@ -523,41 +541,49 @@ class UnitreeEnv(MjxEnv):
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         reward = jp.array([sum(state_info['rewards'].values())])
         foot_pos = data.site_xpos[self.feet_site_id]
-        #torques =  self.compute_torque(state_info['last_act'])
+
+        J = self._get_jacobian(data, data.qpos)
+        # Local foot position
+        foot_indices = self.foot_body_id - 1
+        foot_transform = x.take(foot_indices)
+        foot_transform_local = foot_transform.vmap().to_local(x.take(jp.array([0, 0, 0, 0])))
+        foot_pos_local = foot_transform_local.pos.reshape(-1)
+        foot_vel_local = J @ data.qvel
 
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
-            jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
+            #jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
             state_info['command'],  # this can be stored   
             data.qpos[7:],
-            data.qvel[6:],
-            base_ang_vel,
+            0.1 * data.qvel[6:],
+            0.1 * jp.concatenate([local_v, local_w]),
             proj_gravity, 
             state_info['last_act'], 
-
+            state_info['contact'],
         ])
 
         priviledged_obs = jp.concatenate([
             # Privileged
             torso_z, 
-            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
-            xd.vel[0,:3].flatten(), # base linear velocity
-            jp.array([state_info['step']*self.dt]), # cycle time
-            reward,
-            foot_pos.flatten(),
+            foot_pos_local,
+            #foot_vel_local,
+            #0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
+            #0.1*xd.vel[0,:3].flatten(), # base linear velocity
+            #jp.array([state_info['step']*self.dt]), # cycle time
+            #reward,
+            #foot_pos.flatten(),
             #torques,
 
 
             # Normal observations
-            jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
+            #jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
             state_info['command'],  # this can be stored   
             data.qpos[7:],
             0.1* data.qvel[6:],
-            base_ang_vel,
+            0.1 * jp.concatenate([local_v, local_w]),
             proj_gravity, 
             state_info['last_act'], 
-            state_info['contact'], # not sure if this can be measured
-
+            state_info['contact'], 
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"

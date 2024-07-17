@@ -40,6 +40,9 @@ class PPO(nn.Module):
                                     device=self.device)
         self.transition = ReplayBuffer.Transition()
 
+        # print(f"Actor Critic len params: {len(list(self.actor_critic.parameters()))} ")
+        # print(f"Actor len params: {len(list(self.actor_critic.actor.parameters()))} ")
+        # print(f"Critic len params: {len(list(self.actor_critic.critic.parameters()))} ")
         params = list(self.actor_critic.actor.parameters()) + list(self.actor_critic.critic.parameters())
         params.append(self.actor_critic.std_action)
 
@@ -54,9 +57,8 @@ class PPO(nn.Module):
         if self.use_encoder_decoder:
             self.transition.actions, _ = self.actor_critic.act(obs_g)
             #self.transition.priv_estimations = self.transition.priv_estimations.detach()
-
         else:
-            self.transition.actions= self.actor_critic.act(obs_g)
+            self.transition.actions = self.actor_critic.act(obs_g)
         self.transition.actions = self.transition.actions.detach()
 
         #print(f"Actions shape: {self.transition.actions.shape}")
@@ -69,7 +71,6 @@ class PPO(nn.Module):
     def act_eval(self, obs_g, priv_obs_g):
         if self.use_encoder_decoder:
             self.transition.actions, _ = self.actor_critic.act(obs_g)
-            #self.transition.priv_estimations = self.transition.priv_estimations.detach()
         else:
             self.transition.actions= self.actor_critic.act(obs_g)
         self.transition.actions = self.transition.actions.detach()

@@ -1,13 +1,13 @@
 actor:
   hidden_dim: 256
-  n_layers: 2
+  n_layers: 6
   init_std: 1.0
 
 critic:
   hidden_dim: 256
-  n_layers: 4
+  n_layers: 6
 
-use_encoder_decoder: True
+use_encoder_decoder: False
 
 encoding_arch:
   latent_dim: 40
@@ -17,7 +17,7 @@ encoding_arch:
   decoder:
     hidden_dim: 124
     n_layers: 2
-
+lr_encoder: 1e-3
 
 num_epochs: 4 
 num_epochs_encoder: 4
@@ -26,12 +26,10 @@ clip_param: 0.2
 gamma: 0.99
 lamb: 0.95
 value_loss_coef: 1.0
-entropy_coef: 0.01
+entropy_coef: 0.00
 denoise_loss_coef: 1.0
 latent_loss_coef: 0.02
 lr: 1e-4
-lr_encoder: 1e-3
-
 max_grad_norm: 1.0
 use_clipped_value_loss: True
 schedule: "adaptive"
