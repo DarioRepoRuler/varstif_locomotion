@@ -52,7 +52,7 @@ class UnitreeEnv(MjxEnv):
 
         self.soft_limits = soft_limits
         self.single_obs_size = 52 # defined in _get_obs
-        self.priviledged_obs_size = 53+12 
+        self.priviledged_obs_size = self.single_obs_size
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 
@@ -334,11 +334,11 @@ class UnitreeEnv(MjxEnv):
         """
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
-        action = jp.clip(action, a_min=-1.0, a_max=1.0)
+        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
-                                     a_min=self.lower_limits, a_max=self.upper_limits)
+                                    a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             torques = self.p_gains * err - self.d_gains * dof_vel
             torques = jp.clip(torques, a_min=-self.torque_limits, a_max=self.torque_limits)
@@ -390,6 +390,8 @@ class UnitreeEnv(MjxEnv):
         action = action.at[:].add(action_noise)
 
         data = self.pipeline_step(data0, action) #passed data is action as angle -> convert to torque in mjx
+        #ctrl = self.compute_torque(action) 
+        #data = self.pipeline_step2(data0, ctrl)
 
         # ----------------- Compute rewards --------------- #
         x, xd = self._pos_vel(data)
@@ -558,14 +560,15 @@ class UnitreeEnv(MjxEnv):
             0.1 * data.qvel[6:],
             0.1 * jp.concatenate([local_v, local_w]),
             proj_gravity, 
+            #foot_pos_local,
             state_info['last_act'], 
             state_info['contact'],
         ])
 
         priviledged_obs = jp.concatenate([
             # Privileged
-            torso_z, 
-            foot_pos_local,
+            #torso_z, 
+            
             #foot_vel_local,
             #0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
             #0.1*xd.vel[0,:3].flatten(), # base linear velocity
@@ -577,13 +580,7 @@ class UnitreeEnv(MjxEnv):
 
             # Normal observations
             #jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
-            state_info['command'],  # this can be stored   
-            data.qpos[7:],
-            0.1* data.qvel[6:],
-            0.1 * jp.concatenate([local_v, local_w]),
-            proj_gravity, 
-            state_info['last_act'], 
-            state_info['contact'], 
+            obs 
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
