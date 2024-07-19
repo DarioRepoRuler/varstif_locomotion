@@ -51,7 +51,7 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 92 # defined in _get_obs
+        self.single_obs_size = 89 # defined in _get_obs
         self.priviledged_obs_size = self.single_obs_size
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
@@ -532,10 +532,10 @@ class UnitreeEnv(MjxEnv):
             obs_history: jax.Array
         """
         x, xd = self._pos_vel(data)
-        # Inverse torso quaternion
-        inv_torso_rot = math.quat_inv(x.rot[0])
+        inv_torso_rot = math.quat_inv(x.rot[0]) #calculates the inverse of a quaternion
         torso_z = data.qpos[2:3]
 
+        # Calculating the local measurable velocities
         local_v = math.rotate(xd.vel[0], inv_torso_rot)
         local_w = math.rotate(xd.ang[0], inv_torso_rot) # yaw rate at index 2
         
@@ -561,12 +561,13 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Joint error: {x}', x=err)
 
         # Orientation quaternion
-        orientation = data.qpos[3:7]
+        quaternion = data.qpos[3:7] # reduced by yaw rate
+        rpy = math.quat_to_euler(quaternion)
 
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             #torso_z,
-            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
+            0.1 * jp.concatenate([local_v, local_w[:-1]]),  # yaw rate at index 6
             proj_gravity,
             data.qpos[7:],
             0.1 * data.qvel[6:],
@@ -577,7 +578,7 @@ class UnitreeEnv(MjxEnv):
             foot_pos_local,
             foot_vel_local,
             err,
-            orientation, # quaternion
+            rpy[:-1], # quaternion, leaving yaw out
         ])
 
         priviledged_obs = jp.concatenate([

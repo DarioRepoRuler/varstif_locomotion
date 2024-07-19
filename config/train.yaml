@@ -23,13 +23,13 @@ log: True
 ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 10 
+num_envs: 1000 
 episode_length: 100
 num_learning_iterations: 3001
-device: 'cuda:0'
+device: 'cuda:1'
 randomisation: False
 curriculum: False
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2
