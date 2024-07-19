@@ -78,6 +78,18 @@ class MjxEnv(Env):
         data, _ = jax.lax.scan(f, data, (), self._physics_steps_per_control_step)
         
         return data
+    
+    def pipeline_step2(self, data: mjx.Data, ctrl: jp.ndarray) -> mjx.Data:
+        """Takes a physics step using the physics pipeline."""
+        def f(data, _):
+            data = data.replace(ctrl=ctrl)
+            return (
+                mjx.step(self.sys, data),
+                None,
+            )
+        data, _ = jax.lax.scan(f, data, (), self._physics_steps_per_control_step)
+        
+        return data
 
     @abc.abstractmethod
     def compute_torque(self, data: mjx.Data, action: jp.ndarray):
