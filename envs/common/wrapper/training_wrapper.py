@@ -5,7 +5,7 @@ from brax.envs.base import Wrapper
 import jax
 from jax import numpy as jp
 from mujoco import mjx
-
+import mujoco
 
 def wrap(
         env: MjxEnv,
@@ -126,15 +126,23 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
     def rand(rng):
         _, key = jax.random.split(rng, 2)
         # friction
-        friction = jax.random.uniform(key, (1,), minval=-0.5, maxval=0.5)
-        friction = sys.geom_friction.at[:, 0].add(friction)
-        # gravity
-        gravity = jax.random.uniform(key, (3,), minval=-0.2, maxval=0.2)
-        #gravity = sys.opt.gravity.at[:].add(jp.array([0.,0.,-10]))
-        gravity = sys.opt.gravity.at[:].add(gravity)
+        friction = jax.random.uniform(key,(3,), minval=0.4, maxval=1.0)
+        friction = sys.geom_friction.at[0, :].set(friction)
+
+        # gravity - in all directions
+        #gravity = jax.random.uniform(key, (3,), minval=-1.0, maxval=1.0)
+        #gravity = sys.opt.gravity.at[:].add(gravity)
+        
+        # gravity - in z direction
+        gravity = jax.random.uniform(key, minval=-1.0, maxval=1.0)
+        gravity = sys.opt.gravity.at[2].add(gravity)
+        
+        
         # masses
-        masses = jax.random.uniform(key, (sys.body_mass.shape[0],), minval=-0.01, maxval=0.01)
+        masses = jax.random.uniform(key, (sys.body_mass.shape[0],), minval=-0.1, maxval=0.1)
         masses = sys.body_mass.at[:].add(masses)
+        payload = jax.random.uniform(key, minval=-1.0, maxval=3.0)
+        masses = masses.at[1].add(payload)
 
         # actuator_ NOT USED!
         _, key = jax.random.split(key, 2)
@@ -146,8 +154,12 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
         bias = sys.actuator_biasprm.at[:, 1].set(-param)
         return friction, gain, bias, gravity, masses
     friction, gain, bias, gravity, masses = jax.vmap(rand)(rng)
+    #print(f"Default friction: {sys.geom_friction}")
+    #print(f"Default gravity: {sys.opt.gravity}")
     #print(f"Randomized friction: {friction.shape}")
-    #print(f"Randomized gain: {gain.shape}")
+    #torso_idx =mjx.mj_name2id(sys, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
+     
+    #print(f"Default masses: {sys.body_mass}")
 
     in_axes = jax.tree_util.tree_map(lambda x: None, sys)
     in_axes = in_axes.tree_replace({
@@ -165,7 +177,9 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
         #'actuator_gainprm': gain,
         # 'actuator_biasprm': bias,
     })
-
+    #print(f"Randomized gravity: {sys.opt.gravity}")
+    #print(f"Randomized friction: {sys.geom_friction}")
+    #print(f"Randomized masses: {sys.body_mass}")
     return sys, in_axes
   
 
