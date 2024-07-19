@@ -51,8 +51,8 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 52 # defined in _get_obs
-        self.priviledged_obs_size = 53+12 
+        self.single_obs_size = 92 # defined in _get_obs
+        self.priviledged_obs_size = self.single_obs_size
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 
@@ -550,40 +550,37 @@ class UnitreeEnv(MjxEnv):
         foot_pos_local = foot_transform_local.pos.reshape(-1)
         foot_vel_local = J @ data.qvel
 
+        #jax.debug.print('Foot pos local: {x}', x=foot_pos_local)
+
+        # Joint error
+        target_dof_pos = jp.clip(self.action_scale * state_info['last_act']  + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
+        err = target_dof_pos - data.qpos[7:]
+
+        #jax.debug.print('Joint error: {x}', x=err)
+
+        # Orientation quaternion
+        orientation = data.qpos[3:7]
+
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
-            #jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
-            state_info['command'],  # this can be stored   
+            #torso_z,
+            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
+            proj_gravity,
             data.qpos[7:],
             0.1 * data.qvel[6:],
-            0.1 * jp.concatenate([local_v, local_w]),
-            proj_gravity, 
             state_info['last_act'], 
-            state_info['contact'],
+            state_info['contact'], #added
+            #jp.array([state_info['step']]), #added  
+            state_info['command'],
+            foot_pos_local,
+            foot_vel_local,
+            err,
+            orientation, # quaternion
         ])
 
         priviledged_obs = jp.concatenate([
             # Privileged
-            torso_z, 
-            foot_pos_local,
-            #foot_vel_local,
-            #0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
-            #0.1*xd.vel[0,:3].flatten(), # base linear velocity
-            #jp.array([state_info['step']*self.dt]), # cycle time
-            #reward,
-            #foot_pos.flatten(),
-            #torques,
-
-
-            # Normal observations
-            #jp.array([jp.sin(state_info['step']*self.dt), jp.cos(state_info['step']*self.dt)]),
-            state_info['command'],  # this can be stored   
-            data.qpos[7:],
-            0.1* data.qvel[6:],
-            0.1 * jp.concatenate([local_v, local_w]),
-            proj_gravity, 
-            state_info['last_act'], 
-            state_info['contact'], 
+            obs
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
