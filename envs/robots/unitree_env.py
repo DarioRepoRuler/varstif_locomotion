@@ -51,7 +51,7 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 89 # defined in _get_obs
+        self.single_obs_size = 90 # defined in _get_obs
         self.priviledged_obs_size = self.single_obs_size
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
@@ -567,7 +567,7 @@ class UnitreeEnv(MjxEnv):
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             #torso_z,
-            0.1 * jp.concatenate([local_v, local_w[:-1]]),  # yaw rate at index 6
+            0.1 * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
             proj_gravity,
             data.qpos[7:],
             0.1 * data.qvel[6:],
@@ -588,10 +588,25 @@ class UnitreeEnv(MjxEnv):
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
         assert priviledged_obs.shape[0] == self.priviledged_obs_size, f"priviledged_obs.shape {priviledged_obs.shape}"
-        #jax.debug.print('observation: {x}', x=obs)
-        obs_noise = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-self._obs_noise, maxval=self._obs_noise)
-        #jax.debug.print('Observation noise shape: {x}', x=obs_noise.shape)
-        obs = obs.at[:].add(obs_noise)
+
+        # Add noise to the observation
+        local_v_noise = jax.random.uniform(obs_rng, (3,), minval=-0.01, maxval=0.01)
+        local_w_noise = jax.random.uniform(obs_rng, (3,), minval=-0.2, maxval=0.2)
+        joint_noise = jax.random.uniform(obs_rng, (12,), minval=-0.01, maxval=0.01)
+        joint_vel_noise = jax.random.uniform(obs_rng, (12,), minval=-1.5, maxval=1.5)
+        gravity_noise = jax.random.uniform(obs_rng, (3,), minval=-0.05, maxval=0.05)
+
+
+        # obs = obs.at[:3].add(0.1*local_v_noise)
+        # obs = obs.at[3:6].add(0.1*local_w_noise)
+        # obs = obs.at[6:9].add(gravity_noise)
+        # obs = obs.at[9:21].add(joint_noise)
+        # obs = obs.at[21:33].add(0.1*joint_vel_noise)
+
+        #jax.debug.print('Observation with noise: {x}', x=obs)
+
+        #obs_noise = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-self._obs_noise, maxval=self._obs_noise)
+        #obs = obs.at[:].add(obs_noise)
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
 
