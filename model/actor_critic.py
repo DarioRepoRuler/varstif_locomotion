@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from model.networks import MLP, LSTM
+from model.networks import *
 from torch.distributions import Normal
 
 
@@ -18,9 +18,11 @@ class ActorCritic(nn.Module):
         self.num_obs = num_obs
         self.num_priv_obs = num_priv_obs
         self.use_encoder_decoder = config.use_encoder_decoder
-
+        self.use_lstm = config.actor.use_lstm
+        #print(f" Hidden dim: {config.actor.hidden_dim}")
+        #print(f" Layers dim: {len(config.actor.hidden_dim)}")
         if self.use_encoder_decoder:
-            self.encoder = LSTM(in_features=num_single_obs,                           
+            self.encoder = LSTM_encoder(in_features=num_single_obs,                           
                                 lstm_hidden_size=config.encoding_arch.encoder.hidden_dim,
                                 dim_out=config.encoding_arch.latent_dim,
                                 num_lstm_layers=config.encoding_arch.encoder.n_layers,
@@ -43,13 +45,22 @@ class ActorCritic(nn.Module):
                             using_norm=False)
         
         else:
-            self.actor = MLP(in_features=num_obs,
-                          hidden_features=config.actor.hidden_dim,
-                          out_features=num_actions,
-                          n_layers=config.actor.n_layers,
-                          act=nn.ELU(),
-                          output_act=nn.Tanh(),
-                          using_norm=False)
+            if config.actor.use_lstm:
+                self.actor = LSTM_actor(in_features=num_single_obs,
+                                        hidden_features=config.actor.hidden_dim,
+                                        out_features=num_actions,
+                                        n_layers=config.actor.n_layers,
+                                        act=nn.ELU(),
+                                        output_act=nn.Tanh(),
+                                        using_norm=False)
+            else:
+                self.actor = MLP(in_features=num_obs,
+                            hidden_features=config.actor.hidden_dim,
+                            out_features=num_actions,
+                            n_layers=config.actor.n_layers,
+                            act=nn.ELU(),
+                            output_act=nn.Tanh(),
+                            using_norm=False)
 
         self.critic = MLP(in_features=num_priv_obs,
                           hidden_features=config.critic.hidden_dim,
@@ -61,8 +72,8 @@ class ActorCritic(nn.Module):
 
         # print(f"Encoder: {self.encoder}")
         # print(f"Decoder: {self.decoder}")
-        # print(f"Actor: {self.actor}")
-        # print(f"Critic: {self.critic}")
+        print(f"Actor: {self.actor}")
+        print(f"Critic: {self.critic}")
         
         # Action distribution
         self.std_action = nn.Parameter(config.actor.init_std * torch.ones(num_actions))
@@ -95,6 +106,9 @@ class ActorCritic(nn.Module):
             # actor
             self.update_distribution(latent)
             return self.distribution_action.sample(), self.decoder(latent) # policy, state estimation
+        elif self.use_lstm:
+            self.update_distribution(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs))
+            return self.distribution_action.sample()
         else:
             self.update_distribution(observations)
             return self.distribution_action.sample()

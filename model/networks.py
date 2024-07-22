@@ -65,9 +65,9 @@ class MLP(nn.Module):
 
         return x
 
-class LSTM(nn.Module):
+class LSTM_encoder(nn.Module):
     def __init__(self, in_features, lstm_hidden_size, dim_out, num_lstm_layers=1):
-        super(LSTM, self).__init__()
+        super(LSTM_encoder, self).__init__()
         self.num_lstm_layers = num_lstm_layers
         self.lstm_hidden_size = lstm_hidden_size
         
@@ -89,6 +89,39 @@ class LSTM(nn.Module):
         out = self.dense1(out)
         out = self.dense2(out)
 
+        return out
+    
+class LSTM_actor(nn.Module):
+    def __init__(self, in_features, 
+                 hidden_features, 
+                 out_features, 
+                 n_layers,
+                 act=nn.LeakyReLU(0.2),
+                 output_act=None,
+                 using_norm=True):
+        super(LSTM_actor, self).__init__()
+
+        self.lstm = nn.LSTM(in_features, hidden_features, num_layers=1, batch_first=True)
+        n_blocks = (n_layers - 1) // 2
+        #input_layer = Dense(hidden_features, hidden_features, act, using_norm)
+        layers = []
+        for i in range(n_blocks):
+            layers.append(DenseBlock(hidden_features, act, using_norm))
+        output_layer = Dense(hidden_features, out_features, output_act, using_norm)
+        layers.append(output_layer)
+        self.model = nn.Sequential(*layers)
+
+
+    def forward(self, x):  
+        # Apply LSTM
+        out, (hx, cx) = self.lstm(x)
+        
+        # Get the final hidden state of the LSTM module (from the last layer)
+        out = hx[-1]
+        
+        # # Projection
+        out = self.model(out)
+    
         return out
 
 
