@@ -23,11 +23,11 @@ log: True
 ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 10 
+num_envs: 4096 
 episode_length: 100
 num_learning_iterations: 4001
 device: 'cuda:0'
-randomisation: False
+randomisation: True
 curriculum: False
 viz: False
 

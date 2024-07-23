@@ -518,7 +518,7 @@ class UnitreeEnv(MjxEnv):
 
     def _get_obs(self,
                   data: mjx.Data,
-                  state_info: dict[str, Any],
+                  state_info: Dict[str, Any],
                   obs_history: jax.Array,
                   obs_rng: jp.ndarray ,
                  ) -> jp.ndarray:
@@ -597,11 +597,11 @@ class UnitreeEnv(MjxEnv):
         gravity_noise = jax.random.uniform(obs_rng, (3,), minval=-0.05, maxval=0.05)
 
 
-        # obs = obs.at[:3].add(0.1*local_v_noise)
-        # obs = obs.at[3:6].add(0.1*local_w_noise)
-        # obs = obs.at[6:9].add(gravity_noise)
-        # obs = obs.at[9:21].add(joint_noise)
-        # obs = obs.at[21:33].add(0.1*joint_vel_noise)
+        obs = obs.at[:3].add(0.1*local_v_noise)
+        obs = obs.at[3:6].add(0.1*local_w_noise)
+        obs = obs.at[6:9].add(gravity_noise)
+        obs = obs.at[9:21].add(joint_noise)
+        obs = obs.at[21:33].add(0.1*joint_vel_noise)
 
         #jax.debug.print('Observation with noise: {x}', x=obs)
 

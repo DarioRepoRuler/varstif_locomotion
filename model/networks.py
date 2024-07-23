@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+from torch.autograd import Variable 
 
 class Dense(nn.Module):
     def __init__(self, in_features, out_features, activation=None, using_norm=True):
@@ -99,12 +100,16 @@ class LSTM_actor(nn.Module):
                  act=nn.LeakyReLU(0.2),
                  output_act=None,
                  using_norm=True):
+        
         super(LSTM_actor, self).__init__()
-
+        self.hidden_features = hidden_features
         self.lstm = nn.LSTM(in_features, hidden_features, num_layers=1, batch_first=True)
+
+        self.num_layers = n_layers
         n_blocks = (n_layers - 1) // 2
-        #input_layer = Dense(hidden_features, hidden_features, act, using_norm)
-        layers = []
+        input_layer = Dense(hidden_features, hidden_features, act, using_norm)
+        
+        layers = [input_layer]
         for i in range(n_blocks):
             layers.append(DenseBlock(hidden_features, act, using_norm))
         output_layer = Dense(hidden_features, out_features, output_act, using_norm)
@@ -112,9 +117,12 @@ class LSTM_actor(nn.Module):
         self.model = nn.Sequential(*layers)
 
 
-    def forward(self, x):  
+    def forward(self, x):
+        h_0 = Variable(torch.zeros(1, x.size(0), self.hidden_features).to(x.device))
+        c_0 = Variable(torch.zeros(1, x.size(0), self.hidden_features).to(x.device))
+        
         # Apply LSTM
-        out, (hx, cx) = self.lstm(x)
+        out, (hx, cx) = self.lstm(x, (h_0, c_0))
         
         # Get the final hidden state of the LSTM module (from the last layer)
         out = hx[-1]

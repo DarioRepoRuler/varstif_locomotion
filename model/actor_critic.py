@@ -72,8 +72,8 @@ class ActorCritic(nn.Module):
 
         # print(f"Encoder: {self.encoder}")
         # print(f"Decoder: {self.decoder}")
-        print(f"Actor: {self.actor}")
-        print(f"Critic: {self.critic}")
+        #print(f"Actor: {self.actor}")
+        #print(f"Critic: {self.critic}")
         
         # Action distribution
         self.std_action = nn.Parameter(config.actor.init_std * torch.ones(num_actions))
