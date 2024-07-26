@@ -8,7 +8,7 @@ env:
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   obs_noise: 0.0
   act_noise: 0.0
-  num_history: 10 # number of previous observations to stack
+  num_history: 1 # number of previous observations to stack
   kick_vel: 0.15
   push_interval: 50
   is_training: True
@@ -19,15 +19,17 @@ env:
 
 
 log: True
-#ckpt_path: '/home/dario/Documents/TALocoMotion/best_models/model_1950.pt'
+
+#ckpt_path: 'outputs/2024-07-22/09-38-47/checkpoints/model_3000.pt'
 ckpt_path: null
+
 log_dir: "Documents/TALocoMotion/outputs/"
 
-num_envs: 4096 
+num_envs: 2000 
 episode_length: 100
-num_learning_iterations: 4001
+num_learning_iterations: 2001
 device: 'cuda:0'
-randomisation: True
+randomisation: False
 curriculum: False
 viz: False
 

@@ -54,15 +54,15 @@ class ActorCritic(nn.Module):
                                         output_act=nn.Tanh(),
                                         using_norm=False)
             else:
-                self.actor = MLP(in_features=num_obs,
+                self.actor = MLP_new(in_features=num_obs,
                             hidden_features=config.actor.hidden_dim,
                             out_features=num_actions,
                             n_layers=config.actor.n_layers,
                             act=nn.ELU(),
-                            output_act=nn.Tanh(),
+                            output_act=None,
                             using_norm=False)
 
-        self.critic = MLP(in_features=num_priv_obs,
+        self.critic = MLP_new(in_features=num_priv_obs,
                           hidden_features=config.critic.hidden_dim,
                           out_features=1,
                           n_layers=config.critic.n_layers,
@@ -72,8 +72,8 @@ class ActorCritic(nn.Module):
 
         # print(f"Encoder: {self.encoder}")
         # print(f"Decoder: {self.decoder}")
-        #print(f"Actor: {self.actor}")
-        #print(f"Critic: {self.critic}")
+        print(f"Actor: {self.actor}")
+        print(f"Critic: {self.critic}")
         
         # Action distribution
         self.std_action = nn.Parameter(config.actor.init_std * torch.ones(num_actions))
