@@ -115,7 +115,11 @@ class LSTM_encoder(nn.Module):
         out = self.dense2(out)
 
         return out
-    
+
+# Implementation after:
+# https://medium.com/@hkabhi916/understanding-lstm-for-sequence-classification-a-practical-guide-with-pytorch-ac40e84ad3d5
+# https://machinelearningmastery.com/lstm-for-time-series-prediction-in-pytorch/
+# https://wandb.ai/sauravmaheshkar/LSTM-PyTorch/reports/Using-LSTM-in-PyTorch-A-Tutorial-With-Examples--VmlldzoxMDA2NTA5  
 class LSTM_actor(nn.Module):
     def __init__(self, in_features, 
                  hidden_features, 
@@ -147,12 +151,15 @@ class LSTM_actor(nn.Module):
         
         # Apply LSTM
         out, (hx, cx) = self.lstm(x, (h_0, c_0))
+        # print(f"Input shape: {x.shape}")
+        # print(f"Output shape: {out.shape}")
+        # print(f"hx shape: {hx.shape}")
         
         # Get the final hidden state of the LSTM module (from the last layer)
-        out = hx[-1]
+        #out = hx[-1]
         
         # # Projection
-        out = self.model(out)
+        out = self.model(out[:,-1,:])
     
         return out
 

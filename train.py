@@ -7,7 +7,7 @@ from pathlib import Path
 from envs.robots.go2_env import GO2Env
 from envs.common.wrapper.torch_wrapper import TorchWrapper
 from envs.common.wrapper.render_wrapper import RenderWrapper
-from envs.common.wrapper.training_wrapper import VmapWrapper, AutoResetWrapper, wrap, domain_randomize
+from envs.common.wrapper.training_wrapper import wrap, domain_randomize
 from tasks.PPOTaskBase import PPOTaskBase
 
 from omegaconf import OmegaConf
@@ -52,6 +52,7 @@ def train(cfg: DictConfig):
     """
     # Create the environment    
     env = _create_env(GO2Env(cfg.env, scene_xml=cfg.scene_xml), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz, randomisation=cfg.randomisation)
+
 
     # Set up logging using wandb
     log = cfg.log

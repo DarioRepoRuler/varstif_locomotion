@@ -26,13 +26,13 @@ lr_encoder: 1e-3
 
 num_epochs: 4 
 num_epochs_encoder: 4
-num_batches: 8
+num_batches: 4
 clip_param: 0.2
 gamma: 0.99
 lamb: 0.95
 value_loss_coef: 1.0
 entropy_coef: 0.01
-lr: 1e-4
+lr: 1e-3
 max_grad_norm: 1.0
 use_clipped_value_loss: True
 schedule: "adaptive"
