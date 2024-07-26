@@ -77,7 +77,7 @@ class PPOTaskBase(nn.Module):
             #print(f"Initial priviledged position: {priviledged_obs_g}")
             pos_x = torch.zeros(self.cfg.episode_length, device=self.device, dtype=torch.float32)
             
-            for i in range(self.cfg.episode_length):
+            for i in range(self.cfg.timesteps_per_rollout):
                 next_obs_g, next_priv_obs_g, dones, info = self.step(obs_g, priviledged_obs_g, is_training)
                 #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
