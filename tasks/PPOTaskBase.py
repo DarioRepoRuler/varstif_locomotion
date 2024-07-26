@@ -38,6 +38,7 @@ class PPOTaskBase(nn.Module):
 
         self.current_learning_iteration = 0
         self.level = 0
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control)
 
     def step(self, obs_g, priviledged_obs_g, is_training=True):
         """
@@ -72,13 +73,13 @@ class PPOTaskBase(nn.Module):
 
         with torch.inference_mode(): # No gradadient computation in torch domain
             #print(f"Set initial position to: {self.initial_xy}")
-            obs_g, priviledged_obs_g = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control)
+            
             #print(f"Initial position: {obs_g}")
             #print(f"Initial priviledged position: {priviledged_obs_g}")
             pos_x = torch.zeros(self.cfg.episode_length, device=self.device, dtype=torch.float32)
             
             for i in range(self.cfg.timesteps_per_rollout):
-                next_obs_g, next_priv_obs_g, dones, info = self.step(obs_g, priviledged_obs_g, is_training)
+                next_obs_g, next_priv_obs_g, dones, info = self.step(self.obs, self.obs_priv, is_training)
                 #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
                 pos_x[i] = info['last_qpos'][0,0]
@@ -95,8 +96,8 @@ class PPOTaskBase(nn.Module):
                     eval_infos['cmd'][i] = info['command']
 
                 # update observation
-                obs_g = next_obs_g
-                priv_obs_g = next_priv_obs_g
+                self.obs = next_obs_g
+                self.priv_obs = next_priv_obs_g
 
 
         
@@ -104,7 +105,7 @@ class PPOTaskBase(nn.Module):
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.episode_length
-        return obs_g, priv_obs_g,episode_infos, eval_infos
+        return self.obs, self.obs_priv,episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode
         """

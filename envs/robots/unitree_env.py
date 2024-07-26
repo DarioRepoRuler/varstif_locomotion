@@ -427,7 +427,7 @@ class UnitreeEnv(MjxEnv):
         state.info['feet_contact_time'] += self.dt
 
         # check termination
-        done = self._check_terminate(data, x)
+        done = self._check_terminate(data, x, state.info['step'])
 
 
         # get reward
@@ -456,7 +456,7 @@ class UnitreeEnv(MjxEnv):
                 state.info['command'],
             ),
             'foot_slip': self._reward_foot_slip(xd, contact_filt_cm),
-            'termination': self._reward_termination(done),
+            'termination': self._reward_termination(done, state.info['step']),
             'action_rate': self.action_rate(action, state.info['last_act']),
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             'abduction': self.abduction(joint_angles),
@@ -612,7 +612,7 @@ class UnitreeEnv(MjxEnv):
 
         return obs, priviledged_obs
 
-    def _check_terminate(self, data: mjx.Data, x) -> bool:
+    def _check_terminate(self, data: mjx.Data, x, step) -> bool:
         # done if joint limits are reached or robot is falling
         up = jp.array([0.0, 0.0, 1.0])
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
@@ -627,6 +627,7 @@ class UnitreeEnv(MjxEnv):
         body_contacts = jp.zeros((19),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[body_contacts] < 0.0)
+        done |= step > 1000
 
         return done
 
@@ -727,5 +728,5 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
         
 
-    def _reward_termination(self, done: jax.Array) -> jax.Array:
-        return done
+    def _reward_termination(self, done: jax.Array, step) -> jax.Array:
+        return done*~(step > 1000)
