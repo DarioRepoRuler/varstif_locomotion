@@ -1,13 +1,13 @@
 
 actor:
   use_lstm: False
-  hidden_dim: 256
+  hidden_dim: [256,128,64]
   n_layers: 4
   init_std: 1.0
 
 critic:
-  hidden_dim: 256
-  n_layers: 6
+  hidden_dim: [256,128,64]
+  n_layers: 4
 
 
 

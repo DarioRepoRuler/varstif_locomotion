@@ -337,8 +337,9 @@ class UnitreeEnv(MjxEnv):
         #action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
-            target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
-                                    a_min=self.lower_limits, a_max=self.upper_limits)
+            target_dof_pos = self.action_scale * action + self.default_pos[7:]
+            #target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
+            #                        a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             torques = self.p_gains * err - self.d_gains * dof_vel
             torques = jp.clip(torques, a_min=-self.torque_limits, a_max=self.torque_limits)
@@ -671,6 +672,9 @@ class UnitreeEnv(MjxEnv):
         # Penalize torques
         return jp.exp(-0.01*jp.linalg.norm(torques))
     
+    def _reward_torque_limit(self, torque: jax.Array) -> jax.Array:
+        return jp.exp(-jp.sum(jp.abs(torque)-0.1*self.torque_limits))
+    
     ## Related to smoothness of the actions:
     def _reward_smooth_rate( # to be continued...(why the velocities?)
             self, joint_vel: jax.Array, last_vel: jax.Array
@@ -726,7 +730,7 @@ class UnitreeEnv(MjxEnv):
         foot_vel = xd.take(foot_indices).vel
         # Penalize large feet velocity for feet that are in contact with the ground.
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
-        
+   
 
     def _reward_termination(self, done: jax.Array, step) -> jax.Array:
         return done*~(step > 1000)

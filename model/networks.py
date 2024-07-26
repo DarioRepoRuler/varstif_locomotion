@@ -65,6 +65,30 @@ class MLP(nn.Module):
         x = self.model(x)
 
         return x
+    
+class MLP_new(nn.Module):
+    def __init__(self,
+                 in_features,
+                 hidden_features,
+                 out_features,
+                 n_layers,
+                 act=nn.LeakyReLU(0.2),
+                 output_act=None,
+                 using_norm=True):
+        super().__init__()
+        input_layer = Dense(in_features, hidden_features[0], act, using_norm)
+        layers = [input_layer]
+        #print(f" Hidden features: {hidden_features}")
+        
+        for i in range(n_layers-2):
+                layers.append(Dense(hidden_features[i], hidden_features[i+1], act, using_norm))
+        layers.append(Dense(hidden_features[-1], out_features, output_act, using_norm))
+        self.model = nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.model(x)
+
+        return x
 
 class LSTM_encoder(nn.Module):
     def __init__(self, in_features, lstm_hidden_size, dim_out, num_lstm_layers=1):
