@@ -30,7 +30,7 @@ class PPOTaskBase(nn.Module):
         self.algo = PPO(cfg=self.cfg.policy,
                         num_envs=self.cfg.num_envs,
                         num_actions=self.env.action_size,
-                        episode_length=self.cfg.episode_length,
+                        episode_length=self.cfg.timesteps_per_rollout,
                         num_single_obs = self.env.observation_size // self.cfg.env.num_history,
                         num_env_obs=self.env.observation_size,
                         num_priv_obs=self.env.priviledged_observation_size,
@@ -76,7 +76,7 @@ class PPOTaskBase(nn.Module):
             
             #print(f"Initial position: {obs_g}")
             #print(f"Initial priviledged position: {priviledged_obs_g}")
-            pos_x = torch.zeros(self.cfg.episode_length, device=self.device, dtype=torch.float32)
+            pos_x = torch.zeros(self.cfg.timesteps_per_rollout, device=self.device, dtype=torch.float32)
             
             for i in range(self.cfg.timesteps_per_rollout):
                 next_obs_g, next_priv_obs_g, dones, info = self.step(self.obs, self.obs_priv, is_training)
@@ -104,7 +104,7 @@ class PPOTaskBase(nn.Module):
         self.pos_x = pos_x
 
         for key in episode_infos.keys():
-            episode_infos[key] = episode_infos[key] / self.cfg.episode_length
+            episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
         return self.obs, self.obs_priv,episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode

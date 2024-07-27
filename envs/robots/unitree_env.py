@@ -45,6 +45,7 @@ class UnitreeEnv(MjxEnv):
         self._kick_vel = cfg.kick_vel
         self.is_training = cfg.is_training
         self.manual_control = cfg.manual_control
+        self.episode_length = cfg.episode_length
 
         self.cmd_x = cfg.cmd_x
         self.cmd_y = cfg.cmd_y
@@ -141,21 +142,23 @@ class UnitreeEnv(MjxEnv):
         self.reward_scales = {
             # From turtoial
             'tracking_lin_vel': 1.0, 
-            'tracking_ang_vel': 1.0, 
-            "lin_vel_z": 0.5, #-2.0, adapted
-            "ang_vel_xy": 0.5, #-0.05, adapted
-            "orientation": 1.0, #-5.0, adapted
-            "torques": 0.00001, #-0.0002, #adapted
-            "smooth_rate": 0.02, #action_rate from tutorial
-            'feet_air_time': 0.5,
-            'feet_contact_time': -0.2,
-            'termination': -10.0,
-            'stand_still': 0.5, #-0.5, # adapted
-            "foot_slip": -0.1,
+            'tracking_ang_vel': 0.5, 
+            "lin_vel_z": -2.0, #-2.0, adapted
+            "ang_vel_xy": -0.05, #-0.05, adapted
+            "orientation": 0.0, #-5.0, adapted
+            "torques": -0.0002, #-0.0002, #adapted
+            "smooth_rate": 0.0, #action_rate from tutorial
+            'feet_air_time': 1.0,
+            'feet_contact_time': 0.0,
+            'termination': -0.0,
+            'stand_still': 0.0, #-0.5, # adapted
+            "foot_slip": 0.0,
             # Additional self created
-            "action_rate": 0.02,
-            "action_rate2": 0.02,
-            "abduction": 0.1,
+            "action_rate": -0.01,
+            "action_rate2": 0.0,
+            "abduction": 0.0,
+            "rew_pos_limits": -10.0,
+            "rew_acceleartion": -0.00000025,
         }
     
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
@@ -334,12 +337,12 @@ class UnitreeEnv(MjxEnv):
         """
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
-        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
+        action = jp.clip(action, a_min=-100.0, a_max=100.0)
 
         if self.control_mode == "P":
-            target_dof_pos = self.action_scale * action + self.default_pos[7:]
-            #target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
-            #                        a_min=self.lower_limits, a_max=self.upper_limits)
+            #target_dof_pos = self.action_scale * action + self.default_pos[7:]
+            target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
+                                    a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             torques = self.p_gains * err - self.d_gains * dof_vel
             torques = jp.clip(torques, a_min=-self.torque_limits, a_max=self.torque_limits)
@@ -387,8 +390,8 @@ class UnitreeEnv(MjxEnv):
         # ACTUAL STEP (in physics)
         data0 = state.pipeline_state
         #jax.debug.print('Action: {x}', x=action)
-        action_noise = jax.random.uniform(action_rng, (12,), minval=-self._act_noise, maxval=self._act_noise)
-        action = action.at[:].add(action_noise)
+        #action_noise = jax.random.uniform(action_rng, (12,), minval=-self._act_noise, maxval=self._act_noise)
+        #action = action.at[:].add(action_noise)
 
         data = self.pipeline_step(data0, action) #passed data is action as angle -> convert to torque in mjx
         #ctrl = self.compute_torque(action) 
@@ -430,7 +433,6 @@ class UnitreeEnv(MjxEnv):
         # check termination
         done = self._check_terminate(data, x, state.info['step'])
 
-
         # get reward
         rewards = {
             'tracking_lin_vel': (
@@ -462,6 +464,7 @@ class UnitreeEnv(MjxEnv):
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             'abduction': self.abduction(joint_angles),
             #'foot_clearance': self._reward_foot_clearance(xd, contact_filt_cm, foot_pos[:, 2], state.info['feet_air_time'], state.info['command'])
+            'rew_pos_limits': self._reward_pos_limits(joint_angles),
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -628,7 +631,8 @@ class UnitreeEnv(MjxEnv):
         body_contacts = jp.zeros((19),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[body_contacts] < 0.0)
-        done |= step > 1000
+        #jax.debug.print('Timeout: {x}', x=step > self.episode_length)
+        done |= step > self.episode_length
 
         return done
 
@@ -652,14 +656,16 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array:
         # Penalize z axis base linear velocity
-        return jp.exp(-6*jp.abs(xd.vel[0, 2]))
-
+        #return jp.exp(-6*jp.abs(xd.vel[0, 2]))
+        return jp.sum(jp.square(xd.vel[0, 2]))
+    
     def _reward_ang_vel_xy(self, x: Transform, xd: Motion) -> jax.Array:
         # Penalize xy axes base angular velocity
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
 
-        return jp.exp(-4*jp.linalg.norm(base_ang_vel[:2])) 
-
+        #return jp.exp(-4*jp.linalg.norm(base_ang_vel[:2])) 
+        return jp.sum(jp.square(base_ang_vel[:2]))
+    
     def _reward_orientation(self, x: Transform) -> jax.Array:
         # Penalize non flat base orientation
         up = jp.array([0.0, 0.0, 1.0])
@@ -670,10 +676,19 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
-        return jp.exp(-0.01*jp.linalg.norm(torques))
+        #return jp.exp(-0.01*jp.linalg.norm(torques))
+        return jp.sum(jp.square(torques))
+    
+    def _reward_acceleration(self, last_dof_vel: jax.Array, dof_vel:jax.Array) -> jax.Array:
+        return jp.sum(jp.square((dof_vel - last_dof_vel)/self.dt))
     
     def _reward_torque_limit(self, torque: jax.Array) -> jax.Array:
         return jp.exp(-jp.sum(jp.abs(torque)-0.1*self.torque_limits))
+    
+    def _reward_pos_limits(self, pos: jax.Array) -> jax.Array:
+        out_of_bounds = -(pos - self.lower_limits).clip(max=0.)
+        out_of_bounds += (pos - self.upper_limits).clip(min=0.)
+        return jp.sum(out_of_bounds)
     
     ## Related to smoothness of the actions:
     def _reward_smooth_rate( # to be continued...(why the velocities?)
@@ -683,7 +698,8 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
 
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
-        return jp.exp(-0.05*jp.sum(jp.power(action - last_act, 2)))
+        #return jp.exp(-0.05*jp.sum(jp.power(action - last_act, 2)))
+        return jp.sum(jp.square(action - last_act))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
         return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
@@ -733,4 +749,4 @@ class UnitreeEnv(MjxEnv):
    
 
     def _reward_termination(self, done: jax.Array, step) -> jax.Array:
-        return done*~(step > 1000)
+        return done *~ (step > self.episode_length)

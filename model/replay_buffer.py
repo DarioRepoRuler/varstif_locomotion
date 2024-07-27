@@ -101,7 +101,9 @@ class ReplayBuffer:
         This function returns the statistics of the rollout buffer.
         This includes the average traverse, average reward, number of dones, and the done rate.
         """
+        
         row_idx, col_idx = torch.where(self.dones[..., 0] == 1)
+        
         if len(row_idx) == 0:
             avg_traverse = self.step
         else:
@@ -126,7 +128,7 @@ class ReplayBuffer:
 
     def mini_batch_generator(self, num_batches, num_epochs=8):
         batch_size = self.num_envs * self.step // num_batches # integer floor division
-        print(f"Mini batch size: {batch_size}")
+        #print(f"Mini batch size: {batch_size}")
         obs_g = self.observations[:self.step].flatten(0, 1)       
         actions = self.actions[:self.step].flatten(0, 1)
         values = self.values[:self.step].flatten(0, 1)
