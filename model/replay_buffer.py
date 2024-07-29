@@ -104,10 +104,10 @@ class ReplayBuffer:
         """
         
         # Shape of dones: timesteps_per_rollout, num_envs, 1
-        print(f"Self Dones: {self.dones[ ..., 0]}")
+        #print(f"Self Dones: {self.dones[ ..., 0]}")
         done = self.dones
         done[-1]=1
-        print(f"Done: {done[... ,0]}")
+        #print(f"Done: {done[... ,0]}")
         #print(f"Check where dones:{self.dones[..., 0] == 1} ")
         #print(f"Check where done shape: {(self.dones[..., 0] == 1).shape}")
         row_idx, col_idx = torch.where(self.dones[..., 0] == 1)
