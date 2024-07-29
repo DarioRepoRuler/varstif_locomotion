@@ -52,7 +52,7 @@ class PPOTaskBase(nn.Module):
         next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
         #print(f"Observations: {obs_g}")
         #print(f"Priviledged observations: {next_priv_obs_g}")
-
+        #print(f"Dones: {dones}")
         self.algo.process_env_step(obs_g, priviledged_obs_g,rewards, dones, infos)
         return next_obs_g, next_priv_obs_g, dones, infos
 
@@ -65,10 +65,10 @@ class PPOTaskBase(nn.Module):
         # Gather evaluation information only in test mode
         eval_infos = None
 
-        if not is_training:
-            eval_infos={'foot_pos_z': torch.zeros((self.cfg.timesteps_per_rollout, 4), device=self.device, dtype=torch.float32), 
-                        'q_vel': torch.zeros((self.cfg.timesteps_per_rollout,18), device=self.device, dtype=torch.float32), 
-                        'cmd': torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)}
+        # if not is_training:
+        #     eval_infos={'foot_pos_z': torch.zeros((self.cfg.timesteps_per_rollout, 4), device=self.device, dtype=torch.float32), 
+        #                 'q_vel': torch.zeros((self.cfg.timesteps_per_rollout,18), device=self.device, dtype=torch.float32), 
+        #                 'cmd': torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)}
         
 
         with torch.inference_mode(): # No gradadient computation in torch domain
@@ -90,10 +90,10 @@ class PPOTaskBase(nn.Module):
                     else:
                         episode_infos[key] += torch.mean(rew_info[key])
                 
-                if not is_training:
-                    eval_infos['foot_pos_z'][i] = info['foot_pos_z']
-                    eval_infos['q_vel'][i] = info['last_vel']
-                    eval_infos['cmd'][i] = info['command']
+                # if not is_training:
+                #     eval_infos['foot_pos_z'][i] = info['foot_pos_z']
+                #     eval_infos['q_vel'][i] = info['last_vel']
+                #     eval_infos['cmd'][i] = info['command']
 
                 # update observation
                 self.obs = next_obs_g
@@ -105,6 +105,7 @@ class PPOTaskBase(nn.Module):
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
+
         return self.obs, self.obs_priv, episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode
@@ -115,6 +116,8 @@ class PPOTaskBase(nn.Module):
         next_obs_g, next_priv_obs_g,episode_infos, eval_infos = self.rollout(it,is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_priv_obs_g)
+        #print(f"Storage dones shape: {self.algo.storage.dones.shape}")
+        #print(f"Storage done: {self.algo.storage.dones}")
         # Store the statistics
         stat = self.algo.storage.statistics()
         #self.update_level()
@@ -242,29 +245,29 @@ class PPOTaskBase(nn.Module):
             
 
 
-            # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
-            # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
-            total_tracking_error = torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)
-            ang_tracking_error = torch.abs(stat['observations'][:,0,6] - stat['observations'][:,0,single_obs_size-1])
-            #print(f"Observed ang. vel: {stat['observations'][:,0,6]}")
-            #print(f"Observed lin. vel: {eval_infos['q_vel'][:,:2]}")
-            #print(f"Commanded vel: {eval_infos['cmd']}")
-            #print(f"Command ang: {stat['observations'][:,0,single_obs_size-1]}")
-            #print(f"Command lin: {stat['observations'][:,0,single_obs_size-3:single_obs_size-1]}")
+            # # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
+            # # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
+            # total_tracking_error = torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)
+            # ang_tracking_error = torch.abs(stat['observations'][:,0,6] - stat['observations'][:,0,single_obs_size-1])
+            # #print(f"Observed ang. vel: {stat['observations'][:,0,6]}")
+            # #print(f"Observed lin. vel: {eval_infos['q_vel'][:,:2]}")
+            # #print(f"Commanded vel: {eval_infos['cmd']}")
+            # #print(f"Command ang: {stat['observations'][:,0,single_obs_size-1]}")
+            # #print(f"Command lin: {stat['observations'][:,0,single_obs_size-3:single_obs_size-1]}")
 
-            lin_tracking_error = torch.abs(eval_infos['q_vel'][:,:2] - stat['observations'][:,0,single_obs_size-3:single_obs_size-1])
-            #print(f"Lin tracking error: {lin_tracking_error}")
-            total_tracking_error[:,0] = ang_tracking_error
-            total_tracking_error[:,1:3] = lin_tracking_error
-            lin_tracking_error = torch.linalg.norm(lin_tracking_error, dim=1)
-            #print(f"Total tracking error: {total_tracking_error} with shape {total_tracking_error.shape}")
-            total_tracking_error = torch.linalg.norm(total_tracking_error, dim=1)
-            #print(f"Total tracking error norm: {total_tracking_error} with shape {total_tracking_error.shape}")
-            create_multiple_box_plots([total_tracking_error, lin_tracking_error, ang_tracking_error], ['total error', 'linear vel error', 'angular vel error'], 'tracking_test_error')
+            # lin_tracking_error = torch.abs(eval_infos['q_vel'][:,:2] - stat['observations'][:,0,single_obs_size-3:single_obs_size-1])
+            # #print(f"Lin tracking error: {lin_tracking_error}")
+            # total_tracking_error[:,0] = ang_tracking_error
+            # total_tracking_error[:,1:3] = lin_tracking_error
+            # lin_tracking_error = torch.linalg.norm(lin_tracking_error, dim=1)
+            # #print(f"Total tracking error: {total_tracking_error} with shape {total_tracking_error.shape}")
+            # total_tracking_error = torch.linalg.norm(total_tracking_error, dim=1)
+            # #print(f"Total tracking error norm: {total_tracking_error} with shape {total_tracking_error.shape}")
+            # create_multiple_box_plots([total_tracking_error, lin_tracking_error, ang_tracking_error], ['total error', 'linear vel error', 'angular vel error'], 'tracking_test_error')
 
-            eval_graph([eval_infos['foot_pos_z'][:,0], eval_infos['foot_pos_z'][:,1], 
-                        eval_infos['foot_pos_z'][:,2], eval_infos['foot_pos_z'][:,3]], 
-                        ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
+            # eval_graph([eval_infos['foot_pos_z'][:,0], eval_infos['foot_pos_z'][:,1], 
+            #             eval_infos['foot_pos_z'][:,2], eval_infos['foot_pos_z'][:,3]], 
+            #             ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
             
             self.algo.storage.clear()
 

@@ -105,23 +105,30 @@ class ReplayBuffer:
         
         # Shape of dones: timesteps_per_rollout, num_envs, 1
         #print(f"Self Dones: {self.dones[ ..., 0]}")
-        done = self.dones
-        done[-1]=1
+        # done = self.dones
+        # done[-1]=1
         #print(f"Done: {done[... ,0]}")
         #print(f"Check where dones:{self.dones[..., 0] == 1} ")
         #print(f"Check where done shape: {(self.dones[..., 0] == 1).shape}")
+        #print(f"Dones in statistics: {self.dones[... ,0]}")
         row_idx, col_idx = torch.where(self.dones[..., 0] == 1)
         
+        print(f"Row Index: {row_idx} and col index: {col_idx}")
         if len(row_idx) == 0:
             avg_traverse = self.step
         else:
             avg_traverse = torch.mean(self.progress[row_idx, col_idx])
 
+        #print(f"Progress: {self.progress[..., 0].shape}")
         row_idx, col_idx = torch.where(self.progress[..., 0] > 0.9999)
 
-        #num_dones = torch.unique(col_idx, return_counts=False)
+        dones = torch.unique(col_idx, return_counts=False)
+        num_dones = dones.shape[0]
         #print(f"Number of dones: {num_dones}")
-        num_dones = col_idx.shape[0]
+        #print(f"Row Index: {row_idx}")
+        #print(f"Col index: {col_idx}")
+        #num_dones = col_idx.shape[0]
+        
         print(f"Number of dones: {num_dones}")
 
         avg_reward = torch.mean(self.rewards[:self.step])
