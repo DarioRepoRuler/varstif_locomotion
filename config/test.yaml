@@ -16,14 +16,16 @@ env:
   cmd_x: 1.0
   cmd_y: 0.0
   cmd_ang: 0.0
+  episode_length: 1000
 
 #ckpt_path: 'outputs/2024-06-14/13-43-20/checkpoints/model_4750.pt'
 #ckpt_path: 'best_models/revised_model.pt'
-ckpt_path: 'best_models/new_info_st.pt'
-
+#ckpt_path: 'best_models/new_info_st.pt'
+ckpt_path: null
+timesteps_per_rollout: 24
 num_iterations: 5
 num_envs: 1
-episode_length: 100
+
 device: 'cuda:0'
 randomisation: True
 curriculum: False

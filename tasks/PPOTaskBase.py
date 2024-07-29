@@ -66,9 +66,9 @@ class PPOTaskBase(nn.Module):
         eval_infos = None
 
         if not is_training:
-            eval_infos={'foot_pos_z': torch.zeros((self.cfg.episode_length, 4), device=self.device, dtype=torch.float32), 
-                        'q_vel': torch.zeros((self.cfg.episode_length,18), device=self.device, dtype=torch.float32), 
-                        'cmd': torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)}
+            eval_infos={'foot_pos_z': torch.zeros((self.cfg.timesteps_per_rollout, 4), device=self.device, dtype=torch.float32), 
+                        'q_vel': torch.zeros((self.cfg.timesteps_per_rollout,18), device=self.device, dtype=torch.float32), 
+                        'cmd': torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)}
         
 
         with torch.inference_mode(): # No gradadient computation in torch domain
@@ -105,7 +105,7 @@ class PPOTaskBase(nn.Module):
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
-        return self.obs, self.obs_priv,episode_infos, eval_infos
+        return self.obs, self.obs_priv, episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode
         """
@@ -244,7 +244,7 @@ class PPOTaskBase(nn.Module):
 
             # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
             # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
-            total_tracking_error = torch.zeros((self.cfg.episode_length, 3), device=self.device, dtype=torch.float32)
+            total_tracking_error = torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)
             ang_tracking_error = torch.abs(stat['observations'][:,0,6] - stat['observations'][:,0,single_obs_size-1])
             #print(f"Observed ang. vel: {stat['observations'][:,0,6]}")
             #print(f"Observed lin. vel: {eval_infos['q_vel'][:,:2]}")

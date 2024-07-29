@@ -11,11 +11,13 @@ class ReplayBuffer:
             self.actions = None
             self.rewards = None
             self.dones = None
-            self.progress = None
-            self.values = None
             self.actions_log_prob = None
             self.action_mean = None
             self.action_sigma = None
+            
+            self.progress = None
+            self.values = None
+            
 
         def clear(self):
             self.__init__()
@@ -56,7 +58,6 @@ class ReplayBuffer:
         self.mu = torch.zeros(num_transitions_per_env, num_envs, num_actions, device=self.device)
         self.sigma = torch.zeros(num_transitions_per_env, num_envs, num_actions, device=self.device)
 
-        # Maybe something for logging?
 
     def add_transitions(self, transition: Transition):
         if self.step >= self.num_transitions_per_env:
@@ -83,7 +84,7 @@ class ReplayBuffer:
     def compute_returns(self, last_values, gamma, lamb):
         advantage = 0
         for step in reversed(range(self.step)):
-            if step == self.step - 1:
+            if step == self.num_transitions_per_env - 1:
                 next_values = last_values
             else:
                 next_values = self.values[step+1]
@@ -93,8 +94,8 @@ class ReplayBuffer:
             self.returns[step] = advantage + self.values[step]
 
         # Compute and normalize the advantages
-        self.advantages[:self.step] = self.returns[:self.step] - self.values[:self.step]
-        self.advantages[:self.step] = (self.advantages[:self.step] - self.advantages[:self.step].mean()) / (self.advantages[:self.step].std() + 1e-8)
+        self.advantages = self.returns - self.values
+        self.advantages = (self.advantages - self.advantages.mean()) / (self.advantages.std() + 1e-8)
 
     def statistics(self):
         """
@@ -102,6 +103,13 @@ class ReplayBuffer:
         This includes the average traverse, average reward, number of dones, and the done rate.
         """
         
+        # Shape of dones: timesteps_per_rollout, num_envs, 1
+        print(f"Self Dones: {self.dones[ ..., 0]}")
+        done = self.dones
+        done[-1]=1
+        print(f"Done: {done[... ,0]}")
+        #print(f"Check where dones:{self.dones[..., 0] == 1} ")
+        #print(f"Check where done shape: {(self.dones[..., 0] == 1).shape}")
         row_idx, col_idx = torch.where(self.dones[..., 0] == 1)
         
         if len(row_idx) == 0:
@@ -111,8 +119,10 @@ class ReplayBuffer:
 
         row_idx, col_idx = torch.where(self.progress[..., 0] > 0.9999)
 
-        # dones = torch.unique(col_idx, return_counts=False)
+        #num_dones = torch.unique(col_idx, return_counts=False)
+        #print(f"Number of dones: {num_dones}")
         num_dones = col_idx.shape[0]
+        print(f"Number of dones: {num_dones}")
 
         avg_reward = torch.mean(self.rewards[:self.step])
         stat = {
