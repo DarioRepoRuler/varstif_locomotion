@@ -19,8 +19,7 @@ class ActorCritic(nn.Module):
         self.num_priv_obs = num_priv_obs
         self.use_encoder_decoder = config.use_encoder_decoder
         self.use_lstm = config.actor.use_lstm
-        #print(f" Hidden dim: {config.actor.hidden_dim}")
-        #print(f" Layers dim: {len(config.actor.hidden_dim)}")
+
         if self.use_encoder_decoder:
             self.encoder = LSTM_encoder(in_features=num_single_obs,                           
                                 lstm_hidden_size=config.encoding_arch.encoder.hidden_dim,
@@ -113,12 +112,6 @@ class ActorCritic(nn.Module):
             self.update_distribution(observations)
             return self.distribution_action.sample()
 
-    def get_states(self, observations):
-        latent=  self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs))
-        #self.update_distribution(latent)
-        return latent, self.decoder(latent)
-
-
     def get_actions_log_prob(self, actions):
         return self.distribution_action.log_prob(actions).sum(dim=-1)
 
@@ -130,3 +123,9 @@ class ActorCritic(nn.Module):
     def evaluate(self, critic_observations, **kwargs):
         value = self.critic(critic_observations)
         return value
+    
+    ## for recurrent encoder/decoder
+    def get_states(self, observations):
+        latent=  self.encoder(observations.reshape(-1, self.num_obs // self.num_single_obs ,self.num_single_obs))
+        #self.update_distribution(latent)
+        return latent, self.decoder(latent)

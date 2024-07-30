@@ -126,7 +126,8 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
     def rand(rng):
         _, key = jax.random.split(rng, 2)
         # friction
-        friction = jax.random.uniform(key,(3,), minval=0.4, maxval=1.0)
+        friction = jax.random.uniform(key,(3,), minval=0.4, maxval=1.25
+                                      )
         friction = sys.geom_friction.at[0, :].set(friction)
 
         # gravity - in all directions
@@ -164,16 +165,16 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
     in_axes = jax.tree_util.tree_map(lambda x: None, sys)
     in_axes = in_axes.tree_replace({
         'geom_friction': 0,
-        'opt.gravity': 0,
-        'body_mass':0,
+        # 'opt.gravity': 0,
+        # 'body_mass':0,
         #'actuator_gainprm': 0,
         # 'actuator_biasprm': 0,
     })
 
     sys = sys.tree_replace({
         'geom_friction': friction,
-        'opt.gravity': gravity,
-        'body_mass': masses,
+        # 'opt.gravity': gravity,
+        # 'body_mass': masses,
         #'actuator_gainprm': gain,
         # 'actuator_biasprm': bias,
     })

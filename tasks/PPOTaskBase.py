@@ -42,7 +42,8 @@ class PPOTaskBase(nn.Module):
 
     def step(self, obs_g, priviledged_obs_g, is_training=True):
         """
-        Performs action in the environment and returns the next observation.
+        Performs action in the environment and returns the next observation. Everything outside this function will not directly
+        affect the environment or the learning process.
         """
         #print(f"Observations: {obs_g.shape}")
         if is_training:
@@ -50,10 +51,9 @@ class PPOTaskBase(nn.Module):
         else:
             actions = self.algo.act_eval(obs_g, priviledged_obs_g)
         next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
-        #print(f"Observations: {obs_g}")
-        #print(f"Priviledged observations: {next_priv_obs_g}")
-        #print(f"Dones: {dones}")
+
         self.algo.process_env_step(obs_g, priviledged_obs_g,rewards, dones, infos)
+
         return next_obs_g, next_priv_obs_g, dones, infos
 
     def rollout(self,it, is_training=True):
@@ -69,24 +69,22 @@ class PPOTaskBase(nn.Module):
         #     eval_infos={'foot_pos_z': torch.zeros((self.cfg.timesteps_per_rollout, 4), device=self.device, dtype=torch.float32), 
         #                 'q_vel': torch.zeros((self.cfg.timesteps_per_rollout,18), device=self.device, dtype=torch.float32), 
         #                 'cmd': torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)}
-        
 
-        with torch.inference_mode(): # No gradadient computation in torch domain
-            #print(f"Set initial position to: {self.initial_xy}")
-            
-            #print(f"Initial position: {obs_g}")
-            #print(f"Initial priviledged position: {priviledged_obs_g}")
+        with torch.inference_mode():
             pos_x = torch.zeros(self.cfg.timesteps_per_rollout, device=self.device, dtype=torch.float32)
-            
+            time_out = torch.zeros(self.cfg.num_envs, device=self.device, dtype=torch.bool)
+
             for i in range(self.cfg.timesteps_per_rollout):
                 next_obs_g, next_priv_obs_g, dones, info = self.step(self.obs, self.obs_priv, is_training)
                 #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
+                #print(f"Rewards: {rew_info}")
                 pos_x[i] = info['last_qpos'][0,0]
-                
+                time_out |= info['time_out'] > 0
+                #print(f"time out : {info['time_out']}")
                 for key in rew_info.keys():
                     if key not in episode_infos.keys():
-                        episode_infos[key] = torch.mean(rew_info[key])
+                        episode_infos[key] = torch.mean(rew_info[key]) #mean over all envs
                     else:
                         episode_infos[key] += torch.mean(rew_info[key])
                 
@@ -99,13 +97,12 @@ class PPOTaskBase(nn.Module):
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
 
-
-        
         self.pos_x = pos_x
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
-
+        
+        episode_infos['time_outs'] = time_out
         return self.obs, self.obs_priv, episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode
@@ -116,11 +113,8 @@ class PPOTaskBase(nn.Module):
         next_obs_g, next_priv_obs_g,episode_infos, eval_infos = self.rollout(it,is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_priv_obs_g)
-        #print(f"Storage dones shape: {self.algo.storage.dones.shape}")
-        #print(f"Storage done: {self.algo.storage.dones}")
-        # Store the statistics
+        # Show statistics
         stat = self.algo.storage.statistics()
-        #self.update_level()
 
         return stat, episode_infos, eval_infos
 
@@ -146,7 +140,8 @@ class PPOTaskBase(nn.Module):
             self.wandb_logger.log(train_info, step=it)
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
-                self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
+                if 'time_out' not in key:
+                    self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
 
     def agent_eval_step(self, it, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
@@ -199,13 +194,13 @@ class PPOTaskBase(nn.Module):
             self.current_learning_iteration += 1
             
             if it % self.eval_interval == 0:
-                print(f"Do evaluation at epoch: {it}")
+                print(f"Evaluation at epoch: {it}")
                 self.agent_eval_step(it, is_training=True)
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
 
             if self.curriculum and it % (self.eval_interval+1) ==0:
                 # Update level according to paper(Learn to walk in minutes)
-                print(f"Do system level update at epoch: {it}")
+                print(f"System level update at epoch: {it}")
                 temp = self.cfg.env.manual_control
                 self.cfg.env.manual_control = True # walk straight
                 self.agent_eval_step(it, is_training=True)

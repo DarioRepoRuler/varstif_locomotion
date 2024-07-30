@@ -9,7 +9,7 @@ env:
   obs_noise: 0.0
   act_noise: 0.0
   num_history: 1 # number of previous observations to stack
-  kick_vel: 0.15
+  kick_vel: 1.0
   push_interval: 50
   is_training: True
   manual_control: False
@@ -27,14 +27,14 @@ ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 4096 
+num_envs: 4096
 
 timesteps_per_rollout: 24
 num_learning_iterations: 1501
 device: 'cuda:0'
-randomisation: False
+randomisation: True
 curriculum: False
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2

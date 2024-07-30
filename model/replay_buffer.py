@@ -69,13 +69,12 @@ class ReplayBuffer:
         self.actions[self.step].copy_(transition.actions)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
         self.dones[self.step].copy_(transition.dones.view(-1, 1))
-        self.progress[self.step].copy_(transition.progress.view(-1, 1))
-
         self.values[self.step].copy_(transition.values)
         self.actions_log_prob[self.step].copy_(transition.actions_log_prob.view(-1, 1))
         self.mu[self.step].copy_(transition.action_mean)
         self.sigma[self.step].copy_(transition.action_sigma)
 
+        self.progress[self.step].copy_(transition.progress.view(-1, 1))        
         self.step += 1
 
     def clear(self):
@@ -83,7 +82,7 @@ class ReplayBuffer:
 
     def compute_returns(self, last_values, gamma, lamb):
         advantage = 0
-        for step in reversed(range(self.step)):
+        for step in reversed(range(self.num_transitions_per_env)):
             if step == self.num_transitions_per_env - 1:
                 next_values = last_values
             else:
@@ -113,7 +112,7 @@ class ReplayBuffer:
         #print(f"Dones in statistics: {self.dones[... ,0]}")
         row_idx, col_idx = torch.where(self.dones[..., 0] == 1)
         
-        print(f"Row Index: {row_idx} and col index: {col_idx}")
+        #print(f"Row Index: {row_idx} and col index: {col_idx}")
         if len(row_idx) == 0:
             avg_traverse = self.step
         else:
@@ -129,7 +128,7 @@ class ReplayBuffer:
         #print(f"Col index: {col_idx}")
         #num_dones = col_idx.shape[0]
         
-        print(f"Number of dones: {num_dones}")
+        #print(f"Number of dones: {num_dones}")
 
         avg_reward = torch.mean(self.rewards[:self.step])
         stat = {

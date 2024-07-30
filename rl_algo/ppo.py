@@ -21,6 +21,7 @@ class PPO(nn.Module):
         self.cfg = cfg
         self.device = device
         self.episode_length = episode_length
+        
         self.use_encoder_decoder = cfg.use_encoder_decoder
 
         # PPO compoments
@@ -38,6 +39,7 @@ class PPO(nn.Module):
                                     num_actions=num_actions,
                                     num_robots=num_robots,
                                     device=self.device)
+        
         self.transition = ReplayBuffer.Transition()
 
         # print(f"Actor Critic len params: {len(list(self.actor_critic.parameters()))} ")
@@ -61,11 +63,14 @@ class PPO(nn.Module):
             self.transition.actions = self.actor_critic.act(obs_g)
         self.transition.actions = self.transition.actions.detach()
 
-        #print(f"Actions shape: {self.transition.actions.shape}")
         self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach()
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
         self.transition.action_sigma = self.actor_critic.action_std.detach()
+        # UPDATE: record obs and priv_obs before env step
+        self.transition.observations = obs_g.detach()
+        self.transition.priv_obs = priv_obs_g.detach()
+
         return self.transition.actions
 
     def act_eval(self, obs_g, priv_obs_g):
@@ -74,10 +79,15 @@ class PPO(nn.Module):
         else:
             self.transition.actions= self.actor_critic.act(obs_g)
         self.transition.actions = self.transition.actions.detach()
+
         self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach() # calls just the critic
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
         self.transition.action_sigma = self.actor_critic.action_std.detach()
+        #  UPDATE: record obs and priv_obs before env step
+        self.transition.observations = obs_g.detach()
+        self.transition.priv_obs = priv_obs_g.detach()
+
         return self.transition.action_mean
 
     def inference(self, obs_g):
@@ -85,12 +95,14 @@ class PPO(nn.Module):
     
 
     def process_env_step(self, obs, priviledged_obs_g,rewards, dones, infos):
-        self.transition.observations = obs.detach()
-        self.transition.priv_obs = priviledged_obs_g.detach()
         self.transition.rewards = rewards.detach()
         self.transition.dones = dones.detach()
         self.transition.progress = infos["step"].detach() / self.episode_length
 
+        # Bootstrapping on time outs
+        if torch.any(infos["time_out"]):
+            self.transition.rewards += self.cfg.gamma * torch.squeeze(self.transition.values * infos['time_out'].unsqueeze(1).to(self.device), 1)
+        
         # Record the transition
         self.storage.add_transitions(self.transition)
         self.transition.clear()
@@ -117,9 +129,9 @@ class PPO(nn.Module):
                 self.actor_critic.act(obs_batch)
                 state_estimation_batch = None
             
+            # Gather everything from the actions
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
             value_batch = self.actor_critic.evaluate(priv_obs_batch)
-        
             mu_batch = self.actor_critic.action_mean
             sigma_batch = self.actor_critic.action_std
             entropy_batch = self.actor_critic.entropy
@@ -130,7 +142,7 @@ class PPO(nn.Module):
                     kl = torch.sum(torch.log(sigma_batch / old_sigma_batch + 1.e-5) +
                                    (torch.square(old_sigma_batch) + torch.square(old_mu_batch - mu_batch)) /
                                    (2.0 * torch.square(sigma_batch)) - 0.5,
-                                   dim=-1)
+                                   axis=-1)
                     kl_mean = torch.mean(kl)
 
                     if kl_mean > self.cfg.desired_kl * 2.0:
@@ -141,7 +153,7 @@ class PPO(nn.Module):
                     for param_group in self.optimizer.param_groups:
                         param_group['lr'] = self.cfg.lr
 
-            # Actor loss
+            # Actor loss(surrogate loss)
             ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
 
             actor_loss = -torch.squeeze(advantages_batch) * ratio
