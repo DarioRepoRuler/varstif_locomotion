@@ -126,9 +126,10 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
     def rand(rng):
         _, key = jax.random.split(rng, 2)
         # friction
-        friction = jax.random.uniform(key,(3,), minval=0.4, maxval=1.25
-                                      )
-        friction = sys.geom_friction.at[0, :].set(friction)
+        friction = jax.random.uniform(key, (1,), minval=0.6, maxval=1.4)
+        friction = sys.geom_friction.at[:, 0].set(friction)
+        # friction = jax.random.uniform(key,(3,), minval=0.4, maxval=1.25)
+        # friction = sys.geom_friction.at[0, :].set(friction)
 
         # gravity - in all directions
         #gravity = jax.random.uniform(key, (3,), minval=-1.0, maxval=1.0)
@@ -155,12 +156,7 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
         bias = sys.actuator_biasprm.at[:, 1].set(-param)
         return friction, gain, bias, gravity, masses
     friction, gain, bias, gravity, masses = jax.vmap(rand)(rng)
-    #print(f"Default friction: {sys.geom_friction}")
-    #print(f"Default gravity: {sys.opt.gravity}")
-    #print(f"Randomized friction: {friction.shape}")
-    #torso_idx =mjx.mj_name2id(sys, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
-     
-    #print(f"Default masses: {sys.body_mass}")
+
 
     in_axes = jax.tree_util.tree_map(lambda x: None, sys)
     in_axes = in_axes.tree_replace({

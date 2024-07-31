@@ -21,12 +21,12 @@ env:
 #ckpt_path: 'outputs/2024-06-14/13-43-20/checkpoints/model_4750.pt'
 #ckpt_path: 'best_models/revised_model.pt'
 #ckpt_path: 'best_models/new_info_st.pt'
-ckpt_path: 'outputs/2024-07-30/09-39-13/checkpoints/model_800.pt'
+ckpt_path: 'outputs/model_1550.pt'
 timesteps_per_rollout: 24
 num_iterations: 5
 num_envs: 1
 
 device: 'cuda:0'
-randomisation: True
+randomisation: False
 curriculum: False
 scene_xml: 'unitree_go2/flat.xml'

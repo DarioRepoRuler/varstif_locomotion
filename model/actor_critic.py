@@ -53,15 +53,15 @@ class ActorCritic(nn.Module):
                                         output_act=nn.Tanh(),
                                         using_norm=False)
             else:
-                self.actor = MLP_new(in_features=num_obs,
+                self.actor = MLP(in_features=num_obs,
                             hidden_features=config.actor.hidden_dim,
                             out_features=num_actions,
                             n_layers=config.actor.n_layers,
                             act=nn.ELU(),
-                            output_act=None,
+                            output_act=nn.Tanh(),
                             using_norm=False)
 
-        self.critic = MLP_new(in_features=num_priv_obs,
+        self.critic = MLP(in_features=num_priv_obs,
                           hidden_features=config.critic.hidden_dim,
                           out_features=1,
                           n_layers=config.critic.n_layers,
