@@ -489,7 +489,7 @@ class UnitreeEnv(MjxEnv):
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
 
-        reward = jp.clip(sum(rewards.values()) * self.dt, 0.0, 10000.0)
+        reward = jp.clip(sum(rewards.values()) , 0.0, 10000.0)
         #Reward clipping like in unitree rl
         #reward = jp.clip(reward, a_min=0.)
 
@@ -594,14 +594,13 @@ class UnitreeEnv(MjxEnv):
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             #torso_z,
-            #jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
-            0.1 * jp.concatenate([local_v, local_w]),
+            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
+            #0.1 * jp.concatenate([local_v, local_w]),
             proj_gravity,
             data.qpos[7:],
-            0.05 * data.qvel[6:],
+            data.qvel[6:],
             state_info['last_act'], 
             #state_info['contact'], #added
-            #jp.array([state_info['step']]), #added  
             state_info['command'],
             # foot_pos_local,
             # foot_vel_local,
@@ -626,11 +625,11 @@ class UnitreeEnv(MjxEnv):
         joint_vel_noise = jax.random.uniform(obs_rng, (12,), minval=-1.5, maxval=1.5)
         gravity_noise = jax.random.uniform(obs_rng, (3,), minval=-0.05, maxval=0.05)
 
-        obs = obs.at[:3].add(local_v_noise)
-        obs = obs.at[3:6].add(0.25*local_w_noise)
-        obs = obs.at[6:9].add(gravity_noise)
-        obs = obs.at[9:21].add(joint_noise)
-        obs = obs.at[21:33].add(0.05*joint_vel_noise)
+        # obs = obs.at[:3].add(local_v_noise)
+        # obs = obs.at[3:6].add(0.25*local_w_noise)
+        # obs = obs.at[6:9].add(gravity_noise)
+        # obs = obs.at[9:21].add(joint_noise)
+        # obs = obs.at[21:33].add(0.05*joint_vel_noise)
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
