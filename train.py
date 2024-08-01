@@ -24,8 +24,7 @@ def _create_env(env, num_envs, device, viz=False, domain_cfg=None):
         device (str): The device to use for computation.
         viz (bool): Whether to render the environment.
     """
-    #env = VmapWrapper(env, batch_size=num_envs)
-    #env = AutoResetWrapper(env)
+
     if domain_cfg.randomisation:
         env=wrap(env, num_envs=num_envs, randomization_fn=domain_randomize, randomization_args=domain_cfg)
     else:

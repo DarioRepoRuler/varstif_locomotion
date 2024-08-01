@@ -196,32 +196,13 @@ class AutoResetWrapper(Wrapper):
         state.info['first_priviledged_obs'] = state.priviledged_obs
         return state
 
-    def step(self, state: State, action: jax.Array) -> State:
-        ## Original step function
-        # if 'steps' in state.info:
-        #     steps = state.info['steps']
-        #     steps = jp.where(state.done, jp.zeros_like(steps), steps)
-        #     state.info.update(steps=steps)
-        # state = state.replace(done=jp.zeros_like(state.done))
-        # state = self.env.step(state, action)
-
-        # def where_done(x, y):
-        #     done = state.done
-        #     if done.shape:
-        #         done = jp.reshape(done, [x.shape[0]] + [1] * (len(x.shape) - 1))  # type: ignore
-        #     return jp.where(done, x, y)
-
-        # pipeline_state = jax.tree.map(
-        #     where_done, state.info['first_pipeline_state'], state.pipeline_state
-        #     )
-        # obs = where_done(state.info['first_obs'], state.obs)
-        
+    def step(self, state: State, action: jax.Array) -> State:       
         
         ## Custom step function
-        # if 'step' in state.info:
-        #     steps = state.info['step']
-        #     steps = jp.where(state.done, jp.zeros_like(steps), steps)
-        #     state.info.update(steps=steps)
+        if 'step' in state.info:
+            steps = state.info['step']
+            steps = jp.where(state.done, jp.zeros_like(steps), steps)
+            state.info.update(steps=steps)
         state = state.replace(done=jp.zeros_like(state.done))
         state = self.env.step(state, action)
 

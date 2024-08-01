@@ -163,8 +163,8 @@ class UnitreeEnv(MjxEnv):
             "action_rate": -0.01,
             "action_rate2": 0.0,
             "abduction": 0.0,
-            "rew_pos_limits": -1.0,
-            "rew_acceleartion": -0.00000025,
+            "rew_pos_limits": -0.0,
+            "rew_acceleartion": -0.000000,
             "rew_collision": -1.0,
         }
 
@@ -603,7 +603,7 @@ class UnitreeEnv(MjxEnv):
             #torso_z,
             jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
             proj_gravity,
-            data.qpos[7:],
+            data.qpos[7:]-self.default_pos[7:],  # joint angles
             0.1 *data.qvel[6:],
             state_info['last_act'], 
             #state_info['contact'], #added
@@ -632,9 +632,9 @@ class UnitreeEnv(MjxEnv):
         noise_vec = noise_vec.at[9:21].multiply(self.joint_noise)
         noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise*0.1)
         noise_vec = noise_vec.at[33:].multiply(0.0)
-        jax.debug.print('observsation before noise: {x}', x=obs)
+        #jax.debug.print('observsation before noise: {x}', x=obs)
         obs = jp.where(self.randomize, obs, obs+noise_vec)
-        jax.debug.print('observsation after noise: {x}', x=obs)
+        #jax.debug.print('observsation after noise: {x}', x=obs)
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
@@ -647,8 +647,8 @@ class UnitreeEnv(MjxEnv):
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
-        done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        done |= jp.any(data.qpos[7:] > self.upper_limits)
+        # done |= jp.any(data.qpos[7:] < self.lower_limits) 
+        # done |= jp.any(data.qpos[7:] > self.upper_limits)
         # Old termination: based on z-height
         # done |= data.xpos[self._torso_idx, 2] < self.min_z
         
