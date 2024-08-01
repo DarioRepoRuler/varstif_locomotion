@@ -100,8 +100,8 @@ class PPO(nn.Module):
         self.transition.progress = infos["step"].detach() / self.episode_length
 
         # Bootstrapping on time outs
-        if torch.any(infos["time_out"]):
-            self.transition.rewards += self.cfg.gamma * torch.squeeze(self.transition.values * infos['time_out'].unsqueeze(1).to(self.device), 1)
+        #if torch.any(infos["time_out"]):
+        #    self.transition.rewards += self.cfg.gamma * torch.squeeze(self.transition.values * infos['time_out'].unsqueeze(1).to(self.device), 1)
         
         # Record the transition
         self.storage.add_transitions(self.transition)

@@ -13,7 +13,7 @@ from tasks.PPOTaskBase import PPOTaskBase
 from omegaconf import OmegaConf
 
 
-def _create_env(env, num_envs, device, viz=False, randomisation=True):
+def _create_env(env, num_envs, device, viz=False, domain_cfg=None):
     """
     Create the environment with the specified number of environments and device.
     VmapWrapper->AutoResetWrapper->TorchWrapper(->RenderWrapper)
@@ -26,8 +26,8 @@ def _create_env(env, num_envs, device, viz=False, randomisation=True):
     """
     #env = VmapWrapper(env, batch_size=num_envs)
     #env = AutoResetWrapper(env)
-    if randomisation:
-        env=wrap(env, num_envs=num_envs, randomization_fn=domain_randomize)
+    if domain_cfg.randomisation:
+        env=wrap(env, num_envs=num_envs, randomization_fn=domain_randomize, randomization_args=domain_cfg)
     else:
         env = wrap(env, num_envs=num_envs)
     if device == 'cpu':
@@ -51,7 +51,7 @@ def train(cfg: DictConfig):
         None
     """
     # Create the environment    
-    env = _create_env(GO2Env(cfg.env, scene_xml=cfg.scene_xml), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz, randomisation=cfg.randomisation)
+    env = _create_env(GO2Env(cfg.env, scene_xml=cfg.scene_xml), num_envs=cfg.num_envs, device=cfg.device, viz=cfg.viz, domain_cfg=cfg.env.domain_rand)
 
 
     # Set up logging using wandb

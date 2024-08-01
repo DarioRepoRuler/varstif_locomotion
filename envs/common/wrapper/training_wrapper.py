@@ -11,6 +11,7 @@ def wrap(
         env: MjxEnv,
         num_envs: 1000,
         #action_repeat: int = 1,
+        randomization_args=None,
         randomization_fn: Optional[
             Callable[[mjx.Model], Tuple[mjx.Model, mjx.Model]]
         ] = None,
@@ -31,7 +32,7 @@ def wrap(
     if randomization_fn is None:
         env = VmapWrapper(env, batch_size=num_envs)
     else:
-        env = DomainRandomizationVmapWrapper(env, randomization_fn=randomization_fn, batch_size=num_envs)
+        env = DomainRandomizationVmapWrapper(env, randomization_fn=randomization_fn, batch_size=num_envs, randomization_args=randomization_args)
     env = AutoResetWrapper(env)
     return env
 
@@ -72,11 +73,12 @@ class DomainRandomizationVmapWrapper(Wrapper):
             self,
             env: MjxEnv,
             randomization_fn: Callable[[mjx.Model], Tuple[mjx.Model, mjx.Model]],
-            batch_size: Optional[int] = None,           
+            batch_size: Optional[int] = None,
+            randomization_args=None           
     ):
         super().__init__(env)
         self.batch_size = batch_size
-        self._sys_v, self._in_axes = randomization_fn(self.env.sys, batch_size=batch_size)
+        self._sys_v, self._in_axes = randomization_fn(self.env.sys, batch_size=batch_size, randomization_args=randomization_args)
         #print(self._sys_v)
 
     def _env_fn(self, sys: mjx.Model) -> MjxEnv:
@@ -107,7 +109,7 @@ class DomainRandomizationVmapWrapper(Wrapper):
         return res
 
 # Code from: https://colab.research.google.com/github/google-deepmind/mujoco/blob/main/mjx/tutorial.ipynb#scrollTo=1K45Kp2ASV9s
-def domain_randomize(sys, batch_size: Optional[int] = None):
+def domain_randomize(sys, batch_size: Optional[int] = None, randomization_args=None):
     """
     Randomizes the mjx.Model in terms of friction, gravitational vector and masses
 
@@ -120,30 +122,29 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
         in_axes: in_axes for jax.vmap
 
     """
+    friction_range = randomization_args.friction_range
+    gravity_offset = randomization_args.gravity_offset
+    payload_range = randomization_args.payload_range
 
     rng = jax.random.PRNGKey(0)
     rng = jax.random.split(rng, batch_size)
     def rand(rng):
         _, key = jax.random.split(rng, 2)
         # friction
-        friction = jax.random.uniform(key, (1,), minval=0.6, maxval=1.4)
+        friction = jax.random.uniform(key, (1,), minval=friction_range[0], maxval=friction_range[1])
         friction = sys.geom_friction.at[:, 0].set(friction)
         # friction = jax.random.uniform(key,(3,), minval=0.4, maxval=1.25)
         # friction = sys.geom_friction.at[0, :].set(friction)
-
-        # gravity - in all directions
-        #gravity = jax.random.uniform(key, (3,), minval=-1.0, maxval=1.0)
-        #gravity = sys.opt.gravity.at[:].add(gravity)
         
         # gravity - in z direction
-        gravity = jax.random.uniform(key, minval=-1.0, maxval=1.0)
-        gravity = sys.opt.gravity.at[2].add(gravity)
-        
+        gravity = jax.random.uniform(key, minval=gravity_offset[0], maxval=gravity_offset[1])
+        gravity = sys.opt.gravity.at[2].add(gravity) 
         
         # masses
-        masses = jax.random.uniform(key, (sys.body_mass.shape[0],), minval=-0.1, maxval=0.1)
-        masses = sys.body_mass.at[:].add(masses)
-        payload = jax.random.uniform(key, minval=-1.0, maxval=3.0)
+        #masses = jax.random.uniform(key, (sys.body_mass.shape[0],), minval=-0.1, maxval=0.1)
+        #masses = sys.body_mass.at[:].add(masses)
+        masses = sys.body_mass
+        payload = jax.random.uniform(key, minval=payload_range[0], maxval=payload_range[1])
         masses = masses.at[1].add(payload)
 
         # actuator_ NOT USED!
@@ -161,16 +162,16 @@ def domain_randomize(sys, batch_size: Optional[int] = None):
     in_axes = jax.tree_util.tree_map(lambda x: None, sys)
     in_axes = in_axes.tree_replace({
         'geom_friction': 0,
-        # 'opt.gravity': 0,
-        # 'body_mass':0,
+        'opt.gravity': 0,
+        'body_mass':0,
         #'actuator_gainprm': 0,
         # 'actuator_biasprm': 0,
     })
 
     sys = sys.tree_replace({
         'geom_friction': friction,
-        # 'opt.gravity': gravity,
-        # 'body_mass': masses,
+        'opt.gravity': gravity,
+        'body_mass': masses,
         #'actuator_gainprm': gain,
         # 'actuator_biasprm': bias,
     })

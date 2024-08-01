@@ -38,7 +38,7 @@ class PPOTaskBase(nn.Module):
 
         self.current_learning_iteration = 0
         self.level = 0
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control)
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control.enable)
 
     def step(self, obs_g, priviledged_obs_g, is_training=True):
         """

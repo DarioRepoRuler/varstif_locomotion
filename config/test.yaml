@@ -12,15 +12,32 @@ env:
   kick_vel: 0.1
   push_interval: 50
   is_training: False
-  manual_control: True
-  cmd_x: 1.0
-  cmd_y: 0.0
-  cmd_ang: 0.0
   episode_length: 1000
 
-#ckpt_path: 'outputs/2024-06-14/13-43-20/checkpoints/model_4750.pt'
-#ckpt_path: 'best_models/revised_model.pt'
-#ckpt_path: 'best_models/new_info_st.pt'
+  domain_rand:
+    randomisation: False
+    gravity_offset: [-1., 1.]
+    friction_range: [0.4, 1.25]
+    payload_range: [-1., 1.]
+    local_v_noise: 0.1
+    local_w_noise: 0.2
+    joint_noise: 0.01
+    joint_vel_noise: 1.5
+    gravity_noise: 0.05
+
+  # normalization:
+  #   local_v_scale: 2.0
+  #   local_w_scale: 0.25
+  #   joint_vel_scale: 0.1
+
+  manual_control:
+    enable: False
+    cmd_x: 0.8
+    cmd_y: 0.0
+    cmd_ang: 0.0
+
+
+
 ckpt_path: 'outputs/model_1550.pt'
 timesteps_per_rollout: 24
 num_iterations: 5

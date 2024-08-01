@@ -40,16 +40,22 @@ class UnitreeEnv(MjxEnv):
         self.control_mode = cfg.control_mode
         self.action_scale = cfg.action_scale
         self.num_history = cfg.num_history
-        self._obs_noise = cfg.obs_noise
-        self._act_noise = cfg.act_noise
         self._kick_vel = cfg.kick_vel
         self.is_training = cfg.is_training
-        self.manual_control = cfg.manual_control
+        
         self.episode_length = cfg.episode_length
 
-        self.cmd_x = cfg.cmd_x
-        self.cmd_y = cfg.cmd_y
-        self.cmd_yaw = cfg.cmd_ang
+        self.randomize = cfg.domain_rand.randomisation
+        self.local_v_noise = cfg.domain_rand.local_v_noise
+        self.local_w_noise = cfg.domain_rand.local_w_noise
+        self.joint_noise = cfg.domain_rand.joint_noise
+        self.joint_vel_noise = cfg.domain_rand.joint_vel_noise
+        self.gravity_noise = cfg.domain_rand.gravity_noise
+
+        self.manual_control = cfg.manual_control.enable
+        self.cmd_x = cfg.manual_control.cmd_x
+        self.cmd_y = cfg.manual_control.cmd_y
+        self.cmd_yaw = cfg.manual_control.cmd_ang
 
         self.soft_limits = soft_limits
         self.single_obs_size = 48 # defined in _get_obs
@@ -156,7 +162,7 @@ class UnitreeEnv(MjxEnv):
             "action_rate": -0.01,
             "action_rate2": 0.0,
             "abduction": 0.0,
-            "rew_pos_limits": -10.0,
+            "rew_pos_limits": -1.0,
             "rew_acceleartion": -0.00000025,
             "rew_collision": -1.0,
         }
@@ -594,7 +600,8 @@ class UnitreeEnv(MjxEnv):
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             #torso_z,
-            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
+            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * 
+            jp.concatenate([local_v, local_w]),  # yaw rate at index 6
             #0.1 * jp.concatenate([local_v, local_w]),
             proj_gravity,
             data.qpos[7:],
@@ -618,18 +625,15 @@ class UnitreeEnv(MjxEnv):
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
         assert priviledged_obs.shape[0] == self.priviledged_obs_size, f"priviledged_obs.shape {priviledged_obs.shape}"
 
-        # Add noise to the observation
-        local_v_noise = jax.random.uniform(obs_rng, (3,), minval=-0.1, maxval=0.1)
-        local_w_noise = jax.random.uniform(obs_rng, (3,), minval=-0.2, maxval=0.2)
-        joint_noise = jax.random.uniform(obs_rng, (12,), minval=-0.01, maxval=0.01)
-        joint_vel_noise = jax.random.uniform(obs_rng, (12,), minval=-1.5, maxval=1.5)
-        gravity_noise = jax.random.uniform(obs_rng, (3,), minval=-0.05, maxval=0.05)
+        # Add noise to the observation, this has to be altered if the observation space changes
+        noise_vec = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-1., maxval=1.)
+        noise_vec = noise_vec.at[:3].multiply(self.local_v_noise)
+        noise_vec = noise_vec.at[3:6].multiply(self.local_w_noise)
+        noise_vec = noise_vec.at[6:9].multiply(self.gravity_noise)
+        noise_vec = noise_vec.at[9:21].multiply(self.joint_noise)
+        noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise)
 
-        # obs = obs.at[:3].add(local_v_noise)
-        # obs = obs.at[3:6].add(0.25*local_w_noise)
-        # obs = obs.at[6:9].add(gravity_noise)
-        # obs = obs.at[9:21].add(joint_noise)
-        # obs = obs.at[21:33].add(0.05*joint_vel_noise)
+        obs = jp.where(self.randomize, obs, obs + noise_vec)
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
