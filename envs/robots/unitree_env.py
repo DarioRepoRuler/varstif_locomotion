@@ -60,6 +60,7 @@ class UnitreeEnv(MjxEnv):
         self.soft_limits = soft_limits
         self.single_obs_size = 48 # defined in _get_obs
         self.priviledged_obs_size = self.single_obs_size
+
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 
@@ -600,15 +601,13 @@ class UnitreeEnv(MjxEnv):
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             #torso_z,
-            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * 
-            jp.concatenate([local_v, local_w]),  # yaw rate at index 6
-            #0.1 * jp.concatenate([local_v, local_w]),
+            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
             proj_gravity,
             data.qpos[7:],
-            data.qvel[6:],
+            0.1 *data.qvel[6:],
             state_info['last_act'], 
             #state_info['contact'], #added
-            state_info['command'],
+            2.0* state_info['command'],
             # foot_pos_local,
             # foot_vel_local,
             # err,
@@ -627,13 +626,15 @@ class UnitreeEnv(MjxEnv):
 
         # Add noise to the observation, this has to be altered if the observation space changes
         noise_vec = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-1., maxval=1.)
-        noise_vec = noise_vec.at[:3].multiply(self.local_v_noise)
-        noise_vec = noise_vec.at[3:6].multiply(self.local_w_noise)
+        noise_vec = noise_vec.at[:3].multiply(self.local_v_noise*2.0)
+        noise_vec = noise_vec.at[3:6].multiply(self.local_w_noise*0.25)
         noise_vec = noise_vec.at[6:9].multiply(self.gravity_noise)
         noise_vec = noise_vec.at[9:21].multiply(self.joint_noise)
-        noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise)
-
-        obs = jp.where(self.randomize, obs, obs + noise_vec)
+        noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise*0.1)
+        noise_vec = noise_vec.at[33:].multiply(0.0)
+        jax.debug.print('observsation before noise: {x}', x=obs)
+        obs = jp.where(self.randomize, obs, obs+noise_vec)
+        jax.debug.print('observsation after noise: {x}', x=obs)
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
@@ -775,4 +776,4 @@ class UnitreeEnv(MjxEnv):
    
 
     def _reward_termination(self, done: jax.Array, step) -> jax.Array:
-        return done *~ (step > self.episode_length)
+        return done &(step < self.episode_length)
