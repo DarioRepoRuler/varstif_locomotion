@@ -165,7 +165,7 @@ class UnitreeEnv(MjxEnv):
             "abduction": 0.0,
             "rew_pos_limits": -0.0,
             "rew_acceleartion": -0.000000,
-            "rew_collision": -1.0,
+            "rew_collision": -10.0,
         }
 
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
@@ -255,9 +255,9 @@ class UnitreeEnv(MjxEnv):
     
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
         # Define constraints for the commands# From turtoial
-        lin_vel_x = [-1.0, 1.0]  # min max [m/s]
+        lin_vel_x = [-0.6, 1.0]  # min max [m/s]
         lin_vel_y = [-0.5, 0.5]  # min max [m/s]
-        ang_vel_yaw = [-0.8, 0.8]  # min max [rad/s] 
+        ang_vel_yaw = [-0.7, 0.7]  # min max [rad/s] 
 
         _, key1, key2, key3 = jax.random.split(rng, 4)
         lin_vel_x = jax.random.uniform(
@@ -273,7 +273,8 @@ class UnitreeEnv(MjxEnv):
         #Construct manual command
         manual_command = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
         # Decide whether to use manual control or random command
-        new_cmd = jp.where(self.manual_control, manual_command, rand_cmd)
+        #new_cmd = jp.where(self.manual_control, manual_command, rand_cmd)
+        new_cmd = rand_cmd
 
         return new_cmd
 
@@ -367,9 +368,9 @@ class UnitreeEnv(MjxEnv):
         #action = jp.clip(action, a_min=-100.0, a_max=100.0)
 
         if self.control_mode == "P":
-            target_dof_pos = self.action_scale * action + self.default_pos[7:]
-            # target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
-            #                         a_min=self.lower_limits, a_max=self.upper_limits)
+            #target_dof_pos = self.action_scale * action + self.default_pos[7:]
+            target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
+                                    a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             torques = self.p_gains * err - self.d_gains * dof_vel
         elif self.control_mode == "T":
@@ -496,9 +497,8 @@ class UnitreeEnv(MjxEnv):
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
 
-        reward = jp.clip(sum(rewards.values()) , 0.0, 10000.0)
+        reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
         #Reward clipping like in unitree rl
-        #reward = jp.clip(reward, a_min=0.)
 
         # state management
         state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation
@@ -517,11 +517,15 @@ class UnitreeEnv(MjxEnv):
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         
         # sample new command if more than half the episode has passed
-        # state.info['command'] = jp.where(
-        #     state.info['step'] > self.episode_length/2,
-        #     self._resample_commands(cmd_rng),
-        #     state.info['command'],
-        #     )
+        state.info['command'] = jp.where(
+            state.info['step'] > self.episode_length/2,
+            self._resample_commands(cmd_rng),
+            state.info['command'],
+            )
+        # reset the step counter when done
+        state.info['step'] = jp.where(
+        done | (state.info['step'] > 500), 0, state.info['step']
+        )
         
         state.metrics.update(state.info['rewards'])
 
@@ -633,7 +637,7 @@ class UnitreeEnv(MjxEnv):
         noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise*0.1)
         noise_vec = noise_vec.at[33:].multiply(0.0)
         #jax.debug.print('observsation before noise: {x}', x=obs)
-        obs = jp.where(self.randomize, obs, obs+noise_vec)
+        obs = jp.where(self.randomize, obs+noise_vec, obs)
         #jax.debug.print('observsation after noise: {x}', x=obs)
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
@@ -657,7 +661,7 @@ class UnitreeEnv(MjxEnv):
         terminate_contacts = terminate_contacts.at[:].set(self.get_terminate_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[terminate_contacts] < 0.0)
         #jax.debug.print('Timeout: {x}', x=step > self.episode_length)
-        done |= step > self.episode_length
+        #done |= step > self.episode_length
 
         return done
 

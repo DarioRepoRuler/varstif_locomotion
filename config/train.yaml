@@ -11,7 +11,7 @@ env:
   kick_vel: 0.05
   push_interval: 10
   is_training: True
-  episode_length: 100
+  episode_length: 1000
 
   domain_rand:
     randomisation: False
@@ -46,7 +46,7 @@ log_dir: "Documents/TALocoMotion/outputs/"
 
 num_envs: 1
 
-timesteps_per_rollout: 24
+timesteps_per_rollout: 48
 num_learning_iterations: 200
 device: 'cuda:0'
 
