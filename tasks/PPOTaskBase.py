@@ -101,7 +101,7 @@ class PPOTaskBase(nn.Module):
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
-        
+        print(f"Rewards infos: {episode_infos}")
         episode_infos['time_outs'] = time_out
         return self.obs, self.obs_priv, episode_infos, eval_infos
 

@@ -524,7 +524,7 @@ class UnitreeEnv(MjxEnv):
             )
         # reset the step counter when done
         state.info['step'] = jp.where(
-        done | (state.info['step'] > 500), 0, state.info['step']
+        done | (state.info['step'] > self.episode_length), 0, state.info['step']
         )
         
         state.metrics.update(state.info['rewards'])
