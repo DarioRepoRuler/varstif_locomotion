@@ -143,22 +143,22 @@ class ReplayBuffer:
         return stat
 
     def mini_batch_generator(self, num_batches, num_epochs=8):
-        batch_size = self.num_envs * self.step // num_batches # integer floor division
+        batch_size = self.num_envs * self.num_transitions_per_env// num_batches # integer floor division
+        indices = torch.randperm(num_batches * batch_size, requires_grad=False, device=self.device)
+        
         #print(f"Mini batch size: {batch_size}")
-        obs_g = self.observations[:self.step].flatten(0, 1)       
-        actions = self.actions[:self.step].flatten(0, 1)
-        values = self.values[:self.step].flatten(0, 1)
-        returns = self.returns[:self.step].flatten(0, 1)
-        old_actions_log_prob = self.actions_log_prob[:self.step].flatten(0, 1)
-        advantages = self.advantages[:self.step].flatten(0, 1)
-        old_mu = self.mu[:self.step].flatten(0, 1)
-        old_sigma = self.sigma[:self.step].flatten(0, 1)
-
-        priv_obs_g = self.priv_obs[:self.step].flatten(0, 1)
-        #priv_obs_estimations_g = self.priv_estimations[:self.step].flatten(0, 1)
+        obs_g = self.observations.flatten(0, 1) 
+        actions = self.actions.flatten(0, 1)
+        values = self.values.flatten(0, 1)
+        returns = self.returns.flatten(0, 1)
+        old_actions_log_prob = self.actions_log_prob.flatten(0, 1)
+        advantages = self.advantages.flatten(0, 1)
+        old_mu = self.mu.flatten(0, 1)
+        old_sigma = self.sigma.flatten(0, 1)
+        priv_obs_g = self.priv_obs.flatten(0, 1)
 
         for epoch in range(num_epochs):
-            indices = torch.randperm(num_batches * batch_size, requires_grad=False, device=self.device)
+            
             for i in range(num_batches):
                 start = i * batch_size
                 end = (i + 1) * batch_size
@@ -166,7 +166,6 @@ class ReplayBuffer:
 
                 obs_batch = obs_g[batch_idx]
                 priv_obs_batch = priv_obs_g[batch_idx]
-                #priv_obs_estimations_batch = priv_obs_estimations_g[batch_idx]
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
                 returns_batch = returns[batch_idx]

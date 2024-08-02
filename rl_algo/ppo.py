@@ -42,9 +42,7 @@ class PPO(nn.Module):
         
         self.transition = ReplayBuffer.Transition()
 
-        # print(f"Actor Critic len params: {len(list(self.actor_critic.parameters()))} ")
-        # print(f"Actor len params: {len(list(self.actor_critic.actor.parameters()))} ")
-        # print(f"Critic len params: {len(list(self.actor_critic.critic.parameters()))} ")
+
         params = list(self.actor_critic.actor.parameters()) + list(self.actor_critic.critic.parameters())
         params.append(self.actor_critic.std_action)
 
@@ -161,6 +159,7 @@ class PPO(nn.Module):
                                                                                 1.0 + self.cfg.clip_param)
             actor_loss = torch.max(actor_loss, actor_loss_clipped).mean()
 
+            # Value function loss
             if self.cfg.use_clipped_value_loss:
                 value_clipped = (target_values_batch +
                                  (value_batch - target_values_batch).clamp(-self.cfg.clip_param, self.cfg.clip_param))
