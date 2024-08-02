@@ -156,7 +156,7 @@ class UnitreeEnv(MjxEnv):
             "smooth_rate": 0.0, #action_rate from tutorial
             'feet_air_time': 0.2,
             'feet_contact_time': 0.0,
-            'termination': -1.0,
+            'termination': -10.0,
             'stand_still': -0.5, #-0.5, # adapted
             "foot_slip": -0.1,
             # Additional self created
@@ -339,7 +339,7 @@ class UnitreeEnv(MjxEnv):
             'rewards': {reward_: jp.array(0.) for reward_ in self.reward_scales.keys()},
             'kick': jp.array([0.0, 0.0]),
             'step': jp.array(0.),
-            'priviledged_obs': jp.zeros(53, dtype=jp.float32),
+            'priviledged_obs': jp.zeros(self.single_obs_size, dtype=jp.float32),
             'time_out': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
@@ -516,9 +516,9 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         
-        # sample new command if more than half the episode has passed
+        # sample new command
         state.info['command'] = jp.where(
-            state.info['step'] > self.episode_length/2,
+            state.info['step'] > self.episode_length,
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
