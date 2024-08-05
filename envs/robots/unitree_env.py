@@ -443,6 +443,7 @@ class UnitreeEnv(MjxEnv):
         foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
         foot_floor_dist = jp.zeros((4),dtype=float)
         foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
+        jax.debug.print('Foot distances: {x}', x=foot_floor_dist)
         ## general contact management
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
