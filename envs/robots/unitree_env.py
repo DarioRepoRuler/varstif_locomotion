@@ -498,8 +498,9 @@ class UnitreeEnv(MjxEnv):
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
 
-        reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
         #Reward clipping like in unitree rl
+        reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
+        
 
         # state management
         state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation

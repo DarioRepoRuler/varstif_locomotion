@@ -174,9 +174,7 @@ def domain_randomize(sys, batch_size: Optional[int] = None, randomization_args=N
         #'actuator_gainprm': gain,
         # 'actuator_biasprm': bias,
     })
-    #print(f"Randomized gravity: {sys.opt.gravity}")
-    #print(f"Randomized friction: {sys.geom_friction}")
-    #print(f"Randomized masses: {sys.body_mass}")
+
     return sys, in_axes
   
 
@@ -225,11 +223,8 @@ class AutoResetWrapper(Wrapper):
         state.info['feet_air_time'] =  where_done(jp.zeros_like(state.info['feet_air_time']), state.info['feet_air_time'])
         state.info['feet_contact_time'] = where_done(jp.zeros_like(state.info['feet_contact_time']), state.info['feet_contact_time'])
         state.info['last_contact'] = where_done(jp.zeros_like(state.info['last_contact']), state.info['last_contact'])
-        #state.info['rewards'] = where_done(jp.zeros_like(state.info['rewards']), state.info['rewards'])
-        #state.info['step'] = where_done(jp.zeros_like(state.info['step']), state.info['step'])
-        #state.info['time_out']= where_done(jp.zeros_like(state.info['time_out']), state.info['time_out'])
+        state.info['time_out']= where_done(jp.zeros_like(state.info['time_out']), state.info['time_out'])
         state.info['rng'] =where_done(jp.zeros_like(state.info['rng']), state.info['rng'])
         state.info['action_minus_2t'] = where_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
-        
 
         return state.replace(pipeline_state=pipeline_state, obs=obs, priviledged_obs=priviledged_obs)
