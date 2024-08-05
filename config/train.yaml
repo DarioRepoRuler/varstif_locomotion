@@ -14,10 +14,11 @@ env:
   episode_length: 500
 
   domain_rand:
-    randomisation: False
-    gravity_offset: [-1., 1.]
-    friction_range: [0.4, 1.25]
-    payload_range: [-1., 1.]
+    randomisation: True
+    gravity_offset: [-0., 0.]
+    friction_range: [0.6, 1.25]
+    payload_range: [-0., 0.]
+
     local_v_noise: 0.1
     local_w_noise: 0.2
     joint_noise: 0.01
@@ -38,20 +39,20 @@ env:
 
 log: True
 
-#ckpt_path: 'outputs/2024-07-22/09-38-47/checkpoints/model_3000.pt'
-ckpt_path: null
+ckpt_path: 'outputs/2024-08-04/18-47-36/checkpoints/model_1500.pt'
+#ckpt_path: null
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 2000
+num_envs: 4096
 
 timesteps_per_rollout: 48
-num_learning_iterations: 200
-device: 'cuda:0'
+num_learning_iterations: 4501
+device: 'cuda:1'
 
 curriculum: False
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2
