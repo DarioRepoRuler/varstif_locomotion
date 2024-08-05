@@ -39,8 +39,8 @@ env:
 
 log: True
 
-ckpt_path: 'outputs/2024-08-04/18-47-36/checkpoints/model_1500.pt'
-#ckpt_path: null
+#ckpt_path: 'outputs/2024-08-04/18-47-36/checkpoints/model_1500.pt'
+ckpt_path: null
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
@@ -49,7 +49,7 @@ num_envs: 4096
 
 timesteps_per_rollout: 48
 num_learning_iterations: 4501
-device: 'cuda:1'
+device: 'cuda:0'
 
 curriculum: False
 viz: False
