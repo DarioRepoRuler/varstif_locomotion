@@ -65,11 +65,6 @@ class PPOTaskBase(nn.Module):
         # Gather evaluation information only in test mode
         eval_infos = None
 
-        # if not is_training:
-        #     eval_infos={'foot_pos_z': torch.zeros((self.cfg.timesteps_per_rollout, 4), device=self.device, dtype=torch.float32), 
-        #                 'q_vel': torch.zeros((self.cfg.timesteps_per_rollout,18), device=self.device, dtype=torch.float32), 
-        #                 'cmd': torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)}
-
         with torch.inference_mode():
             pos_x = torch.zeros(self.cfg.timesteps_per_rollout, device=self.device, dtype=torch.float32)
             time_out = torch.zeros(self.cfg.num_envs, device=self.device, dtype=torch.bool)
@@ -101,7 +96,10 @@ class PPOTaskBase(nn.Module):
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
+        #print(f"Termination reward: {episode_infos['termination']}")
+        #print(f"Time outs:{torch.sum(time_out)}")
         print(f"Rewards infos: {episode_infos}")
+
         episode_infos['time_outs'] = time_out
         return self.obs, self.obs_priv, episode_infos, eval_infos
 

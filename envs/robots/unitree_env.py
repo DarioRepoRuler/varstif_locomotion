@@ -506,7 +506,7 @@ class UnitreeEnv(MjxEnv):
         state.info['last_contact'] = contact
         state.info['rewards'] = rewards
         state.info['step']+= 1
-        state.info['time_out'] += state.info['step'] > self.episode_length
+        state.info['time_out'] = state.info['step'] > self.episode_length
         state.info['rng'] = rng
         state.info['action_minus_2t'] = state.info['last_act'] 
         state.info['last_act'] = action
@@ -522,9 +522,10 @@ class UnitreeEnv(MjxEnv):
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
+        
         # reset the step counter when done
         state.info['step'] = jp.where(
-        done | (state.info['step'] > self.episode_length), 0, state.info['step']
+        (state.info['step'] > self.episode_length), 0, state.info['step']
         )
         
         state.metrics.update(state.info['rewards'])

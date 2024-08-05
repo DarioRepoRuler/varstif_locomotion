@@ -93,8 +93,7 @@ class DomainRandomizationVmapWrapper(Wrapper):
         
         initial_xy = jp.expand_dims(initial_xy, 0)
         initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
-        rng= jp.expand_dims(rng, 0)
-        rng = jp.repeat(rng, self.batch_size, axis=0)
+        rng = jax.random.split(rng, self.batch_size)
         state = jax.vmap(reset, in_axes=[self._in_axes, 0])(self._sys_v, rng, initial_xy=initial_xy )
         return state
 
@@ -113,7 +112,7 @@ def domain_randomize(sys, batch_size: Optional[int] = None, randomization_args=N
     """
     Randomizes the mjx.Model in terms of friction, gravitational vector and masses
 
-    Args:
+    Args:   
         sys: mjx.Model to be randomized
         batch_size: number of randomizations to perform
     
@@ -227,7 +226,8 @@ class AutoResetWrapper(Wrapper):
         state.info['feet_contact_time'] = where_done(jp.zeros_like(state.info['feet_contact_time']), state.info['feet_contact_time'])
         state.info['last_contact'] = where_done(jp.zeros_like(state.info['last_contact']), state.info['last_contact'])
         #state.info['rewards'] = where_done(jp.zeros_like(state.info['rewards']), state.info['rewards'])
-        state.info['step'] = where_done(jp.zeros_like(state.info['step']), state.info['step'])
+        #state.info['step'] = where_done(jp.zeros_like(state.info['step']), state.info['step'])
+        #state.info['time_out']= where_done(jp.zeros_like(state.info['time_out']), state.info['time_out'])
         state.info['rng'] =where_done(jp.zeros_like(state.info['rng']), state.info['rng'])
         state.info['action_minus_2t'] = where_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
         
