@@ -764,8 +764,12 @@ class UnitreeEnv(MjxEnv):
             joint_angles: jax.Array,
     ) -> jax.Array:
         # Penalize motion at zero commands
-        return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
-                math.normalize(commands[:2])[1] < 0.05
+        
+        # return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
+        #         math.normalize(commands[:2])[1] < 0.05
+        # )
+        return jp.sum(jp.abs(joint_angles - self.default_pose)) * (
+        math.normalize(commands[:2])[1] < 0.05
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
