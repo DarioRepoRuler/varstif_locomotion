@@ -48,7 +48,7 @@ log_dir: "Documents/TALocoMotion/outputs/"
 num_envs: 4096
 
 timesteps_per_rollout: 48
-num_learning_iterations: 4501
+num_learning_iterations: 2001
 device: 'cuda:1'
 
 curriculum: False

@@ -42,7 +42,7 @@ class UnitreeEnv(MjxEnv):
         self.num_history = cfg.num_history
         self._kick_vel = cfg.kick_vel
         self.is_training = cfg.is_training
-        
+        self.push_interval = cfg.push_interval
         self.episode_length = cfg.episode_length
 
         self.randomize = cfg.domain_rand.randomisation
@@ -388,10 +388,9 @@ class UnitreeEnv(MjxEnv):
             state: current state
             rng: random key
         """
-        push_interval = 10
         kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
         kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)])
-        kick *= jp.mod(state.info['step'], push_interval) == 0
+        kick *= jp.mod(state.info['step'], self.push_interval) == 0
         qvel = state.pipeline_state.qvel  # pytype: disable=attribute-error
         qvel = qvel.at[:2].set(kick * self._kick_vel + qvel[:2])
         state = state.tree_replace({'pipeline_state.qvel': qvel})
@@ -768,8 +767,8 @@ class UnitreeEnv(MjxEnv):
         # return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
         #         math.normalize(commands[:2])[1] < 0.05
         # )
-        return jp.sum(jp.abs(joint_angles - self.default_pose)) * (
-        math.normalize(commands[:2])[1] < 0.05
+        return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
+        math.normalize(commands[:2])[1] < 0.1
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
