@@ -58,9 +58,15 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.manual_control.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 48 # defined in _get_obs
+        self.single_obs_size = 51 # defined in _get_obs
         self.priviledged_obs_size = self.single_obs_size
-
+        
+        if cfg.control_mode == "VIC_1": # for hip,thigh and knee
+            self.action_shape = self.action_size + 3
+        elif cfg.control_mode == "VIC_2": # for every leg
+            self.action_shape = self.action_size + 4
+        else:
+            self.action_shape = self.action_size
         # Randomization ranges:
         self.x_pos = [-0.1, 0.1]#[-3, 3]
         self.y_pos = [-0.1, 0.1]#[-3, -2] 
@@ -148,7 +154,7 @@ class UnitreeEnv(MjxEnv):
         self.reward_scales = {
             # From turtoial
             'tracking_lin_vel': 1.5, 
-            'tracking_ang_vel': 0.8, 
+            'tracking_ang_vel': 1.0, 
             "lin_vel_z": -2.0, 
             "ang_vel_xy": -0.05, 
             "orientation": -5.0, 
@@ -196,7 +202,6 @@ class UnitreeEnv(MjxEnv):
             feet_mask=feet_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, self.feet_geom_id[i])[:,1])
             foot_cont = foot_cont.at[0:expected_total_cont].set(feet_mask*ground_mask)
             connection_index= connection_index.at[:].set(jp.where(foot_cont, size=1)[0])
-            #jax.debug.print('Connection index: {x}', x=connection_index)
             conn_indices = conn_indices.at[i,0].set(connection_index[0])        
         return conn_indices
 
@@ -327,8 +332,8 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Mjdata: {x}', x=data)
         state_info = {
             'rng': rng,
-            'action_minus_2t': jp.zeros(12), # added for smoothness
-            'last_act': jp.zeros(12),
+            'action_minus_2t': jp.zeros(self.action_shape), # added for smoothness
+            'last_act': jp.zeros(self.action_shape),
             'last_vel': jp.zeros(18),
             'foot_acc': jp.zeros(12),
             'command': command,
@@ -368,13 +373,26 @@ class UnitreeEnv(MjxEnv):
         #action = jp.clip(action, a_min=-100.0, a_max=100.0)
 
         if self.control_mode == "P":
-            #target_dof_pos = self.action_scale * action + self.default_pos[7:]
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             torques = self.p_gains * err - self.d_gains * dof_vel
         elif self.control_mode == "T":
             torques = unscale(self.action_scale * action, lower=-self.torque_limits, upper=self.torque_limits)
+        elif self.control_mode == "VIC_1":
+            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
+                                    a_min=self.lower_limits, a_max=self.upper_limits)
+            err = target_dof_pos - dof_pos
+            p_gains = jp.clip(self.p_gains + 10*jp.tile(action[12:],4), a_min=10.0, a_max=100.0)
+            d_gains = 2*jp.sqrt(10 / p_gains) # setting it after critical damping law
+            torques = p_gains * err - d_gains * dof_vel
+        elif self.control_mode == "VIC_2":
+            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
+                                    a_min=self.lower_limits, a_max=self.upper_limits)
+            err = target_dof_pos - dof_pos
+            p_gains = jp.clip(self.p_gains + 10*jp.repeat(action[12:],3), a_min=10.0, a_max=100.0)
+            d_gains = 2*jp.sqrt(10 / p_gains) # setting it after critical damping law
+            torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
 
@@ -417,9 +435,6 @@ class UnitreeEnv(MjxEnv):
 
         # Get the current state of the physics
         data0 = state.pipeline_state
-        
-        #action_noise = jax.random.uniform(action_rng, (12,), minval=-self._act_noise, maxval=self._act_noise)
-        #action = action.at[:].add(action_noise)
 
         # Performs physics timesteps per control step
         data = self.pipeline_step(data0, action) #passed data is action as angle -> convert to torque in mjx
@@ -594,10 +609,8 @@ class UnitreeEnv(MjxEnv):
         foot_pos_local = foot_transform_local.pos.reshape(-1)
         foot_vel_local = J @ data.qvel
 
-        #jax.debug.print('Foot pos local: {x}', x=foot_pos_local)
-
         # Joint error
-        target_dof_pos = jp.clip(self.action_scale * state_info['last_act']  + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
+        target_dof_pos = jp.clip(self.action_scale * state_info['last_act'][:12]  + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
         err = target_dof_pos - data.qpos[7:]
 
         # Orientation quaternion
@@ -607,17 +620,17 @@ class UnitreeEnv(MjxEnv):
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             #torso_z,
-            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),  # yaw rate at index 6
+            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),
             proj_gravity,
-            data.qpos[7:]-self.default_pos[7:],  # joint angles
+            data.qpos[7:]-self.default_pos[7:],  
             0.1 *data.qvel[6:],
             state_info['last_act'], 
-            #state_info['contact'], #added
             2.0* state_info['command'],
+            #state_info['contact'], 
             # foot_pos_local,
             # foot_vel_local,
             # err,
-            # rpy[:-1], # quaternion, leaving yaw out
+            # rpy[:-1], 
         ])
 
         obs = jp.clip(obs, -100.0, 100.0)
@@ -638,9 +651,7 @@ class UnitreeEnv(MjxEnv):
         noise_vec = noise_vec.at[9:21].multiply(self.joint_noise)
         noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise*0.1)
         noise_vec = noise_vec.at[33:].multiply(0.0)
-        #jax.debug.print('observsation before noise: {x}', x=obs)
         obs = jp.where(self.randomize, obs+noise_vec, obs)
-        #jax.debug.print('observsation after noise: {x}', x=obs)
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
@@ -668,7 +679,7 @@ class UnitreeEnv(MjxEnv):
         return done
 
     ### ------------ Reward functions---------------- ###
-    def _reward_tracking_lin_vel(#DONE
+    def _reward_tracking_lin_vel(
             self, commands: jax.Array, x: Transform, xd: Motion
     ) -> jax.Array:
         # Tracking of linear velocity commands (xy axes)
@@ -677,7 +688,7 @@ class UnitreeEnv(MjxEnv):
         lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
         return lin_vel_reward
 
-    def _reward_tracking_ang_vel(#DONE
+    def _reward_tracking_ang_vel(
             self, commands: jax.Array, x: Transform, xd: Motion
     ) -> jax.Array:
         # Tracking of angular velocity commands (yaw)
@@ -685,15 +696,15 @@ class UnitreeEnv(MjxEnv):
         ang_vel_error = jp.square(commands[2] - base_ang_vel[2])
         return jp.exp(-4 * ang_vel_error) #change to sigma
 
-    def _reward_lin_vel_z(self, xd: Motion) -> jax.Array: #DONE
+    def _reward_lin_vel_z(self, xd: Motion) -> jax.Array: 
         # Penalize z axis base linear velocity
         return jp.sum(jp.square(xd.vel[0, 2]))
     
-    def _reward_ang_vel_xy(self, xd: Motion) -> jax.Array: #DONE
+    def _reward_ang_vel_xy(self, xd: Motion) -> jax.Array: 
         # Penalize xy axes base angular velocity
         return jp.sum(jp.square(xd.ang[0, :2]))
     
-    def _reward_orientation(self, x: Transform) -> jax.Array: #DONE
+    def _reward_orientation(self, x: Transform) -> jax.Array: 
         # Penalize non flat base orientation
         up = jp.array([0.0, 0.0, 1.0])
         rot_up = math.rotate(up, x.rot[0])
@@ -743,7 +754,7 @@ class UnitreeEnv(MjxEnv):
         # Reward air time.
         rew_air_time = jp.sum(air_time * first_contact)
         rew_air_time *= (
-                math.normalize(commands[:2])[1] > 0.1
+                math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
         return rew_air_time
 
@@ -786,4 +797,4 @@ class UnitreeEnv(MjxEnv):
    
 
     def _reward_termination(self, done: jax.Array, step) -> jax.Array:
-        return done &(step < self.episode_length)
+        return done & (step < self.episode_length)

@@ -18,6 +18,7 @@ class PPOTaskBase(nn.Module):
                  wandb_logger=None):
         super().__init__()
         self.cfg = cfg
+        self.control_mode = cfg.env.control_mode
         self.device = cfg.device
         self.eval_interval = eval_interval
         self.save_interval = save_interval
@@ -27,13 +28,21 @@ class PPOTaskBase(nn.Module):
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
 
+        if self.control_mode == 'P' or self.control_mode == 'T':
+            num_actions = 12
+        elif self.control_mode == 'VIC_1':
+            num_actions= 15
+        elif self.control_mode == 'VIC_2':
+            num_actions= 16
+
         self.algo = PPO(cfg=self.cfg.policy,
                         num_envs=self.cfg.num_envs,
-                        num_actions=self.env.action_size,
+                        num_actions=num_actions,
                         episode_length=self.cfg.timesteps_per_rollout,
                         num_single_obs = self.env.observation_size // self.cfg.env.num_history,
                         num_env_obs=self.env.observation_size,
                         num_priv_obs=self.env.priviledged_observation_size,
+                        control_mode=self.control_mode,
                         device=self.device)
 
         self.current_learning_iteration = 0

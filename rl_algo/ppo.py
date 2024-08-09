@@ -15,6 +15,7 @@ class PPO(nn.Module):
                  num_env_obs,
                  num_priv_obs,
                  num_robots=1,
+                 control_mode='P',
                  device='cpu'
                  ):
         super().__init__()
@@ -29,7 +30,8 @@ class PPO(nn.Module):
                                         num_single_obs=num_single_obs,
                                         num_obs=num_env_obs,
                                         num_priv_obs=num_priv_obs,
-                                        num_actions=num_actions
+                                        num_actions=num_actions,
+                                        control_mode = control_mode,
                                         ).to(self.device)
 
         self.storage = ReplayBuffer(num_envs=num_envs,

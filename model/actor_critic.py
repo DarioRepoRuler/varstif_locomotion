@@ -11,7 +11,8 @@ class ActorCritic(nn.Module):
                  num_single_obs,
                  num_obs,
                  num_priv_obs,
-                 num_actions):
+                 num_actions,
+                 control_mode):
         super().__init__()
 
         self.num_single_obs = num_single_obs
