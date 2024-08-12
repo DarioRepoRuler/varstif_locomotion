@@ -15,9 +15,9 @@ env:
 
   domain_rand:
     randomisation: True
-    gravity_offset: [-0., 0.]
+    gravity_offset: [0., 0.]
     friction_range: [0.5, 1.25]
-    payload_range: [-0., 0.]
+    payload_range: [0., 0.]
 
     local_v_noise: 0.1
     local_w_noise: 0.2
@@ -45,14 +45,14 @@ ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 2000
+num_envs: 4096
 
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2

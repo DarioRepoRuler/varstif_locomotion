@@ -43,7 +43,7 @@ class PPO(nn.Module):
                                     device=self.device)
         
         self.transition = ReplayBuffer.Transition()
-
+        torch.autograd.set_detect_anomaly(True)
 
         params = list(self.actor_critic.actor.parameters()) + list(self.actor_critic.critic.parameters())
         params.append(self.actor_critic.std_action)
@@ -56,11 +56,7 @@ class PPO(nn.Module):
 
     def act(self, obs_g, priv_obs_g):
         # Compute the actions and values
-        if self.use_encoder_decoder:
-            self.transition.actions, _ = self.actor_critic.act(obs_g)
-            #self.transition.priv_estimations = self.transition.priv_estimations.detach()
-        else:
-            self.transition.actions = self.actor_critic.act(obs_g)
+        self.transition.actions = self.actor_critic.act(obs_g)
         self.transition.actions = self.transition.actions.detach()
 
         self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach()
@@ -81,7 +77,7 @@ class PPO(nn.Module):
         self.transition.actions = self.transition.actions.detach()
 
         self.transition.values = self.actor_critic.evaluate(priv_obs_g).detach() # calls just the critic
-        self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
+        self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions.detach())
         self.transition.action_mean = self.actor_critic.action_mean.detach()
         self.transition.action_sigma = self.actor_critic.action_std.detach()
         #  UPDATE: record obs and priv_obs before env step
@@ -179,7 +175,10 @@ class PPO(nn.Module):
 
             self.optimizer.zero_grad()
             loss.backward()
-            nn.utils.clip_grad_norm_(params, self.cfg.max_grad_norm)
+            total_norm_before = nn.utils.clip_grad_norm_(params, 1e10)  # Use a very large clip value to avoid actual clipping
+            #print(f"Gradient norm before clipping: {total_norm_before.item()}")
+            norm_after = nn.utils.clip_grad_norm_(params, self.cfg.max_grad_norm)
+            #print(f"Gradient norm after clipping: {norm_after.item()}")
             self.optimizer.step()    
 
 

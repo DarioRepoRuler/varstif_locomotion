@@ -54,11 +54,23 @@ class PPOTaskBase(nn.Module):
         Performs action in the environment and returns the next observation. Everything outside this function will not directly
         affect the environment or the learning process.
         """
+        
         #print(f"Observations: {obs_g.shape}")
+        if torch.isnan(obs_g).any():
+            print(f"observation shape: {obs_g.shape}")
+            print("Nan in obs_g!! Coming from simulation then...")
+            print(f"In observation: {torch.where(torch.isnan(obs_g))}")
+            print(f"Last action: {self.algo.storage.actions[-1][torch.where(torch.isnan(obs_g))[0]]}")
+            print(f"Action before: {self.algo.storage.actions[-2][torch.where(torch.isnan(obs_g))[0]]}")
+            print(f"Observation: {obs_g[torch.where(torch.isnan(obs_g))]}")
+            #print(f"Step count: {infos['step']}")
+
         if is_training:
             actions = self.algo.act(obs_g, priviledged_obs_g)
         else:
             actions = self.algo.act_eval(obs_g, priviledged_obs_g)
+        if torch.isnan(actions).any():
+            print(f"Action: {actions}")
         next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
 
         self.algo.process_env_step(obs_g, priviledged_obs_g,rewards, dones, infos)

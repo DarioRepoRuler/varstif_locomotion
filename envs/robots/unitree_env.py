@@ -58,13 +58,17 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.manual_control.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 51 # defined in _get_obs
+        self.single_obs_size = 48 # defined in _get_obs
         self.priviledged_obs_size = self.single_obs_size
         
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size + 3
+            self.single_obs_size = self.single_obs_size + 3
+            self.priviledged_obs_size = self.single_obs_size
         elif cfg.control_mode == "VIC_2": # for every leg
             self.action_shape = self.action_size + 4
+            self.single_obs_size = self.single_obs_size + 4
+            self.priviledged_obs_size = self.single_obs_size
         else:
             self.action_shape = self.action_size
         # Randomization ranges:
@@ -154,7 +158,7 @@ class UnitreeEnv(MjxEnv):
         self.reward_scales = {
             # From turtoial
             'tracking_lin_vel': 1.5, 
-            'tracking_ang_vel': 1.0, 
+            'tracking_ang_vel': 0.8, 
             "lin_vel_z": -2.0, 
             "ang_vel_xy": -0.05, 
             "orientation": -5.0, 
@@ -384,14 +388,14 @@ class UnitreeEnv(MjxEnv):
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             p_gains = jp.clip(self.p_gains + 10*jp.tile(action[12:],4), a_min=10.0, a_max=100.0)
-            d_gains = 2*jp.sqrt(10 / p_gains) # setting it after critical damping law
+            d_gains = 2*jp.sqrt(10 * p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             p_gains = jp.clip(self.p_gains + 10*jp.repeat(action[12:],3), a_min=10.0, a_max=100.0)
-            d_gains = 2*jp.sqrt(10 / p_gains) # setting it after critical damping law
+            d_gains = 2*jp.sqrt(10 * p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
@@ -406,9 +410,10 @@ class UnitreeEnv(MjxEnv):
             state: current state
             rng: random key
         """
+        push_interval = 25
         kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
         kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)])
-        kick *= jp.mod(state.info['step'], self.push_interval) == 0
+        kick *= jp.mod(state.info['step'], push_interval) == 0
         qvel = state.pipeline_state.qvel  # pytype: disable=attribute-error
         qvel = qvel.at[:2].set(kick * self._kick_vel + qvel[:2])
         state = state.tree_replace({'pipeline_state.qvel': qvel})
@@ -675,6 +680,9 @@ class UnitreeEnv(MjxEnv):
         done |= jp.any(data.contact.dist[terminate_contacts] < 0.0)
         #jax.debug.print('Timeout: {x}', x=step > self.episode_length)
         #done |= step > self.episode_length
+
+        done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
+        
 
         return done
 
