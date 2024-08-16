@@ -350,6 +350,7 @@ class UnitreeEnv(MjxEnv):
             'step': jp.array(0.),
             'priviledged_obs': jp.zeros(self.single_obs_size, dtype=jp.float32),
             'time_out': jp.array(0.),
+            'nan': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
         obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
@@ -528,6 +529,7 @@ class UnitreeEnv(MjxEnv):
         state.info['last_contact'] = contact
         state.info['rewards'] = rewards
         state.info['step']+= 1
+        state.info['nan']= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         state.info['time_out'] = state.info['step'] > self.episode_length
         state.info['rng'] = rng
         state.info['action_minus_2t'] = state.info['last_act'] 
@@ -605,7 +607,6 @@ class UnitreeEnv(MjxEnv):
         
         proj_gravity = math.rotate(jp.array([0, 0, -1]), inv_torso_rot)      # projected gravity
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
-        reward = jp.array([sum(state_info['rewards'].values())])
         foot_pos = data.site_xpos[self.feet_site_id]
 
         J = self._get_jacobian(data, data.qpos)
@@ -671,8 +672,8 @@ class UnitreeEnv(MjxEnv):
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
-        # done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        # done |= jp.any(data.qpos[7:] > self.upper_limits)
+        done |= jp.any(data.qpos[7:] < self.lower_limits) 
+        done |= jp.any(data.qpos[7:] > self.upper_limits)
         # Old termination: based on z-height
         # done |= data.xpos[self._torso_idx, 2] < self.min_z
         

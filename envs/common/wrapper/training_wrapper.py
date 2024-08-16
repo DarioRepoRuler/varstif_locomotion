@@ -210,6 +210,12 @@ class AutoResetWrapper(Wrapper):
                 done = jp.reshape(done, [x.shape[0]] + [1] * (len(x.shape) - 1))  # type: ignore
             return jp.where(done, x, y)
         
+        def where_nan(x,y):
+            nan = state.info['nan']
+            if nan.shape:
+                nan = jp.reshape(nan, [x.shape[0]] + [1] * (len(x.shape) - 1))
+            return jp.where(nan, x,y)
+        
         pipeline_state = jax.tree_map(
             where_done, state.info['first_pipeline_state'], state.pipeline_state
         )
@@ -217,7 +223,8 @@ class AutoResetWrapper(Wrapper):
         for key in state.info['rewards']:
             # Update each value based on the condition
             state.info['rewards'][key] = jp.where(state.done, jp.array(0.0), state.info['rewards'][key])
-        obs = where_done(state.info['first_obs'], state.obs)
+        obs = where_nan(state.info['first_obs'], state.obs)
+        reward = where_nan(jp.zeros_like(state.reward), state.reward)
         priviledged_obs = where_done(state.info['first_priviledged_obs'], state.priviledged_obs)
         # reset information
         state.info['last_act'] = where_done(jp.zeros_like(state.info['last_act']), state.info['last_act'])
@@ -232,4 +239,4 @@ class AutoResetWrapper(Wrapper):
         state.info['action_minus_2t'] = where_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
         
 
-        return state.replace(pipeline_state=pipeline_state, obs=obs, priviledged_obs=priviledged_obs)
+        return state.replace(pipeline_state=pipeline_state, obs = obs, reward= reward,  priviledged_obs=priviledged_obs)

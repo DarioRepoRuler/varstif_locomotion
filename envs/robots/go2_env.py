@@ -30,7 +30,7 @@ class GO2Env(UnitreeEnv):
         )
 
         # Specify Gains for PD controller for each joint
-        self.p_gains = jp.array([50., 50., 50.] * 4)
+        self.p_gains = jp.array([100., 100., 100.] * 4)
         self.d_gains = jp.array([1., 1., 1.] * 4)
 
         # position limits

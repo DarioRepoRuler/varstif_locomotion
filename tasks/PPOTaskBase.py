@@ -120,7 +120,7 @@ class PPOTaskBase(nn.Module):
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
         #print(f"Termination reward: {episode_infos['termination']}")
         #print(f"Time outs:{torch.sum(time_out)}")
-        #print(f"Rewards infos: {episode_infos}")
+        print(f"Rewards infos: {episode_infos}")
         if episode_infos['termination']>0.0:
             print(f"Episode infos: {episode_infos}")
             print(f"Termination reward: {episode_infos['termination']}")
