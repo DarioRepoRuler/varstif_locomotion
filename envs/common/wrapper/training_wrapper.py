@@ -196,10 +196,10 @@ class AutoResetWrapper(Wrapper):
     def step(self, state: State, action: jax.Array) -> State:       
         
         ## Custom step function
-        if 'step' in state.info:
-            steps = state.info['step']
-            steps = jp.where(state.done, jp.zeros_like(steps), steps)
-            state.info.update(steps=steps)
+        # if 'step' in state.info:
+        #     steps = state.info['step']
+        #     steps = jp.where(state.done, jp.zeros_like(steps), steps)
+        #     state.info.update(steps=steps)
         state = state.replace(done=jp.zeros_like(state.done))
         state = self.env.step(state, action)
 

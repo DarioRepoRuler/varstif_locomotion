@@ -72,6 +72,7 @@ class PPOTaskBase(nn.Module):
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
         next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
+        #print(f"INFOs: {infos}")
 
         self.algo.process_env_step(obs_g, priviledged_obs_g,rewards, dones, infos)
 
@@ -119,8 +120,10 @@ class PPOTaskBase(nn.Module):
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
         #print(f"Termination reward: {episode_infos['termination']}")
         #print(f"Time outs:{torch.sum(time_out)}")
-        print(f"Rewards infos: {episode_infos}")
-
+        #print(f"Rewards infos: {episode_infos}")
+        if episode_infos['termination']>0.0:
+            print(f"Episode infos: {episode_infos}")
+            print(f"Termination reward: {episode_infos['termination']}")
         episode_infos['time_outs'] = time_out
         return self.obs, self.obs_priv, episode_infos, eval_infos
 

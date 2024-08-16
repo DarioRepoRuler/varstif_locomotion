@@ -15,7 +15,7 @@ from pathlib import Path
 import os
 import numpy as np
 
-config.update("jax_debug_nans", True)
+#config.update("jax_debug_nans", True)
 
 
 class UnitreeEnv(MjxEnv):
@@ -381,6 +381,7 @@ class UnitreeEnv(MjxEnv):
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             torques = self.p_gains * err - self.d_gains * dof_vel
+
         elif self.control_mode == "T":
             torques = unscale(self.action_scale * action, lower=-self.torque_limits, upper=self.torque_limits)
         elif self.control_mode == "VIC_1":
@@ -553,6 +554,7 @@ class UnitreeEnv(MjxEnv):
 
         # observation
         obs, priviledged_obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
+        done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         done = jp.float32(done)
 
         state = state.replace(
