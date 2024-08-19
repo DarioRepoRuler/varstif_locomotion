@@ -289,7 +289,7 @@ class UnitreeEnv(MjxEnv):
         manual_command = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
         # Decide whether to use manual control or random command
         #new_cmd = jp.where(self.manual_control, manual_command, rand_cmd)
-        new_cmd = rand_cmd
+        new_cmd = manual_command
 
         return new_cmd
 
@@ -396,14 +396,14 @@ class UnitreeEnv(MjxEnv):
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             p_gains = jp.clip(self.p_gains + 10*jp.tile(action[12:],4), a_min=10.0, a_max=100.0)
-            d_gains = 2*jp.sqrt(10 * p_gains) # setting it after critical damping law
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             p_gains = jp.clip(self.p_gains + 10*jp.repeat(action[12:],3), a_min=10.0, a_max=100.0)
-            d_gains = 2*jp.sqrt(10 * p_gains) # setting it after critical damping law
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
@@ -624,6 +624,9 @@ class UnitreeEnv(MjxEnv):
         foot_pos_local = foot_transform_local.pos.reshape(-1)
         foot_vel_local = J @ data.qvel
 
+        #M = mjx.full_m(self.sys, data)
+        #jax.debug.print('M: {x}', x=M)
+
         # Joint error
         target_dof_pos = jp.clip(self.action_scale * state_info['last_act'][:12]  + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
         err = target_dof_pos - data.qpos[7:]
@@ -775,7 +778,7 @@ class UnitreeEnv(MjxEnv):
         # Reward air time.
         rew_air_time = jp.sum(air_time * first_contact)
         rew_air_time *= (
-                math.normalize(commands[:2])[1] > 0.05
+                math.normalize(commands[:3])[1] > 0.05
         )  # no reward for zero command
         return rew_air_time
 
@@ -800,7 +803,7 @@ class UnitreeEnv(MjxEnv):
         #         math.normalize(commands[:2])[1] < 0.05
         # )
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        math.normalize(commands[:2])[1] < 0.1
+        math.normalize(commands[:3])[1] < 0.1
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:

@@ -132,8 +132,8 @@ def domain_randomize(sys, batch_size: Optional[int] = None, randomization_args=N
         # friction
         friction = jax.random.uniform(key, (1,), minval=friction_range[0], maxval=friction_range[1])
         friction = sys.geom_friction.at[:, 0].set(friction)
-        # friction = jax.random.uniform(key,(3,), minval=0.4, maxval=1.25)
-        # friction = sys.geom_friction.at[0, :].set(friction)
+        # friction = jax.random.uniform(key,(3,), minval=friction_range[0], maxval=friction_range[0])
+        # friction = sys.geom_friction.at[:, :].set(friction)
         
         # gravity - in z direction
         gravity = jax.random.uniform(key, minval=gravity_offset[0], maxval=gravity_offset[1])

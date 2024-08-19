@@ -9,7 +9,9 @@ critic:
   hidden_dim: 256
   n_layers: 6
 
-
+stiff_network:
+  hidden_dim: 256
+  n_layers: 2 
 
 use_encoder_decoder: False
 encoding_arch:

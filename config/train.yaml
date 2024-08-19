@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "P"
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
   num_history: 1 # number of previous observations to stack
@@ -46,7 +46,7 @@ ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 1
+num_envs: 4096
 
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
