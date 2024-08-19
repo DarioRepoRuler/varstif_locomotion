@@ -77,6 +77,12 @@ class UnitreeEnv(MjxEnv):
         self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
+
+        # Normalization ranges
+        self.local_v_scale = cfg.normalization.local_v_scale
+        self.local_w_scale = cfg.normalization.local_w_scale
+        self.joint_vel_scale = cfg.normalization.joint_vel_scale
+        self.command_scale = cfg.normalization.command_scale
         
         # set up robot properties
         self._setup()
@@ -174,7 +180,7 @@ class UnitreeEnv(MjxEnv):
             "action_rate2": 0.0,
             "abduction": 0.0,
             "rew_pos_limits": -0.0,
-            "rew_acceleartion": -0.000000,
+            "rew_acceleration":-2.5e-7,
             "rew_collision": -10.0,
         }
 
@@ -412,7 +418,7 @@ class UnitreeEnv(MjxEnv):
             state: current state
             rng: random key
         """
-        push_interval = 25
+        push_interval = self.push_interval
         kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
         kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)])
         kick *= jp.mod(state.info['step'], push_interval) == 0
@@ -512,7 +518,7 @@ class UnitreeEnv(MjxEnv):
             'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             'abduction': self.abduction(joint_angles),
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
-            'rew_acceleartion': self._reward_acceleration(joint_vel, state.info['last_vel']),
+            'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
             'rew_collision': self._reward_collision(data),
         }
         rewards = {
@@ -628,12 +634,14 @@ class UnitreeEnv(MjxEnv):
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             #torso_z,
-            jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),
+            #jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),
+            self.local_v_scale*jp.array(local_v),
+            self.local_w_scale*jp.array(local_w),
             proj_gravity,
             data.qpos[7:]-self.default_pos[7:],  
-            0.1 *data.qvel[6:],
+            self.joint_vel_scale *data.qvel[6:],
             state_info['last_act'], 
-            2.0* state_info['command'],
+            self.command_scale * state_info['command'],
             #state_info['contact'], 
             # foot_pos_local,
             # foot_vel_local,
