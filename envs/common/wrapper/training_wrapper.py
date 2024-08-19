@@ -124,6 +124,7 @@ def domain_randomize(sys, batch_size: Optional[int] = None, randomization_args=N
     friction_range = randomization_args.friction_range
     gravity_offset = randomization_args.gravity_offset
     payload_range = randomization_args.payload_range
+    hip_mass_range = randomization_args.hip_mass_range
 
     rng = jax.random.PRNGKey(0)
     rng = jax.random.split(rng, batch_size)
@@ -139,10 +140,12 @@ def domain_randomize(sys, batch_size: Optional[int] = None, randomization_args=N
         gravity = jax.random.uniform(key, minval=gravity_offset[0], maxval=gravity_offset[1])
         gravity = sys.opt.gravity.at[2].add(gravity) 
         
-        # masses
-        #masses = jax.random.uniform(key, (sys.body_mass.shape[0],), minval=-0.1, maxval=0.1)
-        #masses = sys.body_mass.at[:].add(masses)
-        masses = sys.body_mass
+        # masses: randomize hips(for COM dial) and trunk
+        masses = sys.body_mass 
+        hip_masses = jax.random.uniform(key, (4,), minval=hip_mass_range[0], maxval=hip_mass_range[1])
+        indices = jp.array([4, 6, 10, 14])
+        masses = sys.body_mass.at[indices].add(hip_masses)
+        
         payload = jax.random.uniform(key, minval=payload_range[0], maxval=payload_range[1])
         masses = masses.at[1].add(payload)
 

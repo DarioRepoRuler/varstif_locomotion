@@ -16,8 +16,9 @@ env:
   domain_rand:
     randomisation: True
     gravity_offset: [0., 0.]
-    friction_range: [0.4, 1.25]
-    payload_range: [-1., 2.]
+    friction_range: [0.3, 1.25]
+    payload_range: [-1., 1.]
+    hip_mass_range: [-0.3, 0.3]
 
     local_v_noise: 0.1
     local_w_noise: 0.2
@@ -40,13 +41,12 @@ env:
 
 log: True
 
-#ckpt_path: 'outputs/2024-08-04/18-47-36/checkpoints/model_1500.pt'
 ckpt_path: null
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 2
+num_envs: 1
 
 timesteps_per_rollout: 48
 num_learning_iterations: 2001

@@ -2,7 +2,7 @@ from model.replay_buffer import ReplayBuffer
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from model.actor_critic import ActorCritic
+from model.actor_critic_stiff import ActorCritic
 
 
 class PPO(nn.Module):

@@ -131,6 +131,7 @@ class UnitreeEnv(MjxEnv):
         hip_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
         ]
+        print(f"Hip bodyies: {hip_body_id}")
         lower_leg_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, l)
             for l in lower_leg_body
