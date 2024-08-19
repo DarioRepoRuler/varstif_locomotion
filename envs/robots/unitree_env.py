@@ -284,12 +284,7 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = jax.random.uniform(
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
-        rand_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
-        #Construct manual command
-        manual_command = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
-        # Decide whether to use manual control or random command
-        #new_cmd = jp.where(self.manual_control, manual_command, rand_cmd)
-        new_cmd = manual_command
+        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
 
         return new_cmd
 
@@ -303,7 +298,6 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the initial state of the environment
         """
-        self.manual_control = manual_control
 
         rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
         
@@ -546,6 +540,13 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         
+
+        state.info['command'] = jp.where(
+            self.manual_control,
+            jp.array([self.cmd_x, self.cmd_y, self.cmd_yaw]),
+            state.info['command'],
+            )
+        
         # sample new command
         state.info['command'] = jp.where(
             state.info['step'] > self.episode_length,
@@ -553,11 +554,11 @@ class UnitreeEnv(MjxEnv):
             state.info['command'],
             )
         
+        
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.episode_length), 0, state.info['step']
         )
-        
         state.metrics.update(state.info['rewards'])
 
         # observation
