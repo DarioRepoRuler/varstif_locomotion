@@ -535,7 +535,7 @@ class UnitreeEnv(MjxEnv):
         state.info['last_contact'] = contact
         state.info['rewards'] = rewards
         state.info['step']+= 1
-        state.info['nan']= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
+        state.info['nan']= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() 
         state.info['time_out'] = state.info['step'] > self.episode_length
         state.info['rng'] = rng
         state.info['action_minus_2t'] = state.info['last_act'] 
@@ -562,7 +562,8 @@ class UnitreeEnv(MjxEnv):
 
         # observation
         obs, priviledged_obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
-        done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
+        done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() | jp.isnan(obs).any()
+        state.info['nan'] |= jp.isnan(obs).any()
         done = jp.float32(done)
 
         state = state.replace(
@@ -633,8 +634,6 @@ class UnitreeEnv(MjxEnv):
 
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
-            #torso_z,
-            #jp.array([2.0, 2.0, 2.0, 0.25, 0.25, 0.25]) * jp.concatenate([local_v, local_w]),
             self.local_v_scale*jp.array(local_v),
             self.local_w_scale*jp.array(local_w),
             proj_gravity,
@@ -653,6 +652,9 @@ class UnitreeEnv(MjxEnv):
 
         priviledged_obs = jp.concatenate([
             # Privileged
+            #self.sys.geom_friction[0, 0],
+            #self.sys.body_mass[1],
+            #state_info['kick'],
             obs
         ])
 
@@ -661,11 +663,11 @@ class UnitreeEnv(MjxEnv):
 
         # Add noise to the observation, this has to be altered if the observation space changes
         noise_vec = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-1., maxval=1.)
-        noise_vec = noise_vec.at[:3].multiply(self.local_v_noise*2.0)
-        noise_vec = noise_vec.at[3:6].multiply(self.local_w_noise*0.25)
+        noise_vec = noise_vec.at[:3].multiply(self.local_v_noise*self.local_v_scale)
+        noise_vec = noise_vec.at[3:6].multiply(self.local_w_noise*self.local_w_scale)
         noise_vec = noise_vec.at[6:9].multiply(self.gravity_noise)
         noise_vec = noise_vec.at[9:21].multiply(self.joint_noise)
-        noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise*0.1)
+        noise_vec = noise_vec.at[21:33].multiply(self.joint_vel_noise*self.joint_vel_scale)
         noise_vec = noise_vec.at[33:].multiply(0.0)
         obs = jp.where(self.randomize, obs+noise_vec, obs)
 
