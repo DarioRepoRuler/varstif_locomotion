@@ -131,7 +131,7 @@ class UnitreeEnv(MjxEnv):
         hip_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
         ]
-        print(f"Hip bodyies: {hip_body_id}")
+        
         lower_leg_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, l)
             for l in lower_leg_body
@@ -352,6 +352,7 @@ class UnitreeEnv(MjxEnv):
             'priviledged_obs': jp.zeros(self.single_obs_size, dtype=jp.float32),
             'time_out': jp.array(0.),
             'nan': jp.array(0.),
+            
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
         obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
