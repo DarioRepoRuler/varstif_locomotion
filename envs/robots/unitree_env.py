@@ -77,6 +77,9 @@ class UnitreeEnv(MjxEnv):
         self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
+        self.kp_range = cfg.domain_rand.kp_range
+        self.kd_range = cfg.domain_rand.kd_range
+        self.motor_strength_range = cfg.domain_rand.motor_strength_range
 
         # Normalization ranges
         self.local_v_scale = cfg.normalization.local_v_scale
@@ -303,9 +306,9 @@ class UnitreeEnv(MjxEnv):
         rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7, kp_rng, kd_rng, motor_strength_rng = jax.random.split(rng, 11)
         
         # Actuator randomisation
-        kp_factor = jax.random.uniform(kp_rng, (1,), minval=0.8, maxval=1.3)
-        kd_factor = jax.random.uniform(kd_rng, (1,), minval=0.5, maxval=1.5)
-        motor_strength = jax.random.uniform(motor_strength_rng, (1,), minval=0.8, maxval=1.1)
+        kp_factor = jax.random.uniform(kp_rng, (1,), minval=self.kp_range[0], maxval=self.kp_range[1])
+        kd_factor = jax.random.uniform(kd_rng, (1,), minval=self.kd_range[0], maxval=self.kd_range[1])
+        motor_strength = jax.random.uniform(motor_strength_rng, (1,), minval=self.motor_strength_range[0], maxval=self.motor_strength_range[1])
 
         reset_pos = self.default_pos
         
