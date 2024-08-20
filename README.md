@@ -42,7 +42,7 @@ After this is done the following procedure for setting up the conda enviroment i
 ## Training
 Brax is allocating 75% of the GPU memory by default therefore it is necessary to tell it to use much less.
 ```
-XLA_PYTHON_CLIENT_MEM_FRACTION=.2 python train.py
+XLA_PYTHON_CLIENT_MEM_FRACTION=.1 python train.py
 ```
 ## Testing
 In order to evaluate the model you have to first specify the path in `test.yaml`. This path should be the relative path from the folder TALocoMotion.

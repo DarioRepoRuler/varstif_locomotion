@@ -66,10 +66,10 @@ class MjxEnv(Env):
         data = mjx.forward(self.sys, data)
         return data
 
-    def pipeline_step(self, data: mjx.Data, action: jp.ndarray) -> mjx.Data:
+    def pipeline_step(self, data: mjx.Data, action: jp.ndarray, actuator_param: jp.ndarray) -> mjx.Data:
         """Takes a physics step using the physics pipeline."""
         def f(data, _):
-            ctrl = self.compute_torque(data, action)
+            ctrl = self.compute_torque(data, action, actuator_param)
             data = data.replace(ctrl=ctrl)
             return (
                 mjx.step(self.sys, data),

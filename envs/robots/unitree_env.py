@@ -300,11 +300,15 @@ class UnitreeEnv(MjxEnv):
             state: the initial state of the environment
         """
 
-        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
+        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7, kp_rng, kd_rng, motor_strength_rng = jax.random.split(rng, 11)
         
-        #
-        reset_pos = self.default_pos
+        # Actuator randomisation
+        kp_factor = jax.random.uniform(kp_rng, (1,), minval=0.8, maxval=1.3)
+        kd_factor = jax.random.uniform(kd_rng, (1,), minval=0.5, maxval=1.5)
+        motor_strength = jax.random.uniform(motor_strength_rng, (1,), minval=0.8, maxval=1.1)
 
+        reset_pos = self.default_pos
+        
 
         reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.x_pos[0], maxval=self.x_pos[1])
         reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.y_pos[0], maxval=self.y_pos[1])
@@ -327,7 +331,6 @@ class UnitreeEnv(MjxEnv):
 
         #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
         reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, 1, 0, 0, 0]))        
-        #jax.debug.print('Resulting position: {x}', x=reset_pos)        
 
         #reset_pos = reset_pos.at[0:7].set(jp.array([0, 0, 0.27, q1[0], q2[0], q3[0], q4]))
 
@@ -352,7 +355,9 @@ class UnitreeEnv(MjxEnv):
             'priviledged_obs': jp.zeros(self.single_obs_size, dtype=jp.float32),
             'time_out': jp.array(0.),
             'nan': jp.array(0.),
-            
+            'kp_factor': kp_factor,
+            'kd_factor': kd_factor,
+            'motor_strength': motor_strength,
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
         obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
@@ -369,7 +374,7 @@ class UnitreeEnv(MjxEnv):
                      info=state_info
                      )
 
-    def compute_torque(self, data: mjx.Data, action: jp.ndarray):
+    def compute_torque(self, data: mjx.Data, action: jp.ndarray, actuator_param: jp.ndarray) -> jp.ndarray:
         """
         :param action: in (-1, 1)
         :return:
@@ -383,7 +388,7 @@ class UnitreeEnv(MjxEnv):
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
-            torques = self.p_gains * err - self.d_gains * dof_vel
+            torques = self.p_gains*actuator_param[0] * err - self.d_gains*actuator_param[1] * dof_vel
 
         elif self.control_mode == "T":
             torques = unscale(self.action_scale * action, lower=-self.torque_limits, upper=self.torque_limits)
@@ -404,7 +409,7 @@ class UnitreeEnv(MjxEnv):
         else:
             raise RuntimeError("control model: P|T")
 
-        return jp.clip(torques, a_min=-self.torque_limits, a_max=self.torque_limits)
+        return jp.clip(torques*actuator_param[2], a_min=-self.torque_limits, a_max=self.torque_limits)
 
     def kick_robot(self, state: State, rng: jp.ndarray):
         """
@@ -446,10 +451,8 @@ class UnitreeEnv(MjxEnv):
         data0 = state.pipeline_state
 
         # Performs physics timesteps per control step
-        data = self.pipeline_step(data0, action) #passed data is action as angle -> convert to torque in mjx
-        # Alternative approach: use same torque for every timestep -> speedup
-        #ctrl = self.compute_torque(action) 
-        #data = self.pipeline_step2(data0, ctrl)
+        actuator_param = jp.concatenate([state.info['kp_factor'], state.info['kd_factor'], state.info['motor_strength']])
+        data = self.pipeline_step(data0, action, actuator_param) #passed data is action as angle -> convert to torque in mjx
 
         # ----------------- POST Physics step --------------- #
         # Here we 1.)extract the state information, 2.)check termination, 3.) calculate the reward and 4.) get observations 

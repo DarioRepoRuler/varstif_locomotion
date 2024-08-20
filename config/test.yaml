@@ -42,7 +42,7 @@ env:
 ckpt_path: 'best_models/freedom.pt'
 timesteps_per_rollout: 48
 num_iterations: 10
-num_envs: 2
+num_envs: 1
 
 device: 'cuda:0'
 curriculum: False
