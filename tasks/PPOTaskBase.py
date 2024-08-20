@@ -63,7 +63,6 @@ class PPOTaskBase(nn.Module):
             print(f"Last action: {self.algo.storage.actions[-1][torch.where(torch.isnan(obs_g))[0]]}")
             print(f"Action before: {self.algo.storage.actions[-2][torch.where(torch.isnan(obs_g))[0]]}")
             print(f"Observation: {obs_g[torch.where(torch.isnan(obs_g))]}")
-            #print(f"Step count: {infos['step']}")
 
         if is_training:
             actions = self.algo.act(obs_g, priviledged_obs_g)
@@ -72,7 +71,6 @@ class PPOTaskBase(nn.Module):
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
         next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
-        #print(f"INFOs: {infos}")
 
         self.algo.process_env_step(obs_g, priviledged_obs_g,rewards, dones, infos)
 

@@ -131,6 +131,7 @@ class UnitreeEnv(MjxEnv):
         hip_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
         ]
+        
         lower_leg_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, l)
             for l in lower_leg_body
@@ -284,12 +285,7 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = jax.random.uniform(
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
-        rand_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
-        #Construct manual command
-        manual_command = jp.array([self.cmd_x, self.cmd_y,self.cmd_yaw])
-        # Decide whether to use manual control or random command
-        #new_cmd = jp.where(self.manual_control, manual_command, rand_cmd)
-        new_cmd = rand_cmd
+        new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
 
         return new_cmd
 
@@ -303,7 +299,6 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the initial state of the environment
         """
-        self.manual_control = manual_control
 
         rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7 = jax.random.split(rng, 8)
         
@@ -357,6 +352,7 @@ class UnitreeEnv(MjxEnv):
             'priviledged_obs': jp.zeros(self.single_obs_size, dtype=jp.float32),
             'time_out': jp.array(0.),
             'nan': jp.array(0.),
+            
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
         obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
@@ -396,14 +392,14 @@ class UnitreeEnv(MjxEnv):
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             p_gains = jp.clip(self.p_gains + 10*jp.tile(action[12:],4), a_min=10.0, a_max=100.0)
-            d_gains = 2*jp.sqrt(10 * p_gains) # setting it after critical damping law
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             p_gains = jp.clip(self.p_gains + 10*jp.repeat(action[12:],3), a_min=10.0, a_max=100.0)
-            d_gains = 2*jp.sqrt(10 * p_gains) # setting it after critical damping law
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
@@ -546,6 +542,13 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         
+
+        state.info['command'] = jp.where(
+            self.manual_control,
+            jp.array([self.cmd_x, self.cmd_y, self.cmd_yaw]),
+            state.info['command'],
+            )
+        
         # sample new command
         state.info['command'] = jp.where(
             state.info['step'] > self.episode_length,
@@ -553,11 +556,11 @@ class UnitreeEnv(MjxEnv):
             state.info['command'],
             )
         
+        
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.episode_length), 0, state.info['step']
         )
-        
         state.metrics.update(state.info['rewards'])
 
         # observation
@@ -623,6 +626,9 @@ class UnitreeEnv(MjxEnv):
         foot_transform_local = foot_transform.vmap().to_local(x.take(jp.array([0, 0, 0, 0])))
         foot_pos_local = foot_transform_local.pos.reshape(-1)
         foot_vel_local = J @ data.qvel
+
+        #M = mjx.full_m(self.sys, data)
+        #jax.debug.print('M: {x}', x=M)
 
         # Joint error
         target_dof_pos = jp.clip(self.action_scale * state_info['last_act'][:12]  + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)

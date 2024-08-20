@@ -8,7 +8,7 @@ from envs.common.wrapper.render_wrapper import RenderWrapper
 from envs.common.wrapper.training_wrapper import VmapWrapper, AutoResetWrapper, wrap, domain_randomize
 from tasks.PPOTaskBase import PPOTaskBase
 
-def _create_env(env, num_envs, device, viz=False, randomisation=True):
+def _create_env(env, num_envs, device, viz=False, domain_cfg=None):
     """
     Create the environment with the specified number of environments and device.
     VmapWrapper->AutoResetWrapper->TorchWrapper(->RenderWrapper)
@@ -19,13 +19,11 @@ def _create_env(env, num_envs, device, viz=False, randomisation=True):
         device (str): The device to use for computation.
         viz (bool): Whether to render the environment.
     """
-    #env = VmapWrapper(env, batch_size=num_envs)
-    #env = AutoResetWrapper(env)
-    if randomisation:
-        env=wrap(env, num_envs=num_envs, randomization_fn=domain_randomize)
+
+    if domain_cfg.randomisation:
+        env=wrap(env, num_envs=num_envs, randomization_fn=domain_randomize, randomization_args=domain_cfg)
     else:
         env = wrap(env, num_envs=num_envs)
-
     if device == 'cpu':
         env = TorchWrapper(env, device=device, backend='cpu')
     else:
@@ -36,10 +34,12 @@ def _create_env(env, num_envs, device, viz=False, randomisation=True):
 
 
 
+
 @hydra.main(config_path='config', config_name='test', version_base="1.2")
 def test(cfg: DictConfig):
     # Create the environment    
-    env = _create_env(GO2Env(cfg.env, scene_xml=cfg.scene_xml), num_envs=cfg.num_envs, device=cfg.device, viz=True, randomisation=cfg.randomisation)
+    env = _create_env(GO2Env(cfg.env, scene_xml=cfg.scene_xml), num_envs=cfg.num_envs, device=cfg.device, viz=True, domain_cfg=cfg.env.domain_rand)
+
 
     task = PPOTaskBase(cfg=cfg, env=env)
     
