@@ -7,7 +7,7 @@ env:
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
-  num_history: 1 # number of previous observations to stack
+  num_history: 15 # number of previous observations to stack
   kick_vel: 0.5
   push_interval: 25
   is_training: True
@@ -18,6 +18,7 @@ env:
     gravity_offset: [0., 0.]
     friction_range: [0.4, 1.25]
     payload_range: [-1., 1.]
+    hip_mass_range: [-0.3, 0.3]
 
     local_v_noise: 0.1
     local_w_noise: 0.2
