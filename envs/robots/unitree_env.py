@@ -425,7 +425,7 @@ class UnitreeEnv(MjxEnv):
         push_interval = self.push_interval
         kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
         kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)])
-        kick *= jp.mod(state.info['step'], push_interval) == 0  #& (state.info['step'] > 0)
+        kick *= (jp.mod(state.info['step'], push_interval) == 0)  & (state.info['step'] > 0)
         qvel = state.pipeline_state.qvel  # pytype: disable=attribute-error
         qvel = qvel.at[:2].set(kick * self._kick_vel + qvel[:2])
         state = state.tree_replace({'pipeline_state.qvel': qvel})
@@ -633,9 +633,6 @@ class UnitreeEnv(MjxEnv):
         foot_pos_local = foot_transform_local.pos.reshape(-1)
         foot_vel_local = J @ data.qvel
 
-        #M = mjx.full_m(self.sys, data)
-        #jax.debug.print('M: {x}', x=M)
-
         # Joint error
         target_dof_pos = jp.clip(self.action_scale * state_info['last_act'][:12]  + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
         err = target_dof_pos - data.qpos[7:]
@@ -664,9 +661,11 @@ class UnitreeEnv(MjxEnv):
 
         priviledged_obs = jp.concatenate([
             # Privileged
+            
             #self.sys.geom_friction[0, 0],
             #self.sys.body_mass[1],
             #state_info['kick'],
+            
             obs
         ])
 
@@ -785,7 +784,7 @@ class UnitreeEnv(MjxEnv):
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
     ) -> jax.Array:
         # Reward air time.
-        rew_air_time = jp.sum(air_time * first_contact)
+        rew_air_time = jp.sum((air_time-0.1)* first_contact)
         rew_air_time *= (
                 math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
@@ -806,11 +805,7 @@ class UnitreeEnv(MjxEnv):
             commands: jax.Array,
             joint_angles: jax.Array,
     ) -> jax.Array:
-        # Penalize motion at zero commands
-        
-        # return jp.exp(-2 * jp.linalg.norm(joint_angles - self.default_pos[7:])) * (
-        #         math.normalize(commands[:2])[1] < 0.05
-        # )
+
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
         math.normalize(commands[:2])[1] < 0.1
         )

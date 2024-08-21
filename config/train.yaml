@@ -8,8 +8,8 @@ env:
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
   num_history: 1 # number of previous observations to stack
-  kick_vel: 0.5
-  push_interval: 25
+  kick_vel: 1.0
+  push_interval: 200
   is_training: True
   episode_length: 500
 
@@ -33,7 +33,7 @@ env:
     local_v_scale: 2.0
     local_w_scale: 0.25
     joint_vel_scale: 0.1
-    command_scale: 2.0
+    command_scale: 1.0
 
   manual_control:
     enable: False
