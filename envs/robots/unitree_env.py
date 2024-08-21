@@ -177,7 +177,7 @@ class UnitreeEnv(MjxEnv):
             'feet_air_time': 0.2,
             'feet_contact_time': 0.0,
             'termination': -10.0,
-            'stand_still': -0.5, #-0.5, # adapted
+            'stand_still': -0.5, 
             "foot_slip": -0.1,
             # Additional self created
             "action_rate": -0.01,
@@ -425,7 +425,7 @@ class UnitreeEnv(MjxEnv):
         push_interval = self.push_interval
         kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
         kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)])
-        kick *= jp.mod(state.info['step'], push_interval) == 0
+        kick *= (jp.mod(state.info['step'], push_interval) == 0) #& (state.info['step'] > 0)
         qvel = state.pipeline_state.qvel  # pytype: disable=attribute-error
         qvel = qvel.at[:2].set(kick * self._kick_vel + qvel[:2])
         state = state.tree_replace({'pipeline_state.qvel': qvel})
@@ -476,7 +476,7 @@ class UnitreeEnv(MjxEnv):
         ## general contact management
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
-        contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
+        contact_filt_cm = (foot_floor_dist < 3e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         # for observations
         state.info['contact'] = contact_filt_mm
@@ -785,9 +785,9 @@ class UnitreeEnv(MjxEnv):
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
     ) -> jax.Array:
         # Reward air time.
-        rew_air_time = jp.sum(air_time * first_contact)
+        rew_air_time = jp.sum((air_time )* first_contact)
         rew_air_time *= (
-                math.normalize(commands[:3])[1] > 0.05
+                math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
         return rew_air_time
 
@@ -797,7 +797,7 @@ class UnitreeEnv(MjxEnv):
         # Punish contact time.
         rew_contact_time = jp.sum(contact_time)
         rew_contact_time *= (
-                math.normalize(commands[:3])[1] > 0.05
+                math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
         return rew_contact_time
 
@@ -812,7 +812,7 @@ class UnitreeEnv(MjxEnv):
         #         math.normalize(commands[:2])[1] < 0.05
         # )
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        math.normalize(commands[:3])[1] < 0.1
+        math.normalize(commands[:2])[1] < 0.1
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
