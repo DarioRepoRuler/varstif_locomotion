@@ -361,6 +361,7 @@ class UnitreeEnv(MjxEnv):
             'kp_factor': kp_factor,
             'kd_factor': kd_factor,
             'motor_strength': motor_strength,
+            'gait_idx': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
         obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
@@ -537,6 +538,7 @@ class UnitreeEnv(MjxEnv):
         state.info['last_contact'] = contact
         state.info['rewards'] = rewards
         state.info['step']+= 1
+        state.info['gait_idx'] = jp.remainder(state.info['step']*self.dt, 1.0)
         state.info['nan']= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() 
         state.info['time_out'] = state.info['step'] > self.episode_length
         state.info['rng'] = rng
