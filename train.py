@@ -64,7 +64,8 @@ def train(cfg: DictConfig):
                                   config=cfg_dict, 
                                   project=cfg.project,
                                   group=cfg.group,
-                                  name=log_name
+                                  name=log_name,
+                                  settings=wandb.Settings(code_dir=".")
                                   )
         
     # Create the task and save directory
