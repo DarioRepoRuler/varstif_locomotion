@@ -10,7 +10,7 @@ class HeightMapGenerator:
         self.height = height
         self.width = width
         self.height_map = np.zeros((self.height, self.width), dtype=np.uint8)
-        
+        self.height_map[:] = 255//2
         
     def generate_perlin_noise(self, scale=100, octaves=6, persistence=0.5, lacunarity=2.0, start_x=0, start_y=0, end_x=100, end_y=100 ,maximum = 255):
         """
@@ -43,7 +43,7 @@ class HeightMapGenerator:
         self.height_map[start_x:end_x, start_y:end_y] += height_map[start_x:end_x, start_y:end_y]
         return height_map
     
-    def generate_gaussian_hills(self, num_hills, hill_height=255, hill_radius=50):
+    def generate_gaussian_hills(self, num_hills, hill_height=255, hill_radius=50, start_x=0, start_y=0, end_x=150, end_y=150):
         """
         Generate Gaussian hills on the height map.
 
@@ -52,23 +52,25 @@ class HeightMapGenerator:
         :param hill_radius: Radius of each hill
         :return: numpy array representing the height map with Gaussian hills
         """
-        height_map_with_hills = np.zeros((self.height, self.width), dtype=np.uint8)  # Create a copy of the original height map
+        width = end_y-start_y
+        height = end_x-start_x
+        height_map_with_hills = np.zeros((width, height ), dtype=np.uint8)  # Create a copy of the original height map
 
         for _ in range(num_hills):
             # Randomly select the center of the hill
-            center_x = np.random.randint(0, self.width-1)
-            center_y = np.random.randint(0, self.height-1)
+            center_x = np.random.randint(0, width-hill_radius)
+            center_y = np.random.randint(0, height-hill_radius)
 
             # Generate the hill using Gaussian function
-            for y in range(0, self.width-1):
-                for x in range(0, self.height-1):
+            for y in range(0, width-1):
+                for x in range(0, height-1):
                     distance = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
                     if distance < hill_radius:
                         height_map_with_hills[y][x] += hill_height * np.exp(-((distance ** 2) / ((hill_radius**2 /4))))
 
         # Clip values to ensure they are within valid range
         height_map_with_hills = np.clip(height_map_with_hills, 0, 255)
-        self.height_map += height_map_with_hills
+        self.height_map[ start_y:end_y, start_x:end_x] += height_map_with_hills
         return height_map_with_hills
     
     def generate_linear_steps(self, num_steps=10, corner_x=0, corner_y=0, staircase_width=10, staircase_height=10, direction='horizontal_right'):
@@ -152,7 +154,7 @@ class HeightMapGenerator:
 
             height_map[start_y:end_y, start_x:end_x] = grayscale_value
 
-        self.height_map += height_map
+        self.height_map -= height_map
         return height_map
     
     def gen_multiple_pyramids(self, num_pyramids=5, num_steps=5, staircase_width=10):
@@ -243,19 +245,25 @@ def main():
     hm_gen = HeightMapGenerator(height, width)
     
     # Generate the Perlin noise height map
-    hm_gen.generate_perlin_noise(start_x=130, start_y=130, end_x=250, end_y=250, maximum=150) 
+    hm_gen.generate_perlin_noise(start_x=130, start_y=130, end_x=250, end_y=250, maximum=100) 
     
     # Generate Pyramids
-    hm_gen.pyramid(5, 20, 80, 50, maximum=255)
-    hm_gen.pyramid(5, 10, 10, 50,maximum=255)
-    hm_gen.pyramid(5, 60, 50, 50, maximum=255)
+    hm_gen.pyramid(5, 20, 80, 50, maximum=100)
+    hm_gen.pyramid(5, 10, 10, 50,maximum=100)
+    hm_gen.pyramid(5, 60, 50, 50, maximum=100)
     
     # Generate checkerboard pattern
-    hm_gen.stripes(30, 10, height=30, dircetion='vertical', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
-    hm_gen.stripes(30, 10, height=30, dircetion='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
+    hm_gen.stripes(25, 10, height=20, direction='vertical', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
+    hm_gen.stripes(25, 10, height=20, direction='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
 
+    # Generate gaussian hills
+    hm_gen.generate_gaussian_hills(8, 50, 30, start_x=0, start_y=130, end_x=130, end_y=250)
+
+    #
     hm_gen.blur_height_map(sigma=3, start_x=120, start_y=120, end_x=250, end_y=140)
     hm_gen.blur_height_map(sigma=3, start_x=120, start_y=120, end_x=140, end_y=250)
+    hm_gen.blur_height_map(sigma=3, start_x=120, start_y=0, end_x=140, end_y=250)
+
     # Define the filename
     filename = 'new_terrain.png'
     

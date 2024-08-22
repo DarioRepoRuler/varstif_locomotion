@@ -42,11 +42,11 @@ env:
 
 
 
-ckpt_path: 'best_models/more_rando.pt'
+ckpt_path: 'best_models/rando_all1.pt'
 timesteps_per_rollout: 48
 num_iterations: 10
 num_envs: 1
 
 device: 'cuda:0'
 curriculum: False
-scene_xml: 'unitree_go2/flat.xml'
+scene_xml: 'unitree_go2/terrain_perlin.xml'
