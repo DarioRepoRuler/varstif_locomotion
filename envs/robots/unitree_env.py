@@ -552,8 +552,8 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         
-        jax.debug.print('Foot pos z:{x}', x = foot_pos[:, 2])
-        jax.debug.print('Gait_idx: {x}', x=state.info['gait_idx'])
+        #jax.debug.print('Foot pos z:{x}', x = foot_pos[:, 2])
+        #jax.debug.print('Gait_idx: {x}', x=state.info['gait_idx'])
 
         #self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
 
@@ -815,7 +815,7 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
 
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        math.normalize(commands[:2])[1] < 0.1
+        math.normalize(commands[:])[1] < 0.1
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
