@@ -279,6 +279,7 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = [-0.7, 0.7]  # min max [rad/s] 
 
         _, key1, key2, key3 = jax.random.split(rng, 4)
+
         lin_vel_x = jax.random.uniform(
             key1, (1,), minval=lin_vel_x[0], maxval=lin_vel_x[1]
         )
@@ -288,6 +289,7 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = jax.random.uniform(
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
+        #mask = jp.random.uniform(key4, (1,)) > 0.2
         new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
 
         return new_cmd
@@ -788,17 +790,17 @@ class UnitreeEnv(MjxEnv):
         # Reward air time.
         rew_air_time = jp.sum((air_time-0.1)* first_contact)
         rew_air_time *= (
-                math.normalize(commands[:2])[1] > 0.05
+                math.normalize(commands[:])[1] > 0.05
         )  # no reward for zero command
         return rew_air_time
 
-    def _reward_feet_contact_time(
+    def _reward_feet_contact_time( # NOT USED
             self, contact_time: jax.Array, commands: jax.Array
     ) -> jax.Array:
         # Punish contact time.
         rew_contact_time = jp.sum(contact_time)
         rew_contact_time *= (
-                math.normalize(commands[:3])[1] > 0.05
+                math.normalize(commands[:])[1] > 0.05
         )  # no reward for zero command
         return rew_contact_time
 
