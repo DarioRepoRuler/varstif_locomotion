@@ -44,8 +44,9 @@ env:
 
 log: True
 
-ckpt_path: "best_models/rando_all1.pt"
+#ckpt_path: "best_models/rando_all1.pt"
 #ckpt_path: null
+ckpt_path: null
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
