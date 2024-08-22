@@ -803,7 +803,7 @@ class UnitreeEnv(MjxEnv):
         # Reward air time.
         rew_air_time = jp.sum((air_time-0.1)* first_contact)
         rew_air_time *= (
-                math.normalize(commands[:])[1] > 0.05
+                math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
         return rew_air_time
 
@@ -824,7 +824,7 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
 
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        math.normalize(commands[:])[1] < 0.1
+        math.normalize(commands[:2])[1] < 0.1
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
