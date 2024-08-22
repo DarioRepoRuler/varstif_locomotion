@@ -36,7 +36,7 @@ class RenderWrapper:
             self.model, self.data, default_camera_config
         )
 
-    def reset(self, initial_xy: jax.Array, manual_control: bool = False):
+    def reset(self, initial_xy=jax.numpy.array([0.0,0.0]), manual_control: bool = False):
         return self._env.reset(initial_xy, manual_control)
 
     def step(self, action):
