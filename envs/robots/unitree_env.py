@@ -552,6 +552,10 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         
+        jax.debug.print('Foot pos z:{x}', x = foot_pos[:, 2])
+        jax.debug.print('Gait_idx: {x}', x=state.info['gait_idx'])
+
+        #self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
 
         state.info['command'] = jp.where(
             self.manual_control,
@@ -830,3 +834,28 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_termination(self, done: jax.Array, step) -> jax.Array:
         return done & (step < self.episode_length)
+
+    def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
+        foot_cycles = jp.array([
+            gait_cycle_idx+0.5,
+            gait_cycle_idx ,
+            gait_cycle_idx,
+            gait_cycle_idx +0.5,
+        ])
+        foot_cycles = jp.remainder(foot_cycles, 1.0)
+        phases = 1 - jp.abs(1.0 - jp.clip((foot_cycles*2.0)-1.0, 0.0,1.0) *2.0 )
+        #jax.debug.print('Phases {x}', x=phases)
+        target_height = 0.2*phases
+        #jax.debug.print('Target height {x}', x=target_height)
+        desired_contacts = self._get_desired_contact(foot_cycles)
+        #jax.debug.print('Desired contacts: {x}', x=desired_contacts)
+        foot_clearance = jp.square(target_height-foot_z)*(1-desired_contacts)
+        return jp.sum(foot_clearance)
+
+    def _von_mises(self, t: jax.Array)-> jax.Array:
+        kappa = 0.07
+        return 1/(kappa*jp.sqrt(2*jp.pi)) * jp.exp(-1/2*jp.square(t/kappa))
+    
+    def _get_desired_contact(self, foot_cycles: jax.Array)-> jax.Array:
+        C_cmd = self._von_mises(foot_cycles)*(1- self._von_mises(foot_cycles-0.5)) + self._von_mises(foot_cycles-1)*(1-self._von_mises(foot_cycles-1.5))
+        return C_cmd

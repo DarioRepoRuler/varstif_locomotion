@@ -24,6 +24,9 @@ env:
     joint_noise: 0.01
     joint_vel_noise: 1.5
     gravity_noise: 0.05
+    kp_range: [0.8, 1.3]
+    kd_range: [0.5, 1.5]
+    motor_strength_range: [0.9, 1.1]
 
   normalization:
     local_v_scale: 2.0
@@ -39,7 +42,7 @@ env:
 
 
 
-ckpt_path: 'best_models/freedom.pt'
+ckpt_path: 'best_models/more_rando.pt'
 timesteps_per_rollout: 48
 num_iterations: 10
 num_envs: 1
