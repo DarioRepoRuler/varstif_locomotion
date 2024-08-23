@@ -50,7 +50,7 @@ ckpt_path: "best_models/rando_all1.pt"
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 1000
+num_envs: 4096
 
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
@@ -61,4 +61,4 @@ viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/terrain_multi.xml' 
+scene_xml: 'unitree_go2/terrain_hfield.xml' 

@@ -49,4 +49,4 @@ num_envs: 1
 
 device: 'cuda:0'
 curriculum: False
-scene_xml: 'unitree_go2/terrain_multi.xml'
+scene_xml: 'unitree_go2/terrain_hfield.xml'
