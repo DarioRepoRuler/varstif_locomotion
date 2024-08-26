@@ -8,13 +8,13 @@ env:
   physics_steps_per_control_step: 4
 
   num_history: 1
-  kick_vel: 0.3
-  push_interval: 25
+  kick_vel: 1.0
+  push_interval: 50
   is_training: False
-  episode_length: 1000
+  episode_length: 500
 
   domain_rand:
-    randomisation: True
+    randomisation: False
     gravity_offset: [-1., 1.]
     friction_range: [0.4, 1.25]
     payload_range: [-1., 1.]
@@ -36,18 +36,17 @@ env:
 
   manual_control:
     enable: True
-    cmd_x: 0.3
+    cmd_x: 1.0
     cmd_y: 0.0
     cmd_ang: -0.0
 
 
 
-#ckpt_path: 'best_models/rando_all1.pt'
-ckpt_path: 'outputs/2024-08-22/16-24-42/checkpoints/model_2000.pt'
+ckpt_path: 'best_models/testo.pt'
 timesteps_per_rollout: 48
-num_iterations: 10
+num_iterations: 100
 num_envs: 1
 
 device: 'cuda:0'
 curriculum: False
-scene_xml: 'unitree_go2/terrain_perlin.xml'
+scene_xml: 'unitree_go2/terrain_hfield.xml'

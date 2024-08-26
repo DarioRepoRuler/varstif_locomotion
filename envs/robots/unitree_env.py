@@ -72,8 +72,8 @@ class UnitreeEnv(MjxEnv):
         else:
             self.action_shape = self.action_size
         # Randomization ranges:
-        self.x_pos = [-0.1, 0.1]#[-3, 3]
-        self.y_pos = [-0.1, 0.1]#[-3, -2] 
+        self.x_pos = [-4., 4.]
+        self.y_pos = [-4., 4.] 
         self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
@@ -318,7 +318,8 @@ class UnitreeEnv(MjxEnv):
 
         reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.x_pos[0], maxval=self.x_pos[1])
         reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.y_pos[0], maxval=self.y_pos[1])
-
+        #jax.debug.print('Reset x: {x}', x=reset_x)
+        #jax.debug.print('Reset y: {x}', x=reset_y)
         # Get random theta and rotation vector
         theta = self.theta # in rad
         a_x = self.a_x
@@ -517,7 +518,7 @@ class UnitreeEnv(MjxEnv):
                 state.info['command'],
             ),
             'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
-            'termination': self._reward_termination(done, state.info['step']),
+            'termination': self._reward_termination(done, state.info['step'], data=data),
 
             'action_rate': self.action_rate(action, state.info['last_act']),
 
@@ -531,10 +532,10 @@ class UnitreeEnv(MjxEnv):
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
-
+        #jax.debug.print('Termination reward: {x}', x=rewards['termination'])
         #Reward clipping like in unitree rl
         reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
-        
+
 
         # state management
         state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation
@@ -567,22 +568,26 @@ class UnitreeEnv(MjxEnv):
         
         # sample new command
         state.info['command'] = jp.where(
-            state.info['step'] > self.episode_length,
+            state.info['step'] > self.episode_length//2,
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
         
-        
+
+        #jax.debug.print('x position: {x}', x=data.qpos[0])
+        #jax.debug.print('y position: {x}', x=data.qpos[1]) 
         # reset the step counter when done
-        state.info['step'] = jp.where(
-        (state.info['step'] > self.episode_length), 0, state.info['step']
-        )
+        # state.info['step'] = jp.where(
+        # (state.info['step'] > self.episode_length), 0, state.info['step']
+        # )
         state.metrics.update(state.info['rewards'])
 
         # observation
         obs, priviledged_obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
+        #jax.debug.print('Observation: {x}', x=obs)
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() | jp.isnan(obs).any()
         state.info['nan'] |= jp.isnan(obs).any()
+        #jax.debug.print('Is nan: {x}', x=state.info['nan'])
         done = jp.float32(done)
 
         state = state.replace(
@@ -703,8 +708,8 @@ class UnitreeEnv(MjxEnv):
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
-        done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        done |= jp.any(data.qpos[7:] > self.upper_limits)
+        # done |= jp.any(data.qpos[7:] < self.lower_limits) 
+        # done |= jp.any(data.qpos[7:] > self.upper_limits)
         # Old termination: based on z-height
         # done |= data.xpos[self._torso_idx, 2] < self.min_z
         
@@ -713,7 +718,11 @@ class UnitreeEnv(MjxEnv):
         terminate_contacts = terminate_contacts.at[:].set(self.get_terminate_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[terminate_contacts] < 0.0)
         #jax.debug.print('Timeout: {x}', x=step > self.episode_length)
-        #done |= step > self.episode_length
+
+        done |= step > self.episode_length
+        done |= jp.abs(data.qpos[0]) > 10.0
+        done |= jp.abs(data.qpos[1]) > 10.0
+        done |= jp.abs(data.qpos[2]) < -3.0
 
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         
@@ -836,8 +845,9 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
    
 
-    def _reward_termination(self, done: jax.Array, step) -> jax.Array:
-        return done & (step < self.episode_length)
+    def _reward_termination(self, done: jax.Array, step, data: mjx.Data) -> jax.Array:
+        return done & (step < self.episode_length) & (jp.abs(data.qpos[0]) < 10.0) & \
+                (jp.abs(data.qpos[1]) < 10.0) & (jp.abs(data.qpos[2]) > -3.0)
 
     def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
         foot_cycles = jp.array([
