@@ -169,24 +169,24 @@ class UnitreeEnv(MjxEnv):
             # From turtoial
             'tracking_lin_vel': 1.0, 
             'tracking_ang_vel': 0.5, 
-            "lin_vel_z": -4.0, 
+            "lin_vel_z": -2.0, 
             "ang_vel_xy": -0.05, 
             "orientation": -0.0, 
             "torques": -0.00002, 
             "smooth_rate": 0.0, #action_rate from tutorial
-            'feet_air_time': 2.0,
+            'feet_air_time': 1.0,
             'feet_contact_time': 0.0,
             'termination': -0.0,
             'stand_still': -0.0, 
             "foot_slip": -0.0,
             # Additional self created
-            "action_rate": -0.001,
+            "action_rate": -0.01,
             "action_rate2": 0.0,
             "abduction": 0.0,
             "rew_pos_limits": 0.0,
-            "rew_acceleration": -0.001,
-            "rew_collision": -0.001,
-            "rew_velocity": -0.001,
+            "rew_acceleration": -2.5e-7,
+            "rew_collision": -1.0,
+            "rew_velocity": -0.0,
         }
 
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
@@ -754,7 +754,7 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_torques(self, torques: jax.Array) -> jax.Array:
         # Penalize torques
-        return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
+        return jp.sum(jp.square(torques))#jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
     def _reward_acceleration(self, last_dof_vel: jax.Array, dof_vel:jax.Array) -> jax.Array:
         return jp.sum(jp.square((dof_vel - last_dof_vel)/self.dt))
