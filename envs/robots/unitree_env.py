@@ -367,7 +367,8 @@ class UnitreeEnv(MjxEnv):
             'gait_idx': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
-        obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
+        priviledged_obs_history = jp.zeros(self.num_history*self.priviledged_obs_size)
+        obs, priviledged_obs = self._get_obs(data, state_info, obs_history, priviledged_obs_history, obs_rng=rng4)
         obs = obs.at[self.single_obs_size:].set(jp.tile(obs[:self.single_obs_size], self.num_history-1))
         metrics = {'total_dist': 0.0}
         for k in state_info['rewards']:
@@ -389,7 +390,7 @@ class UnitreeEnv(MjxEnv):
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
         
-        #action = jp.clip(action, a_min=-100.0, a_max=100.0)
+        action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
@@ -580,7 +581,7 @@ class UnitreeEnv(MjxEnv):
         state.metrics.update(state.info['rewards'])
 
         # observation
-        obs, priviledged_obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
+        obs, priviledged_obs = self._get_obs(data, state.info, state.obs, state.priviledged_obs, obs_rng=obs_rng)
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() | jp.isnan(obs).any()
         state.info['nan'] |= jp.isnan(obs).any()
         done = jp.float32(done)
@@ -612,6 +613,7 @@ class UnitreeEnv(MjxEnv):
                   data: mjx.Data,
                   state_info: Dict[str, Any],
                   obs_history: jax.Array,
+                  priviledged_obs_history: jax.Array,
                   obs_rng: jp.ndarray ,
                  ) -> jp.ndarray:
         """
@@ -682,6 +684,7 @@ class UnitreeEnv(MjxEnv):
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
         assert priviledged_obs.shape[0] == self.priviledged_obs_size, f"priviledged_obs.shape {priviledged_obs.shape}"
 
+
         # Add noise to the observation, this has to be altered if the observation space changes
         noise_vec = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-1., maxval=1.)
         noise_vec = noise_vec.at[:3].multiply(self.local_v_noise*self.local_v_scale)
@@ -694,7 +697,8 @@ class UnitreeEnv(MjxEnv):
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
-
+        priviledged_obs = jp.roll(priviledged_obs_history, priviledged_obs.size).at[:priviledged_obs.size].set(priviledged_obs)
+        
         return obs, priviledged_obs
 
     def _check_terminate(self, data: mjx.Data, x, step) -> bool:
