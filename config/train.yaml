@@ -9,7 +9,7 @@ env:
 
   num_history: 1 # number of previous observations to stack
   kick_vel: 0.5
-  push_interval: 25
+  push_interval: 100
   is_training: True
   episode_length: 500
 
@@ -44,8 +44,7 @@ env:
 
 log: True
 
-#ckpt_path: "best_models/rando_all1.pt"
-#ckpt_path: null
+#ckpt_path: 'best_models/rando_all1.pt'
 ckpt_path: null
 
 log_dir: "Documents/TALocoMotion/outputs/"

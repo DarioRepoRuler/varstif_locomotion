@@ -167,25 +167,26 @@ class UnitreeEnv(MjxEnv):
         # These rewards are from the tutorial: https://colab.research.google.com/github/google-deepmind/mujoco/blob/main/mjx/tutorial.ipynb
         self.reward_scales = {
             # From turtoial
-            'tracking_lin_vel': 1.5, 
-            'tracking_ang_vel': 0.8, 
-            "lin_vel_z": -2.0, 
+            'tracking_lin_vel': 1.0, 
+            'tracking_ang_vel': 0.5, 
+            "lin_vel_z": -4.0, 
             "ang_vel_xy": -0.05, 
-            "orientation": -5.0, 
-            "torques": -0.0002, 
+            "orientation": -0.0, 
+            "torques": -0.00002, 
             "smooth_rate": 0.0, #action_rate from tutorial
-            'feet_air_time': 0.2,
+            'feet_air_time': 2.0,
             'feet_contact_time': 0.0,
-            'termination': -10.0,
-            'stand_still': -0.5, 
-            "foot_slip": -0.1,
+            'termination': -0.0,
+            'stand_still': -0.0, 
+            "foot_slip": -0.0,
             # Additional self created
-            "action_rate": -0.01,
+            "action_rate": -0.001,
             "action_rate2": 0.0,
             "abduction": 0.0,
-            "rew_pos_limits": -0.0,
-            "rew_acceleration":-2.5e-7,
-            "rew_collision": -10.0,
+            "rew_pos_limits": 0.0,
+            "rew_acceleration": -0.001,
+            "rew_collision": -0.001,
+            "rew_velocity": -0.001,
         }
 
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
@@ -524,6 +525,7 @@ class UnitreeEnv(MjxEnv):
             'abduction': self.abduction(joint_angles),
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
+            'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
         }
         rewards = {
@@ -757,6 +759,9 @@ class UnitreeEnv(MjxEnv):
     def _reward_acceleration(self, last_dof_vel: jax.Array, dof_vel:jax.Array) -> jax.Array:
         return jp.sum(jp.square((dof_vel - last_dof_vel)/self.dt))
     
+    def _reward_velocity(self, dof_vel: jax.Array) -> jax.Array:
+        return jp.sum(jp.square(dof_vel))
+
     def _reward_torque_limit(self, torque: jax.Array) -> jax.Array:
         return jp.exp(-jp.sum(jp.abs(torque)-0.1*self.torque_limits))
     
@@ -792,7 +797,7 @@ class UnitreeEnv(MjxEnv):
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
     ) -> jax.Array:
         # Reward air time.
-        rew_air_time = jp.sum((air_time)* first_contact)
+        rew_air_time = jp.sum((air_time-0.1)* first_contact)
         rew_air_time *= (
                 math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
@@ -804,7 +809,7 @@ class UnitreeEnv(MjxEnv):
         # Punish contact time.
         rew_contact_time = jp.sum(contact_time)
         rew_contact_time *= (
-                math.normalize(commands[:3])[1] > 0.05
+                math.normalize(commands[:2])[1] > 0.1
         )  # no reward for zero command
         return rew_contact_time
 

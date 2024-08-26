@@ -42,7 +42,8 @@ env:
 
 
 
-ckpt_path: 'best_models/rando_all1.pt'
+#ckpt_path: 'best_models/rando_all1.pt'
+ckpt_path: 'outputs/2024-08-22/16-24-42/checkpoints/model_2000.pt'
 timesteps_per_rollout: 48
 num_iterations: 10
 num_envs: 1
