@@ -357,7 +357,6 @@ class UnitreeEnv(MjxEnv):
             'rewards': {reward_: jp.array(0.) for reward_ in self.reward_scales.keys()},
             'kick': jp.array([0.0, 0.0]),
             'step': jp.array(0.),
-            'priviledged_obs': jp.zeros(self.single_obs_size, dtype=jp.float32),
             'time_out': jp.array(0.),
             'nan': jp.array(0.),
             'kp_factor': kp_factor,
