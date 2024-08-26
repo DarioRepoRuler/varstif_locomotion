@@ -28,6 +28,11 @@ class UnitreeEnv(MjxEnv):
         
         resource_directory = os.path.join(os.getcwd(), 'envs','resources') # it is anticipated to be executed from TALocoMotion
         mj_model = mujoco.MjModel.from_xml_path(os.path.join(resource_directory, model_path))
+        if "terrain" in model_path:
+            self.terminate_map = True
+            print(f"Termination map: {self.terminate_map}")
+        else:
+            self.terminate_map = False
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
         mj_model.opt.ls_iterations = 6
@@ -154,6 +159,7 @@ class UnitreeEnv(MjxEnv):
         assert not any(id_ == -1 for id_ in feet__geom_id), 'Feet Geom not found.'
         self.feet_geom_id= jp.array(feet__geom_id)
 
+        self.floor_id = floor_id        
         assert not any(id_ == -1 for id_ in hip_body), 'Hip Body not found.'
         self.hip_body_id = jp.array(hip_body_id)
 
@@ -720,9 +726,9 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Timeout: {x}', x=step > self.episode_length)
 
         done |= step > self.episode_length
-        done |= jp.abs(data.qpos[0]) > 10.0
-        done |= jp.abs(data.qpos[1]) > 10.0
-        done |= jp.abs(data.qpos[2]) < -3.0
+
+        done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
+        done |= done_map*self.terminate_map
 
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         
