@@ -221,13 +221,19 @@ class AutoResetWrapper(Wrapper):
         pipeline_state = jax.tree_map(
             where_done, state.info['first_pipeline_state'], state.pipeline_state
         )
+        pipeline_state = jax.tree_map(
+            where_nan, state.info['first_pipeline_state'], pipeline_state
+        )
         
         for key in state.info['rewards']:
             # Update each value based on the condition
             state.info['rewards'][key] = jp.where(state.info['nan'], jp.array(0.0), state.info['rewards'][key])
+            
         obs = where_nan(state.info['first_obs'], state.obs)
+        #obs = where_done(obs, state.obs)
         reward = where_nan(jp.zeros_like(state.reward), state.reward)
-        priviledged_obs = where_done(state.info['first_priviledged_obs'], state.priviledged_obs)
+        priviledged_obs = where_nan(state.info['first_priviledged_obs'], state.priviledged_obs)
+        #priviledged_obs = where_done(state.info['first_priviledged_obs'], state.priviledged_obs)
         # reset information
         state.info['last_act'] = where_done(jp.zeros_like(state.info['last_act']), state.info['last_act'])
         state.info['last_vel'] = where_done(jp.zeros_like(state.info['last_vel']), state.info['last_vel'])

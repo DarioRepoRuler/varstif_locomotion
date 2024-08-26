@@ -9,7 +9,7 @@ env:
 
   num_history: 1 # number of previous observations to stack
   kick_vel: 0.5
-  push_interval: 25
+  push_interval: 100
   is_training: True
   episode_length: 500
 
@@ -44,9 +44,8 @@ env:
 
 log: True
 
-#ckpt_path: "best_models/rando_all1.pt"
-#ckpt_path: null
-ckpt_path: null
+#ckpt_path: "outputs/2024-08-21/18-23-27/checkpoints/model_2000.pt"
+ckpt_path: "best_models/rando_all1.pt"
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
@@ -58,8 +57,8 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: False
+viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/flat.xml' 
+scene_xml: 'unitree_go2/terrain_hfield.xml' 

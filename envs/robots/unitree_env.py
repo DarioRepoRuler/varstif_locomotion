@@ -28,6 +28,11 @@ class UnitreeEnv(MjxEnv):
         
         resource_directory = os.path.join(os.getcwd(), 'envs','resources') # it is anticipated to be executed from TALocoMotion
         mj_model = mujoco.MjModel.from_xml_path(os.path.join(resource_directory, model_path))
+        if "terrain" in model_path:
+            self.terminate_map = True
+            print(f"Termination map: {self.terminate_map}")
+        else:
+            self.terminate_map = False
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
         mj_model.opt.ls_iterations = 6
@@ -154,6 +159,7 @@ class UnitreeEnv(MjxEnv):
         assert not any(id_ == -1 for id_ in feet__geom_id), 'Feet Geom not found.'
         self.feet_geom_id= jp.array(feet__geom_id)
 
+        self.floor_id = floor_id        
         assert not any(id_ == -1 for id_ in hip_body), 'Hip Body not found.'
         self.hip_body_id = jp.array(hip_body_id)
 
@@ -186,7 +192,9 @@ class UnitreeEnv(MjxEnv):
             "rew_pos_limits": -0.0,
             "rew_acceleration":-2.5e-7,
             "rew_collision": -10.0,
+            "rew_velocity": -0.0,
         }
+
 
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
         """
@@ -198,7 +206,8 @@ class UnitreeEnv(MjxEnv):
         Returns:
             conn_indices: An array of connection indices representing foot contacts with the ground.
         """
-        # Number of collisions and arrays are set statically due to brax troubles
+        # Number of collisions and arrays are set statically due to brax troubles        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
+
         num_collisions = 4
         expected_total_cont=23#221
         geom_temp = jp.zeros((expected_total_cont,2))
@@ -317,7 +326,8 @@ class UnitreeEnv(MjxEnv):
 
         reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.x_pos[0], maxval=self.x_pos[1])
         reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.y_pos[0], maxval=self.y_pos[1])
-
+        #jax.debug.print('Reset x: {x}', x=reset_x)
+        #jax.debug.print('Reset y: {x}', x=reset_y)
         # Get random theta and rotation vector
         theta = self.theta # in rad
         a_x = self.a_x
@@ -365,7 +375,8 @@ class UnitreeEnv(MjxEnv):
             'gait_idx': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
-        obs, priviledged_obs = self._get_obs(data, state_info, obs_history, obs_rng=rng4)
+        priviledged_obs_history = jp.zeros(self.num_history*self.priviledged_obs_size)
+        obs, priviledged_obs = self._get_obs(data, state_info, obs_history, priviledged_obs_history, obs_rng=rng4)
         obs = obs.at[self.single_obs_size:].set(jp.tile(obs[:self.single_obs_size], self.num_history-1))
         metrics = {'total_dist': 0.0}
         for k in state_info['rewards']:
@@ -387,7 +398,7 @@ class UnitreeEnv(MjxEnv):
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
         
-        #action = jp.clip(action, a_min=-100.0, a_max=100.0)
+        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
@@ -515,7 +526,7 @@ class UnitreeEnv(MjxEnv):
                 state.info['command'],
             ),
             'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
-            'termination': self._reward_termination(done, state.info['step']),
+            'termination': self._reward_termination(done, state.info['step'], data=data),
 
             'action_rate': self.action_rate(action, state.info['last_act']),
 
@@ -523,15 +534,16 @@ class UnitreeEnv(MjxEnv):
             'abduction': self.abduction(joint_angles),
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
+            'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
-
+        #jax.debug.print('Termination reward: {x}', x=rewards['termination'])
         #Reward clipping like in unitree rl
         reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
-        
+
 
         # state management
         state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation
@@ -564,22 +576,26 @@ class UnitreeEnv(MjxEnv):
         
         # sample new command
         state.info['command'] = jp.where(
-            state.info['step'] > self.episode_length,
+            state.info['step'] > self.episode_length//2,
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
         
-        
+
+        #jax.debug.print('x position: {x}', x=data.qpos[0])
+        #jax.debug.print('y position: {x}', x=data.qpos[1]) 
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.episode_length), 0, state.info['step']
         )
+
         state.metrics.update(state.info['rewards'])
 
         # observation
-        obs, priviledged_obs = self._get_obs(data, state.info, state.obs, obs_rng=obs_rng)
+        obs, priviledged_obs = self._get_obs(data, state.info, state.obs, state.priviledged_obs, obs_rng=obs_rng)
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() | jp.isnan(obs).any()
         state.info['nan'] |= jp.isnan(obs).any()
+        #jax.debug.print('Is nan: {x}', x=state.info['nan'])
         done = jp.float32(done)
 
         state = state.replace(
@@ -609,6 +625,7 @@ class UnitreeEnv(MjxEnv):
                   data: mjx.Data,
                   state_info: Dict[str, Any],
                   obs_history: jax.Array,
+                  priviledged_obs_history: jax.Array,
                   obs_rng: jp.ndarray ,
                  ) -> jp.ndarray:
         """
@@ -679,6 +696,7 @@ class UnitreeEnv(MjxEnv):
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
         assert priviledged_obs.shape[0] == self.priviledged_obs_size, f"priviledged_obs.shape {priviledged_obs.shape}"
 
+
         # Add noise to the observation, this has to be altered if the observation space changes
         noise_vec = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-1., maxval=1.)
         noise_vec = noise_vec.at[:3].multiply(self.local_v_noise*self.local_v_scale)
@@ -691,7 +709,8 @@ class UnitreeEnv(MjxEnv):
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
-
+        priviledged_obs = jp.roll(priviledged_obs_history, priviledged_obs.size).at[:priviledged_obs.size].set(priviledged_obs)
+        
         return obs, priviledged_obs
 
     def _check_terminate(self, data: mjx.Data, x, step) -> bool:
@@ -710,7 +729,11 @@ class UnitreeEnv(MjxEnv):
         terminate_contacts = terminate_contacts.at[:].set(self.get_terminate_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[terminate_contacts] < 0.0)
         #jax.debug.print('Timeout: {x}', x=step > self.episode_length)
+
         #done |= step > self.episode_length
+
+        # done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
+        # done |= done_map*self.terminate_map
 
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         
@@ -756,6 +779,9 @@ class UnitreeEnv(MjxEnv):
     def _reward_acceleration(self, last_dof_vel: jax.Array, dof_vel:jax.Array) -> jax.Array:
         return jp.sum(jp.square((dof_vel - last_dof_vel)/self.dt))
     
+    def _reward_velocity(self, dof_vel: jax.Array) -> jax.Array:
+        return jp.sum(jp.square(dof_vel))
+
     def _reward_torque_limit(self, torque: jax.Array) -> jax.Array:
         return jp.exp(-jp.sum(jp.abs(torque)-0.1*self.torque_limits))
     
@@ -791,7 +817,7 @@ class UnitreeEnv(MjxEnv):
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
     ) -> jax.Array:
         # Reward air time.
-        rew_air_time = jp.sum((air_time)* first_contact)
+        rew_air_time = jp.sum((air_time-0.1)* first_contact)
         rew_air_time *= (
                 math.normalize(commands[:2])[1] > 0.05
         )  # no reward for zero command
@@ -803,7 +829,7 @@ class UnitreeEnv(MjxEnv):
         # Punish contact time.
         rew_contact_time = jp.sum(contact_time)
         rew_contact_time *= (
-                math.normalize(commands[:3])[1] > 0.05
+                math.normalize(commands[:2])[1] > 0.1
         )  # no reward for zero command
         return rew_contact_time
 
@@ -830,13 +856,8 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
    
 
-    def _reward_termination(self, done: jax.Array, step) -> jax.Array:
-        return done & (step < self.episode_length)
-
-    def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
-        foot_cycles = jp.array([
-            gait_cycle_idx+0.5,
-            gait_cycle_idx ,
+    def _reward_termination(self, done: jax.Array, step, data: mjx.Data) -> jax.Array:
+        return done & (step < self.episode_length) #& (jp.absjp.sum(jp.square(torques))#
             gait_cycle_idx,
             gait_cycle_idx +0.5,
         ])
