@@ -576,14 +576,11 @@ class UnitreeEnv(MjxEnv):
         
         # sample new command
         state.info['command'] = jp.where(
-            state.info['step'] > self.episode_length//2,
+            state.info['step'] > self.episode_length,
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
         
-
-        #jax.debug.print('x position: {x}', x=data.qpos[0])
-        #jax.debug.print('y position: {x}', x=data.qpos[1]) 
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.episode_length), 0, state.info['step']
