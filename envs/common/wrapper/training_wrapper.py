@@ -214,39 +214,44 @@ class AutoResetWrapper(Wrapper):
         
         def where_nan(x,y):
             nan = state.info['nan']
+            #jax.debug.print('Nan shape:{x}', x=nan.shape)
             if nan.shape:
                 nan = jp.reshape(nan, [x.shape[0]] + [1] * (len(x.shape) - 1))
             return jp.where(nan, x,y)
         
-        pipeline_state = jax.tree_map(
-            where_done, state.info['first_pipeline_state'], state.pipeline_state
-        )
-        # pipeline_state = jax.tree_map(
-        #     where_nan, state.info['first_pipeline_state'], pipeline_state
-        # )
+        def where_nan_done(x,y):
+            nan = state.info['nan']
+            done = state.done
+            if nan.shape:
+                nan = jp.reshape(nan, [x.shape[0]] + [1] * (len(x.shape) - 1))
+                done = jp.reshape(done, [x.shape[0]] + [1] * (len(x.shape) - 1))
+            return jp.where(jp.logical_or(nan, done), x, y)
         
+        pipeline_state = jax.tree_map(
+            where_nan_done, state.info['first_pipeline_state'], state.pipeline_state
+        )
+
         # Get rid of nan values in rewards, observations, priviledged_obs 
         for key in state.info['rewards']:
             # Update each value based on the condition
             state.info['rewards'][key] = jp.where(state.info['nan'], jp.array(0.0), state.info['rewards'][key])
-            
-        obs = where_nan(jp.zeros_like(state.info['first_obs']), state.obs)
-        reward = where_nan(jp.zeros_like(state.reward), state.reward)
-        priviledged_obs = where_nan(jp.zeros_like(state.info['first_priviledged_obs']), state.priviledged_obs)
-
-        obs = where_done(state.info['first_obs'], state.obs)
-        priviledged_obs = where_done(state.info['first_priviledged_obs'], state.priviledged_obs)
-        # reset information
-        state.info['last_act'] = where_done(jp.zeros_like(state.info['last_act']), state.info['last_act'])
-        state.info['last_vel'] = where_done(jp.zeros_like(state.info['last_vel']), state.info['last_vel'])
-        state.info['step'] = where_done(jp.zeros_like(state.info['step']), state.info['step'])
-        # Additional custom reset information
-        state.info['feet_air_time'] =  where_done(jp.zeros_like(state.info['feet_air_time']), state.info['feet_air_time'])
-        state.info['feet_contact_time'] = where_done(jp.zeros_like(state.info['feet_contact_time']), state.info['feet_contact_time'])
-        state.info['last_contact'] = where_done(jp.zeros_like(state.info['last_contact']), state.info['last_contact'])
-        state.info['time_out']= where_done(jp.zeros_like(state.info['time_out']), state.info['time_out'])
-        state.info['rng'] =where_done(jp.zeros_like(state.info['rng']), state.info['rng'])
-        state.info['action_minus_2t'] = where_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
         
+        # ------------- Update when NAN ------------- #  
+        reward = where_nan(jp.zeros_like(state.reward), state.reward)        
 
-        return state.replace(pipeline_state=pipeline_state, obs = obs, reward= reward,  priviledged_obs=priviledged_obs)
+        # -------------  Update when DONE ------------- #
+        obs = where_nan_done(state.info['first_obs'], state.obs)
+        priviledged_obs = where_nan_done(state.info['first_priviledged_obs'], state.priviledged_obs)
+        # reset information
+        state.info['last_act'] = where_nan_done(jp.zeros_like(state.info['last_act']), state.info['last_act'])
+        state.info['last_vel'] = where_nan_done(jp.zeros_like(state.info['last_vel']), state.info['last_vel'])
+        state.info['step'] = where_nan_done(jp.zeros_like(state.info['step']), state.info['step'])
+        # Additional custom reset information
+        state.info['feet_air_time'] =  where_nan_done(jp.zeros_like(state.info['feet_air_time']), state.info['feet_air_time'])
+        state.info['feet_contact_time'] = where_nan_done(jp.zeros_like(state.info['feet_contact_time']), state.info['feet_contact_time'])
+        state.info['last_contact'] = where_nan_done(jp.zeros_like(state.info['last_contact']), state.info['last_contact'])
+        state.info['time_out']= where_nan_done(jp.zeros_like(state.info['time_out']), state.info['time_out'])
+        state.info['rng'] =where_nan_done(jp.zeros_like(state.info['rng']), state.info['rng'])
+        state.info['action_minus_2t'] = where_nan_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
+        
+        return state.replace(pipeline_state=pipeline_state, obs = obs, reward=reward, priviledged_obs=priviledged_obs)

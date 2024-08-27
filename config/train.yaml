@@ -36,10 +36,6 @@ env:
     command_scale: 2.0
 
   manual_control:
-    enable: False
-    cmd_x: 0.8
-    cmd_y: 0.0
-    cmd_ang: 0.0
 
 
 log: True

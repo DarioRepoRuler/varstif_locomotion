@@ -123,16 +123,16 @@ class PPOTaskBase(nn.Module):
             print(f"Episode infos: {episode_infos}")
             print(f"Termination reward: {episode_infos['termination']}")
         episode_infos['time_outs'] = time_out
-        return self.obs, self.obs_priv, episode_infos, eval_infos
+        return self.obs, self.obs_priv, dones, episode_infos, eval_infos
 
     def simulate(self,it, is_training=True): # Simulates through one episode
         """
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, next_priv_obs_g,episode_infos, eval_infos = self.rollout(it,is_training=is_training)
+        next_obs_g, next_priv_obs_g, dones, episode_infos, eval_infos = self.rollout(it,is_training=is_training)
         # get goal conditioned state
-        self.algo.compute_returns(next_priv_obs_g)
+        self.algo.compute_returns(next_priv_obs_g, dones)
         # Show statistics
         stat = self.algo.storage.statistics()
 

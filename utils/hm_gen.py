@@ -56,15 +56,19 @@ class HeightMapGenerator:
         height = end_x-start_x
         height_map_with_hills = np.zeros((width, height ), dtype=np.uint8)  # Create a copy of the original height map
 
-        for _ in range(num_hills):
+        # center_x = np.random.randint(0, width-hill_radius, size = num_hills)
+        # center_y = np.random.randint(0, height-hill_radius, size=num_hills)
+        center_x = np.random.choice(np.arange(0, width-hill_radius), size=num_hills)
+        center_y = np.random.choice(np.arange(0, height-hill_radius), size=num_hills)
+
+        for i in range(num_hills):
             # Randomly select the center of the hill
-            center_x = np.random.randint(0, width-hill_radius)
-            center_y = np.random.randint(0, height-hill_radius)
+            
 
             # Generate the hill using Gaussian function
             for y in range(0, width-1):
                 for x in range(0, height-1):
-                    distance = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
+                    distance = np.sqrt((x - center_x[i]) ** 2 + (y - center_y[i]) ** 2)
                     if distance < hill_radius:
                         height_map_with_hills[y][x] += hill_height * np.exp(-((distance ** 2) / ((hill_radius**2 /4))))
 
@@ -248,16 +252,16 @@ def main():
     hm_gen.generate_perlin_noise(start_x=130, start_y=130, end_x=250, end_y=250, maximum=100) 
     
     # Generate Pyramids
-    hm_gen.pyramid(5, 20, 80, 50, maximum=100)
-    hm_gen.pyramid(5, 10, 10, 50,maximum=100)
-    hm_gen.pyramid(5, 60, 50, 50, maximum=100)
+    hm_gen.pyramid(5, 20, 80, 50, maximum=30)
+    hm_gen.pyramid(5, 10, 10, 50,maximum=30)
+    hm_gen.pyramid(5, 60, 50, 50, maximum=30)
     
     # Generate checkerboard pattern
-    hm_gen.stripes(25, 10, height=20, direction='vertical', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
-    hm_gen.stripes(25, 10, height=20, direction='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
+    hm_gen.stripes(25, 10, height=5, direction='vertical', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
+    hm_gen.stripes(25, 10, height=5, direction='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
 
     # Generate gaussian hills
-    hm_gen.generate_gaussian_hills(8, 50, 30, start_x=0, start_y=130, end_x=130, end_y=250)
+    hm_gen.generate_gaussian_hills(8, 40, 30, start_x=0, start_y=130, end_x=130, end_y=250)
 
     #
     hm_gen.blur_height_map(sigma=3, start_x=120, start_y=120, end_x=250, end_y=140)

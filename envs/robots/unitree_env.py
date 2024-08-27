@@ -15,7 +15,9 @@ from pathlib import Path
 import os
 import numpy as np
 
-#config.update("jax_debug_nans", True)
+
+# config.update("jax_debug_nans", True)
+# config.update('jax_default_matmul_precision', jax.lax.Precision.HIGH)
 
 
 class UnitreeEnv(MjxEnv):
@@ -457,6 +459,7 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the new state of the environment
         """
+        
         # For randomization
         rng, obs_rng, kick_noise, cmd_rng = jax.random.split(state.info['rng'], 4)
         
@@ -552,7 +555,7 @@ class UnitreeEnv(MjxEnv):
         state.info['rewards'] = rewards
         state.info['step']+= 1
         state.info['gait_idx'] = jp.remainder(state.info['step']*self.dt, 1.0)
-        state.info['nan']= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() 
+        state.info['nan']= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         state.info['time_out'] = state.info['step'] > self.episode_length
         state.info['rng'] = rng
         state.info['action_minus_2t'] = state.info['last_act'] 
@@ -562,11 +565,6 @@ class UnitreeEnv(MjxEnv):
         state.info['foot_pos_z'] = foot_pos[:, 2]
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
-        
-        #jax.debug.print('Foot pos z:{x}', x = foot_pos[:, 2])
-        #jax.debug.print('Gait_idx: {x}', x=state.info['gait_idx'])
-
-        #self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
 
         state.info['command'] = jp.where(
             self.manual_control,
@@ -590,8 +588,8 @@ class UnitreeEnv(MjxEnv):
 
         # observation
         obs, priviledged_obs = self._get_obs(data, state.info, state.obs, state.priviledged_obs, obs_rng=obs_rng)
-        done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() | jp.isnan(obs).any()
-        state.info['nan'] |= jp.isnan(obs).any()
+        #done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() | jp.isnan(obs).any()
+        state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(priviledged_obs).any()
         #jax.debug.print('Is nan: {x}', x=state.info['nan'])
         done = jp.float32(done)
 
@@ -718,7 +716,7 @@ class UnitreeEnv(MjxEnv):
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)
-        # Old termination: based on z-height
+        # Old termination: based on z-heightfjp
         # done |= data.xpos[self._torso_idx, 2] < self.min_z
         
         # New termination: If body touches the ground
@@ -732,7 +730,7 @@ class UnitreeEnv(MjxEnv):
         done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
         done |= done_map*self.terminate_map
 
-        done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
+        #done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         
 
         return done

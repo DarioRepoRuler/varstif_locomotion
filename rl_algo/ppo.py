@@ -103,9 +103,9 @@ class PPO(nn.Module):
         self.storage.add_transitions(self.transition)
         self.transition.clear()
 
-    def compute_returns(self, last_obs_g):
+    def compute_returns(self, last_obs_g, dones):
         last_values = self.actor_critic.evaluate(last_obs_g.detach().clone()).detach()
-        return self.storage.compute_returns(last_values, self.cfg.gamma, self.cfg.lamb)
+        return self.storage.compute_returns(last_values, dones, self.cfg.gamma, self.cfg.lamb)
 
     def update(self):
         mean_value_loss = 0
