@@ -732,8 +732,8 @@ class UnitreeEnv(MjxEnv):
 
         #done |= step > self.episode_length
 
-        # done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
-        # done |= done_map*self.terminate_map
+        done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
+        done |= done_map*self.terminate_map
 
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         
@@ -857,7 +857,12 @@ class UnitreeEnv(MjxEnv):
    
 
     def _reward_termination(self, done: jax.Array, step, data: mjx.Data) -> jax.Array:
-        return done & (step < self.episode_length) #& (jp.absjp.sum(jp.square(torques))#
+        return done & (step < self.episode_length) #& (jp.abs(data.qpos[0]) < 10.0) & (jp.abs(data.qpos[1]) < 10.0) & (jp.abs(data.qpos[2]) > -3.0)
+
+    def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
+        foot_cycles = jp.array([
+            gait_cycle_idx+0.5,
+            gait_cycle_idx ,
             gait_cycle_idx,
             gait_cycle_idx +0.5,
         ])
