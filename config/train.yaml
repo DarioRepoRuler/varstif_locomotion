@@ -22,7 +22,7 @@ env:
     kp_range: [0.8, 1.3]
     kd_range: [0.5, 1.5]
     motor_strength_range: [0.9, 1.1]
-
+    
     local_v_noise: 0.1
     local_w_noise: 0.2
     joint_noise: 0.01
@@ -33,7 +33,21 @@ env:
     local_v_scale: 2.0
     local_w_scale: 0.25
     joint_vel_scale: 0.1
-    command_scale: 2.0flat
+    command_scale: 2.0
+
+  manual_control:
+    enable: False
+    cmd_x: 0.8
+    cmd_y: 0.0
+    cmd_ang: 0.0
+
+log: True
+
+#ckpt_path: "outputs/2024-08-21/18-23-27/checkpoints/model_2000.pt"
+ckpt_path: null #"best_models/rando_all1.pt"
+
+log_dir: "Documents/TALocoMotion/outputs/"
+
 
 num_envs: 4096
 
