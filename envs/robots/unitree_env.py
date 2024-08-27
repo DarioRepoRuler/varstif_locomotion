@@ -588,9 +588,7 @@ class UnitreeEnv(MjxEnv):
 
         # observation
         obs, priviledged_obs = self._get_obs(data, state.info, state.obs, state.priviledged_obs, obs_rng=obs_rng)
-        #done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any() | jp.isnan(obs).any()
         state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(priviledged_obs).any()
-        #jax.debug.print('Is nan: {x}', x=state.info['nan'])
         done = jp.float32(done)
 
         state = state.replace(
