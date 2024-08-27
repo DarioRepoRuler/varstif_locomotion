@@ -7,7 +7,7 @@ env:
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
-  num_history: 1 # number of previous observations to stack
+  num_history: 10 # number of previous observations to stack
   kick_vel: 0.5
   push_interval: 25
   is_training: True
@@ -33,31 +33,16 @@ env:
     local_v_scale: 2.0
     local_w_scale: 0.25
     joint_vel_scale: 0.1
-    command_scale: 2.0
+    command_scale: 2.0flat
 
-  manual_control:
-    enable: False
-    cmd_x: 0.8
-    cmd_y: 0.0
-    cmd_ang: 0.0
-
-
-log: True
-
-#ckpt_path: "outputs/2024-08-21/18-23-27/checkpoints/model_2000.pt"
-ckpt_path: null #"best_models/rando_all1.pt"
-
-log_dir: "Documents/TALocoMotion/outputs/"
-
-
-num_envs: 2000
+num_envs: 4096
 
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2
