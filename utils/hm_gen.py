@@ -249,7 +249,7 @@ def main():
     hm_gen = HeightMapGenerator(height, width)
     
     # Generate the Perlin noise height map
-    hm_gen.generate_perlin_noise(start_x=130, start_y=130, end_x=250, end_y=250, maximum=100) 
+    hm_gen.generate_perlin_noise(start_x=130, start_y=130, end_x=250, end_y=250, maximum=50) 
     
     # Generate Pyramids
     hm_gen.pyramid(5, 20, 80, 50, maximum=30)

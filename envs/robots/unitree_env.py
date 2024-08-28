@@ -32,8 +32,9 @@ class UnitreeEnv(MjxEnv):
         mj_model = mujoco.MjModel.from_xml_path(os.path.join(resource_directory, model_path))
         if "terrain" in model_path:
             self.terminate_map = True
-            print(f"Termination map: {self.terminate_map}")
+            print(f"Changing termination to MAP TERMINATION: {self.terminate_map}")
         else:
+            print(f"DEFAULT TERMINATION")
             self.terminate_map = False
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
@@ -79,8 +80,8 @@ class UnitreeEnv(MjxEnv):
         else:
             self.action_shape = self.action_size
         # Randomization ranges:
-        self.x_pos = [-0.1, 0.1]#[-3, 3]
-        self.y_pos = [-0.1, 0.1]#[-3, -2] 
+        self.x_pos = cfg.reset_pox_x
+        self.y_pos = cfg.reset_pox_y 
         self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
@@ -137,6 +138,7 @@ class UnitreeEnv(MjxEnv):
         ]
 
         floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, 'floor')
+        print(f"Floor ID: {floor_id}")
         
         hip_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
@@ -208,10 +210,9 @@ class UnitreeEnv(MjxEnv):
         Returns:
             conn_indices: An array of connection indices representing foot contacts with the ground.
         """
-        # Number of collisions and arrays are set statically due to brax troubles        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
-
+        # Number of collisions and arrays are set statically due to brax troubles        
         num_collisions = 4
-        expected_total_cont=23#221
+        expected_total_cont=23 + 3*23*self.terminate_map
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         #jax.debug.print('Shape of contacts:  {x}', x=data.contact.geom.shape)
@@ -227,7 +228,8 @@ class UnitreeEnv(MjxEnv):
             feet_mask=feet_mask.at[0:expected_total_cont].set(jp.isin(geom_temp, self.feet_geom_id[i])[:,1])
             foot_cont = foot_cont.at[0:expected_total_cont].set(feet_mask*ground_mask)
             connection_index= connection_index.at[:].set(jp.where(foot_cont, size=1)[0])
-            conn_indices = conn_indices.at[i,0].set(connection_index[0])        
+            conn_indices = conn_indices.at[i,0].set(connection_index[0]) 
+        #jax.debug.print('Foot contacts: {x}', x=conn_indices)       
         return conn_indices
 
     def get_body_contacts(self, data)->jax.Array:
@@ -242,7 +244,7 @@ class UnitreeEnv(MjxEnv):
         """
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 19
-        expected_total_cont=23
+        expected_total_cont=23 + 3*23*self.terminate_map
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
@@ -487,10 +489,13 @@ class UnitreeEnv(MjxEnv):
         foot_contacts = jp.zeros((4),dtype=int)
         foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
         foot_floor_dist = jp.zeros((4),dtype=float)
+        # jax.debug.print('data contact dist: {x}', x=data.contact.dist)
+        # jax.debug.print('amount of contacts: {x}', x=data.contact.dist.shape)
         foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
-        #jax.debug.print('Foot distances: {x}', x=foot_floor_dist)
         ## general contact management
+        # jax.debug.print('Foot distances: {x}', x=foot_floor_dist)
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
+        # jax.debug.print('Foot contacts: {x}', x=contact)
         contact_filt_mm = contact | state.info['last_contact']
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
@@ -712,8 +717,8 @@ class UnitreeEnv(MjxEnv):
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
-        done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        done |= jp.any(data.qpos[7:] > self.upper_limits)
+        # done |= jp.any(data.qpos[7:] < self.lower_limits) 
+        # done |= jp.any(data.qpos[7:] > self.upper_limits)
         # Old termination: based on z-heightfjp
         # done |= data.xpos[self._torso_idx, 2] < self.min_z
         
@@ -850,7 +855,7 @@ class UnitreeEnv(MjxEnv):
    
 
     def _reward_termination(self, done: jax.Array, step, data: mjx.Data) -> jax.Array:
-        return done & (step < self.episode_length) #& (jp.abs(data.qpos[0]) < 10.0) & (jp.abs(data.qpos[1]) < 10.0) & (jp.abs(data.qpos[2]) > -3.0)
+        return done & (step < self.episode_length) & self.terminate_map*((jp.abs(data.qpos[0]) < 10.0) & (jp.abs(data.qpos[1]) < 10.0) & (jp.abs(data.qpos[2]) > -3.0))
 
     def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
         foot_cycles = jp.array([

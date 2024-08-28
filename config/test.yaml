@@ -8,8 +8,8 @@ env:
   physics_steps_per_control_step: 4
 
   num_history: 1
-  kick_vel: 1.0
-  push_interval: 50
+  kick_vel: 0.5
+  push_interval: 100
   is_training: False
   episode_length: 500
 
@@ -36,17 +36,20 @@ env:
 
   manual_control:
     enable: True
-    cmd_x: 1.0
+    cmd_x: .5
     cmd_y: 0.0
-    cmd_ang: -0.0
+    cmd_ang: 0.0
+
+  reset_pox_x: [-0.0, 0.0]
+  reset_pox_y: [1.0, 2.0]
 
 
 
-ckpt_path: 'best_models/testo.pt'
+ckpt_path: 'outputs/2024-08-27/17-55-18/checkpoints/model_2000.pt'
 timesteps_per_rollout: 48
 num_iterations: 100
 num_envs: 1
 
 device: 'cuda:0'
 curriculum: False
-scene_xml: 'unitree_go2/terrain_hfield.xml'
+scene_xml: 'unitree_go2/terrain_multi.xml'
