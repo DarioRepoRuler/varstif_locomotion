@@ -41,7 +41,7 @@ class PPOTaskBase(nn.Module):
                         episode_length=self.cfg.timesteps_per_rollout,
                         num_single_obs = self.env.observation_size // self.cfg.env.num_history,
                         num_env_obs=self.env.observation_size,
-                        num_priv_obs=self.env.priviledged_observation_size,
+                        num_priv_obs=self.env.priviledged_observation_size*self.cfg.env.num_history,
                         control_mode=self.control_mode,
                         device=self.device)
 
