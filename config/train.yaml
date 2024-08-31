@@ -7,7 +7,8 @@ env:
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
-  num_history: 1 # number of previous observations to stack
+  num_history_actor: 1 # number of previous observations to stack
+  num_history_critic: 1 # number of previous observations to stack
   kick_vel: 0.5
   push_interval: 75
   is_training: True
@@ -60,4 +61,4 @@ viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/terrain_multi.xml' 
+scene_xml: 'unitree_go2/flat.xml' 

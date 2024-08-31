@@ -39,9 +39,9 @@ class PPOTaskBase(nn.Module):
                         num_envs=self.cfg.num_envs,
                         num_actions=num_actions,
                         episode_length=self.cfg.timesteps_per_rollout,
-                        num_single_obs = self.env.observation_size // self.cfg.env.num_history,
+                        num_single_obs = self.env.observation_size // self.cfg.env.num_history_actor,
                         num_env_obs=self.env.observation_size,
-                        num_priv_obs=self.env.privileged_observation_size*self.cfg.env.num_history,
+                        num_priv_obs=self.env.privileged_observation_size*self.cfg.env.num_history_critic,
                         control_mode=self.control_mode,
                         device=self.device)
 
@@ -249,7 +249,7 @@ class PPOTaskBase(nn.Module):
             self.load(ckpt_path, load_optimizer=False)
         self.algo.actor_critic.eval()
         #eval_results = []
-        single_obs_size = self.env.observation_size // self.cfg.env.num_history
+        single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
         for it in range(num_iterations):
             #print(f"iteration: {it} ")
             #print(f"configuration of env: {self.cfg.env}")

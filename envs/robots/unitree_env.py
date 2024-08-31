@@ -47,7 +47,8 @@ class UnitreeEnv(MjxEnv):
         
         self.control_mode = cfg.control_mode
         self.action_scale = cfg.action_scale
-        self.num_history = cfg.num_history
+        self.num_history_actor = cfg.num_history_actor
+        self.num_history_critic = cfg.num_history_critic
         self._kick_vel = cfg.kick_vel
         self.is_training = cfg.is_training
         self.push_interval = cfg.push_interval
@@ -67,7 +68,7 @@ class UnitreeEnv(MjxEnv):
 
         self.soft_limits = soft_limits
         self.single_obs_size = 48 # defined in _get_obs
-        self.privileged_obs_size = self.single_obs_size
+        self.privileged_obs_size = 56#self.single_obs_size
         
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size + 3
@@ -378,8 +379,8 @@ class UnitreeEnv(MjxEnv):
             'motor_strength': motor_strength,
             'gait_idx': jp.array(0.),
         }
-        obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
-        privileged_obs_history = jp.zeros(self.num_history*self.privileged_obs_size)
+        obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
+        privileged_obs_history = jp.zeros(self.num_history_critic*self.privileged_obs_size)
 
         obs, privileged_obs = self._get_obs(data, state_info, obs_history, privileged_obs_history, obs_rng=rng4)
 
@@ -670,7 +671,7 @@ class UnitreeEnv(MjxEnv):
         # Orientation quaternion
         quaternion = data.qpos[3:7] 
         rpy = math.quat_to_euler(quaternion)
-
+        
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
             self.local_v_scale*jp.array(local_v),
@@ -692,9 +693,10 @@ class UnitreeEnv(MjxEnv):
         privileged_obs = jp.concatenate([
             # Privileged
             
-            #self.sys.geom_friction[0, 0],
-            #self.sys.body_mass[1],
-            #state_info['kick'],
+            jp.array([self.sys.geom_friction[0, 0]]),
+            jp.array([self.sys.body_mass[1]]),
+            state_info['kick'],
+            state_info['contact'],
             obs
         ])
 

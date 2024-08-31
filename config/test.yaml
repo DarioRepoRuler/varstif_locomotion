@@ -7,14 +7,15 @@ env:
   control_mode: "P"
   physics_steps_per_control_step: 4
 
-  num_history: 2
+  num_history_actor: 10 # number of previous observations to stack
+  num_history_critic: 1 # number of previous observations to stack
   kick_vel: 0.5
   push_interval: 100
   is_training: False
   episode_length: 500
 
   domain_rand:
-    randomisation: False
+    randomisation: True
     gravity_offset: [-1., 1.]
     friction_range: [0.4, 1.25]
     payload_range: [-1., 1.]
@@ -45,7 +46,7 @@ env:
 
 
 
-ckpt_path: null #'best_models/test_terrain.pt'
+ckpt_path: null
 timesteps_per_rollout: 100
 num_iterations: 100
 num_envs: 1
