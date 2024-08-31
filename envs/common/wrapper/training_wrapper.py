@@ -192,7 +192,7 @@ class AutoResetWrapper(Wrapper):
         state = self.env.reset(rng, initial_xy, manual_control=manual_control)
         state.info['first_pipeline_state'] = state.pipeline_state
         state.info['first_obs'] = state.obs
-        state.info['first_priviledged_obs'] = state.priviledged_obs
+        state.info['first_privileged_obs'] = state.privileged_obs
         return state
 
     def step(self, state: State, action: jax.Array) -> State:       
@@ -231,7 +231,7 @@ class AutoResetWrapper(Wrapper):
             where_nan_done, state.info['first_pipeline_state'], state.pipeline_state
         )
 
-        # Get rid of nan values in rewards, observations, priviledged_obs 
+        # Get rid of nan values in rewards, observations, privileged_obs 
         for key in state.info['rewards']:
             # Update each value based on the condition
             state.info['rewards'][key] = jp.where(state.info['nan'], jp.array(0.0), state.info['rewards'][key])
@@ -241,7 +241,7 @@ class AutoResetWrapper(Wrapper):
 
         # -------------  Update when DONE ------------- #
         obs = where_nan_done(state.info['first_obs'], state.obs)
-        priviledged_obs = where_nan_done(state.info['first_priviledged_obs'], state.priviledged_obs)
+        privileged_obs = where_nan_done(state.info['first_privileged_obs'], state.privileged_obs)
         # reset information
         state.info['last_act'] = where_nan_done(jp.zeros_like(state.info['last_act']), state.info['last_act'])
         state.info['last_vel'] = where_nan_done(jp.zeros_like(state.info['last_vel']), state.info['last_vel'])
@@ -254,4 +254,4 @@ class AutoResetWrapper(Wrapper):
         state.info['rng'] =where_nan_done(jp.zeros_like(state.info['rng']), state.info['rng'])
         state.info['action_minus_2t'] = where_nan_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
         
-        return state.replace(pipeline_state=pipeline_state, obs = obs, reward=reward, priviledged_obs=priviledged_obs)
+        return state.replace(pipeline_state=pipeline_state, obs = obs, reward=reward, privileged_obs=privileged_obs)

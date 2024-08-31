@@ -67,16 +67,16 @@ class UnitreeEnv(MjxEnv):
 
         self.soft_limits = soft_limits
         self.single_obs_size = 48 # defined in _get_obs
-        self.priviledged_obs_size = self.single_obs_size
+        self.privileged_obs_size = self.single_obs_size
         
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size + 3
             self.single_obs_size = self.single_obs_size + 3
-            self.priviledged_obs_size = self.single_obs_size
+            self.privileged_obs_size = self.single_obs_size
         elif cfg.control_mode == "VIC_2": # for every leg
             self.action_shape = self.action_size + 4
             self.single_obs_size = self.single_obs_size + 4
-            self.priviledged_obs_size = self.single_obs_size
+            self.privileged_obs_size = self.single_obs_size
         else:
             self.action_shape = self.action_size
         # Randomization ranges:
@@ -379,18 +379,18 @@ class UnitreeEnv(MjxEnv):
             'gait_idx': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
-        priviledged_obs_history = jp.zeros(self.num_history*self.priviledged_obs_size)
+        privileged_obs_history = jp.zeros(self.num_history*self.privileged_obs_size)
 
-        obs, priviledged_obs = self._get_obs(data, state_info, obs_history, priviledged_obs_history, obs_rng=rng4)
+        obs, privileged_obs = self._get_obs(data, state_info, obs_history, privileged_obs_history, obs_rng=rng4)
 
-        jax.debug.print('Initial obs: {x}', x=obs)
-        jax.debug.print('Initial priviledged obs: {x}', x=priviledged_obs)
+        #jax.debug.print('Initial obs: {x}', x=obs)
+        #jax.debug.print('Initial privileged obs: {x}', x=privileged_obs)
         metrics = {'total_dist': 0.0}
         for k in state_info['rewards']:
             metrics[k] = state_info['rewards'][k]
         return State(pipeline_state=data,
                      obs=obs,
-                     priviledged_obs=priviledged_obs,
+                     privileged_obs=privileged_obs,
                      reward=reward,
                      done=done,
                      metrics=metrics,
@@ -595,17 +595,17 @@ class UnitreeEnv(MjxEnv):
         state.metrics.update(state.info['rewards'])
 
         # observation
-        obs, priviledged_obs = self._get_obs(data, state.info, state.obs, state.priviledged_obs, obs_rng=obs_rng)
-        state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(priviledged_obs).any()
+        obs, privileged_obs = self._get_obs(data, state.info, state.obs, state.privileged_obs, obs_rng=obs_rng)
+        state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(privileged_obs).any()
         done = jp.float32(done)
 
         state = state.replace(
-            pipeline_state=data, obs=obs, reward=reward, done=done, priviledged_obs=priviledged_obs
+            pipeline_state=data, obs=obs, reward=reward, done=done, privileged_obs=privileged_obs
         )
         # jax.debug.print('Last obs: {x}', x=state.obs[-self.single_obs_size:])
-        # jax.debug.print('Last priviledged obs: {x}', x=state.priviledged_obs[-self.priviledged_obs_size:])
+        # jax.debug.print('Last privileged obs: {x}', x=state.privileged_obs[-self.privileged_obs_size:])
         # jax.debug.print('State current obs: {x}', x=state.obs[:self.single_obs_size])
-        # jax.debug.print('State priviledged obs: {x}', x=state.priviledged_obs[:self.priviledged_obs_size])
+        # jax.debug.print('State privileged obs: {x}', x=state.privileged_obs[:self.privileged_obs_size])
 
         
         return state
@@ -631,7 +631,7 @@ class UnitreeEnv(MjxEnv):
                   data: mjx.Data,
                   state_info: Dict[str, Any],
                   obs_history: jax.Array,
-                  priviledged_obs_history: jax.Array,
+                  privileged_obs_history: jax.Array,
                   obs_rng: jp.ndarray ,
                  ) -> jp.ndarray:
         """
@@ -689,7 +689,7 @@ class UnitreeEnv(MjxEnv):
 
         obs = jp.clip(obs, -100.0, 100.0)
 
-        priviledged_obs = jp.concatenate([
+        privileged_obs = jp.concatenate([
             # Privileged
             
             #self.sys.geom_friction[0, 0],
@@ -699,7 +699,7 @@ class UnitreeEnv(MjxEnv):
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
-        assert priviledged_obs.shape[0] == self.priviledged_obs_size, f"priviledged_obs.shape {priviledged_obs.shape}"
+        assert privileged_obs.shape[0] == self.privileged_obs_size, f"privileged_obs.shape {privileged_obs.shape}"
 
 
         # Add noise to the observation, this has to be altered if the observation space changes
@@ -714,11 +714,11 @@ class UnitreeEnv(MjxEnv):
 
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
-        priviledged_obs = jp.roll(priviledged_obs_history, priviledged_obs.size).at[:priviledged_obs.size].set(priviledged_obs)
+        privileged_obs = jp.roll(privileged_obs_history, privileged_obs.size).at[:privileged_obs.size].set(privileged_obs)
         
 
 
-        return obs, priviledged_obs
+        return obs, privileged_obs
 
     def _check_terminate(self, data: mjx.Data, x, step) -> bool:
         # done if joint limits are reached or robot is falling

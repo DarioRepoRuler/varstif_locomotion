@@ -41,7 +41,7 @@ class PPOTaskBase(nn.Module):
                         episode_length=self.cfg.timesteps_per_rollout,
                         num_single_obs = self.env.observation_size // self.cfg.env.num_history,
                         num_env_obs=self.env.observation_size,
-                        num_priv_obs=self.env.priviledged_observation_size*self.cfg.env.num_history,
+                        num_priv_obs=self.env.privileged_observation_size*self.cfg.env.num_history,
                         control_mode=self.control_mode,
                         device=self.device)
 
@@ -49,7 +49,7 @@ class PPOTaskBase(nn.Module):
         self.level = 0
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control.enable)
 
-    def step(self, obs_g, priviledged_obs_g, is_training=True):
+    def step(self, obs_g, privileged_obs_g, is_training=True):
         """
         Performs action in the environment and returns the next observation. Everything outside this function will not directly
         affect the environment or the learning process.
@@ -65,14 +65,14 @@ class PPOTaskBase(nn.Module):
             print(f"Observation: {obs_g[torch.where(torch.isnan(obs_g))]}")
 
         if is_training:
-            actions = self.algo.act(obs_g, priviledged_obs_g)
+            actions = self.algo.act(obs_g, privileged_obs_g)
         else:
-            actions = self.algo.act_eval(obs_g, priviledged_obs_g)
+            actions = self.algo.act_eval(obs_g, privileged_obs_g)
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
         next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
 
-        self.algo.process_env_step(obs_g, priviledged_obs_g,rewards, dones, infos)
+        self.algo.process_env_step(obs_g, privileged_obs_g,rewards, dones, infos)
 
         return next_obs_g, next_priv_obs_g, dones, infos
 

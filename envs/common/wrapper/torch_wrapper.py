@@ -22,39 +22,39 @@ class TorchWrapper:
         self.state = None
         self.observation_size = self._env.observation_size
         self.single_observation_size = self._env.single_obs_size
-        self.priviledged_observation_size = self._env.priviledged_obs_size
+        self.privileged_observation_size = self._env.privileged_obs_size
         
         self.action_size = self._env.action_size
 
         def reset_mjx(key, initial_xy=None, manual_control=False):
             key1, key2 = jax.random.split(key)
             state = self._env.reset(key2, initial_xy, manual_control)
-            return state, state.obs, state.priviledged_obs, key1
+            return state, state.obs, state.privileged_obs, key1
 
         self._reset_jit = jax.jit(reset_mjx, backend=self.backend)
 
         def step_mjx(state, action):
             state = self._env.step(state, action)
             info = {**state.metrics, **state.info}
-            return state, state.obs, state.priviledged_obs, state.reward, state.done, info
+            return state, state.obs, state.privileged_obs, state.reward, state.done, info
 
         self._step_jit = jax.jit(step_mjx, backend=self.backend)
 
     def reset(self, initial_xy: jax.Array, manual_control: bool = False):
-        self.state, obs, priviledged_obs, self._key = self._reset_jit(self._key, initial_xy, manual_control)
+        self.state, obs, privileged_obs, self._key = self._reset_jit(self._key, initial_xy, manual_control)
         obs = torch.jax_to_torch(obs, device=self.device)
-        priviledged_obs = torch.jax_to_torch(priviledged_obs, device=self.device)
-        return obs, priviledged_obs
+        privileged_obs = torch.jax_to_torch(privileged_obs, device=self.device)
+        return obs, privileged_obs
 
     def step(self, action):
         action = torch.torch_to_jax(action)
-        self.state, obs, priviledged_obs, reward, done, info = self._step_jit(self.state, action)
+        self.state, obs, privileged_obs, reward, done, info = self._step_jit(self.state, action)
         obs = torch.jax_to_torch(obs, device=self.device)
-        priviledged_obs = torch.jax_to_torch(priviledged_obs, device=self.device)
+        privileged_obs = torch.jax_to_torch(privileged_obs, device=self.device)
         reward = torch.jax_to_torch(reward, device=self.device)
         done = torch.jax_to_torch(done, device=self.device)
         info = torch.jax_to_torch(info, device=self.device)
-        return obs, priviledged_obs, reward, done, info
+        return obs, privileged_obs, reward, done, info
 
     def seed(self, seed: int = 0):
         self._key = jax.random.PRNGKey(seed)

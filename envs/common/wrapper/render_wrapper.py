@@ -27,7 +27,7 @@ class RenderWrapper:
         self.camera_name = camera_name
         self.observation_size = self._env.observation_size
         self.single_obs_size = self._env.single_observation_size
-        self.priviledged_observation_size = self._env.priviledged_observation_size
+        self.privileged_observation_size = self._env.privileged_observation_size
         self.action_size = self._env.action_size
 
         from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
@@ -40,7 +40,7 @@ class RenderWrapper:
         return self._env.reset(initial_xy, manual_control)
 
     def step(self, action):
-        obs, priviledged_obs, reward, done, info = self._env.step(action)
+        obs, privileged_obs, reward, done, info = self._env.step(action)
 
         if self.render_mode == "human":
             data = self._env.state.pipeline_state
@@ -49,7 +49,7 @@ class RenderWrapper:
             mujoco.mj_forward(self.model, self.data)
 
             self.render()
-        return obs, priviledged_obs,reward, done, info
+        return obs, privileged_obs,reward, done, info
 
     def render(self):
         return self.mujoco_renderer.render(

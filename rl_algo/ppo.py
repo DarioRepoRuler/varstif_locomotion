@@ -90,7 +90,7 @@ class PPO(nn.Module):
         return self.actor_critic.act_inference(obs_g)
     
 
-    def process_env_step(self, obs, priviledged_obs_g,rewards, dones, infos):
+    def process_env_step(self, obs, privileged_obs_g,rewards, dones, infos):
         self.transition.rewards = rewards.detach()
         self.transition.dones = dones.detach()
         self.transition.progress = infos["step"].detach() / self.episode_length
