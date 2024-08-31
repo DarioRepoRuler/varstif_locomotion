@@ -68,7 +68,7 @@ class UnitreeEnv(MjxEnv):
 
         self.soft_limits = soft_limits
         self.single_obs_size = 48 # defined in _get_obs
-        self.privileged_obs_size = 56#self.single_obs_size
+        self.privileged_obs_size = 59#self.single_obs_size
         
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size + 3
@@ -691,8 +691,10 @@ class UnitreeEnv(MjxEnv):
         obs = jp.clip(obs, -100.0, 100.0)
 
         privileged_obs = jp.concatenate([
-            # Privileged
-            
+            # Privilege'd
+            state_info['kp_factor'],
+            state_info['kd_factor'],
+            state_info['motor_strength'],
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
             state_info['kick'],
