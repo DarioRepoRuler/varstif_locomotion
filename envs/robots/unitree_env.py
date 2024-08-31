@@ -138,7 +138,7 @@ class UnitreeEnv(MjxEnv):
         ]
 
         floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, 'floor')
-        print(f"Floor ID: {floor_id}")
+        #print(f"Floor ID: {floor_id}")
         
         hip_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
@@ -380,8 +380,11 @@ class UnitreeEnv(MjxEnv):
         }
         obs_history = jp.zeros(self.num_history * self.single_obs_size)  # store num_history steps of history
         priviledged_obs_history = jp.zeros(self.num_history*self.priviledged_obs_size)
+
         obs, priviledged_obs = self._get_obs(data, state_info, obs_history, priviledged_obs_history, obs_rng=rng4)
-        obs = obs.at[self.single_obs_size:].set(jp.tile(obs[:self.single_obs_size], self.num_history-1))
+
+        jax.debug.print('Initial obs: {x}', x=obs)
+        jax.debug.print('Initial priviledged obs: {x}', x=priviledged_obs)
         metrics = {'total_dist': 0.0}
         for k in state_info['rewards']:
             metrics[k] = state_info['rewards'][k]
@@ -599,6 +602,11 @@ class UnitreeEnv(MjxEnv):
         state = state.replace(
             pipeline_state=data, obs=obs, reward=reward, done=done, priviledged_obs=priviledged_obs
         )
+        # jax.debug.print('Last obs: {x}', x=state.obs[-self.single_obs_size:])
+        # jax.debug.print('Last priviledged obs: {x}', x=state.priviledged_obs[-self.priviledged_obs_size:])
+        # jax.debug.print('State current obs: {x}', x=state.obs[:self.single_obs_size])
+        # jax.debug.print('State priviledged obs: {x}', x=state.priviledged_obs[:self.priviledged_obs_size])
+
         
         return state
 
@@ -687,7 +695,6 @@ class UnitreeEnv(MjxEnv):
             #self.sys.geom_friction[0, 0],
             #self.sys.body_mass[1],
             #state_info['kick'],
-            
             obs
         ])
 
@@ -709,11 +716,13 @@ class UnitreeEnv(MjxEnv):
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
         priviledged_obs = jp.roll(priviledged_obs_history, priviledged_obs.size).at[:priviledged_obs.size].set(priviledged_obs)
         
+
+
         return obs, priviledged_obs
 
     def _check_terminate(self, data: mjx.Data, x, step) -> bool:
         # done if joint limits are reached or robot is falling
-        up = jp.array([0.0, 0.0, 1.0])
+        up = jp.array([0.0, 0.0, 1.0]) 
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits

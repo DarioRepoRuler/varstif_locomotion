@@ -261,12 +261,12 @@ def main():
     hm_gen.stripes(25, 10, height=5, direction='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
 
     # Generate gaussian hills
-    hm_gen.generate_gaussian_hills(8, 40, 30, start_x=0, start_y=130, end_x=130, end_y=250)
+    hm_gen.generate_gaussian_hills(num_hills=4, hill_height=-40, hill_radius=30, start_x=0, start_y=130, end_x=130, end_y=250)
 
     #
-    hm_gen.blur_height_map(sigma=3, start_x=120, start_y=120, end_x=250, end_y=140)
-    hm_gen.blur_height_map(sigma=3, start_x=120, start_y=120, end_x=140, end_y=250)
-    hm_gen.blur_height_map(sigma=3, start_x=120, start_y=0, end_x=140, end_y=250)
+    hm_gen.blur_height_map(sigma=6, start_x=0, start_y=120, end_x=250, end_y=140)
+    hm_gen.blur_height_map(sigma=6, start_x=120, start_y=0, end_x=140, end_y=250)
+    #hm_gen.blur_height_map(sigma=5, start_x=120, start_y=0, end_x=140, end_y=250)
 
     # Define the filename
     filename = 'new_terrain.png'
