@@ -40,7 +40,7 @@ class HeightMapGenerator:
         # Normalize the result to be between 0 and 255
         height_map = (height_map - height_map.min()) / (height_map.max() - height_map.min()) * maximum
         height_map = height_map.astype(np.uint8)
-        self.height_map[start_x:end_x, start_y:end_y] += height_map[start_x:end_x, start_y:end_y]
+        self.height_map[start_x:end_x, start_y:end_y] -= height_map[start_x:end_x, start_y:end_y]
         return height_map
     
     def generate_gaussian_hills(self, num_hills, hill_height=255, hill_radius=50, start_x=0, start_y=0, end_x=150, end_y=150):

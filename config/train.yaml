@@ -3,8 +3,8 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.3
-  control_mode: "P"
+  action_scale: 0.5
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
   num_history_actor: 1 # number of previous observations to stack
@@ -13,6 +13,9 @@ env:
   push_interval: 75
   is_training: True
   episode_length: 500
+
+  single_obs_size: 48
+  single_obs_size_priv: 57
 
   domain_rand:
     randomisation: True
@@ -42,15 +45,20 @@ env:
     cmd_y: 0.0
     cmd_ang: 0.0
 
+  reset_pox_x: [-5.0, 5.0]
+  reset_pox_y: [-5.0, 5.0]
+
+  stiff_range: [0.5, 2.0]
+
+
 log: True
 
-#ckpt_path: "outputs/2024-08-21/18-23-27/checkpoints/model_2000.pt"
-ckpt_path: null #"best_models/rando_all1.pt"
+ckpt_path: null 
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 2000
+num_envs: 200
 
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
@@ -61,4 +69,4 @@ viz: True
 
 project: PositionControlled
 group: Bruce-P2
-scene_xml: 'unitree_go2/flat.xml' 
+scene_xml: 'unitree_go2/terrain_multi.xml' 

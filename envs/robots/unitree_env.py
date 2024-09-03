@@ -67,17 +67,18 @@ class UnitreeEnv(MjxEnv):
         self.cmd_yaw = cfg.manual_control.cmd_ang
 
         self.soft_limits = soft_limits
-        self.single_obs_size = 48 # defined in _get_obs
-        self.privileged_obs_size = 59#self.single_obs_size
-        
+        self.single_obs_size = cfg.single_obs_size # defined in _get_obs
+        self.privileged_obs_size = cfg.single_obs_size_priv
+
+        self.stiff_range = cfg.stiff_range        
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size + 3
             self.single_obs_size = self.single_obs_size + 3
-            self.privileged_obs_size = self.single_obs_size
+            self.privileged_obs_size = self.privileged_obs_size +3
         elif cfg.control_mode == "VIC_2": # for every leg
             self.action_shape = self.action_size + 4
             self.single_obs_size = self.single_obs_size + 4
-            self.privileged_obs_size = self.single_obs_size
+            self.privileged_obs_size = self.privileged_obs_size + 4 
         else:
             self.action_shape = self.action_size
         # Randomization ranges:
@@ -267,7 +268,7 @@ class UnitreeEnv(MjxEnv):
     def get_terminate_contacts(self, data)->jax.Array: 
         # Number of collisions and arrays are set statically due to brax troubles
         num_collisions = 7
-        expected_total_cont=23
+        expected_total_cont=23 + 3*23*self.terminate_map
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
         geom_temp = geom_temp.at[0:expected_total_cont,0:2].set(data.contact.geom[0:expected_total_cont,0:2])
@@ -405,6 +406,9 @@ class UnitreeEnv(MjxEnv):
         """
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
+
+        m = (self.stiff_range[0] +self.stiff_range[1])/2
+        r= self.stiff_range[1]-self.stiff_range[0]
         
         #action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
@@ -420,15 +424,17 @@ class UnitreeEnv(MjxEnv):
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
-            p_gains = jp.clip(self.p_gains + 10*jp.tile(action[12:],4), a_min=10.0, a_max=100.0)
-            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            action_stiff = jp.tile(action[12:],4)
+            p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=10.0, a_max=100.0)
+            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
-            p_gains = jp.clip(self.p_gains + 10*jp.repeat(action[12:],3), a_min=10.0, a_max=100.0)
-            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            action_stiff = jp.tile(action[12:],3)
+            p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=10.0, a_max=100.0)
+            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
@@ -692,8 +698,8 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privilege'd
-            state_info['kp_factor'],
-            state_info['kd_factor'],
+            # state_info['kp_factor'],
+            # state_info['kd_factor'],
             state_info['motor_strength'],
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
