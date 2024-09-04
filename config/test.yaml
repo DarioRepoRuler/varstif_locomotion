@@ -3,8 +3,8 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.3
-  control_mode: "VIC_2"
+  action_scale: 0.5
+  control_mode: "P"
   physics_steps_per_control_step: 4
 
   num_history_actor: 1 # number of previous observations to stack
@@ -13,6 +13,9 @@ env:
   push_interval: 100
   is_training: False
   episode_length: 500
+
+  single_obs_size: 48
+  single_obs_size_priv: 59
 
   domain_rand:
     randomisation: True
@@ -41,12 +44,16 @@ env:
     cmd_y: 0.0
     cmd_ang: 0.0
 
-  reset_pox_x: [-0.0, 0.0]
-  reset_pox_y: [-0.0, -0.0]
+  reset_pos_x: [-0.0, 0.0]
+  reset_pos_y: [-0.0, -0.0]
+
+  control:
+    stiff_range: [0.5, 2.0]
+    p_gain: 50.0
+    d_gain: 1.0
 
 
-
-ckpt_path: 'best_models/vic_2.pt'
+ckpt_path: 'outputs/2024-09-03/18-23-01/checkpoints/model_2000.pt'
 timesteps_per_rollout: 100
 num_iterations: 100
 num_envs: 1

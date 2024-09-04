@@ -70,7 +70,7 @@ class UnitreeEnv(MjxEnv):
         self.single_obs_size = cfg.single_obs_size # defined in _get_obs
         self.privileged_obs_size = cfg.single_obs_size_priv
 
-        self.stiff_range = cfg.stiff_range        
+        self.stiff_range = cfg.control.stiff_range        
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size + 3
             self.single_obs_size = self.single_obs_size + 3
@@ -82,8 +82,8 @@ class UnitreeEnv(MjxEnv):
         else:
             self.action_shape = self.action_size
         # Randomization ranges:
-        self.x_pos = cfg.reset_pox_x
-        self.y_pos = cfg.reset_pox_y 
+        self.x_pos = cfg.reset_pos_x
+        self.y_pos = cfg.reset_pos_y 
         self.theta = [0, jp.pi/8] # in rad
         self.a_x = [-1,1]
         self.a_y = [-1,1]
@@ -96,7 +96,11 @@ class UnitreeEnv(MjxEnv):
         self.local_w_scale = cfg.normalization.local_w_scale
         self.joint_vel_scale = cfg.normalization.joint_vel_scale
         self.command_scale = cfg.normalization.command_scale
-        
+
+        # Specify Gains for PD controller for each joint
+        self.p_gain = cfg.control.p_gain
+        self.d_gain = cfg.control.d_gain
+
         # set up robot properties
         self._setup()
 
@@ -698,8 +702,8 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privilege'd
-            # state_info['kp_factor'],
-            # state_info['kd_factor'],
+            state_info['kp_factor'],
+            state_info['kd_factor'],
             state_info['motor_strength'],
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),

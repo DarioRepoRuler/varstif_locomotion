@@ -6,7 +6,9 @@ class GO2Env(UnitreeEnv):
     def __init__(self, cfg, scene_xml='unitree_go2/scene.xml'):
         super().__init__(cfg, model_path=scene_xml)
         # set up robot properties
+
         self._setup()
+
 
     def _setup(self):
         """
@@ -30,8 +32,8 @@ class GO2Env(UnitreeEnv):
         )
 
         # Specify Gains for PD controller for each joint
-        self.p_gains = jp.array([50., 50., 50.] * 4)
-        self.d_gains = jp.array([1., 1., 1.] * 4)
+        self.p_gains = jp.ones(12) * self.p_gain
+        self.d_gains = jp.ones(12) * self.d_gain
 
         # position limits
         lower_limits = jp.array([-1.0472, -1.5708, -2.7227]*2 + [-1.0472, -0.5236, -2.7227]*2)
