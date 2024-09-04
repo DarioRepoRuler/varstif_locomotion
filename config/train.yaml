@@ -45,13 +45,13 @@ env:
     cmd_y: 0.0
     cmd_ang: 0.0
 
-  reset_pox_x: [-5.0, 5.0]
-  reset_pox_y: [-5.0, 5.0]
+  reset_pos_x: [-5.0, 5.0]
+  reset_pos_y: [-5.0, 5.0]
 
-  stiff_range: [0.5, 2.0]
-
-  p_gain: 20.0
-  d_gain: 1.0
+  control:
+    stiff_range: [0.5, 2.0]
+    p_gain: 50.0
+    d_gain: 1.0
 
 
 log: True
@@ -68,7 +68,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: False
+viz: True
 
 project: PositionControlled
 group: Bruce-P2

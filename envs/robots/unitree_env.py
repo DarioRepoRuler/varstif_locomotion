@@ -199,7 +199,7 @@ class UnitreeEnv(MjxEnv):
             "action_rate": -0.01,
             "action_rate2": 0.0,
             "abduction": 0.0,
-            "rew_pos_limits": -0.0,
+            "rew_pos_limits": -0.01,
             "rew_acceleration":-2.5e-7,
             "rew_collision": -10.0,
             "rew_velocity": -0.0,
@@ -702,8 +702,8 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privilege'd
-            state_info['kp_factor'],
-            state_info['kd_factor'],
+            # state_info['kp_factor'],
+            # state_info['kd_factor'],
             state_info['motor_strength'],
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
