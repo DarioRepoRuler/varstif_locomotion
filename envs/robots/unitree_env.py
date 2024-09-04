@@ -196,7 +196,7 @@ class UnitreeEnv(MjxEnv):
             'stand_still': -0.5, 
             "foot_slip": -0.1,
             # Additional self created
-            "action_rate": -0.01,
+            "action_rate": -0.005,
             "action_rate2": 0.0,
             "abduction": 0.0,
             "rew_pos_limits": -0.01,
@@ -412,7 +412,7 @@ class UnitreeEnv(MjxEnv):
         dof_vel = data.qvel[6:]
 
         m = (self.stiff_range[0] +self.stiff_range[1])/2
-        r= self.stiff_range[1]-self.stiff_range[0]
+        r= (self.stiff_range[1]-self.stiff_range[0])/2
         
         #action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
