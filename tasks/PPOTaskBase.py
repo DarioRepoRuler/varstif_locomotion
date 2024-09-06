@@ -7,6 +7,9 @@ import mujoco
 from utils.graphs_gen import eval_graph, create_multiple_box_plots
 import jax.numpy as jp
 import jax
+import threading
+from pynput import keyboard as pynput_keyboard
+import time
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -27,7 +30,7 @@ class PPOTaskBase(nn.Module):
         self.env = env
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
-
+        self.view_env_id = 0
         if self.control_mode == 'P' or self.control_mode == 'T':
             num_actions = 12
         elif self.control_mode == 'VIC_1':
@@ -48,6 +51,31 @@ class PPOTaskBase(nn.Module):
         self.current_learning_iteration = 0
         self.level = 0
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control.enable)
+
+
+        # Start the keyboard listener thread
+        self.keyboard_listener_thread = threading.Thread(target=self.keyboard_listener)
+        self.keyboard_listener_thread.daemon = True
+        self.keyboard_listener_thread.start()
+
+    def on_press(self, key):
+        try:
+            if key == pynput_keyboard.Key.right:
+                print(f"Right arrow pressed. ")
+            elif key == pynput_keyboard.Key.left:
+                print(f"Left arrow pressed.")
+            elif key == pynput_keyboard.Key.up:
+                print(f"Up arrow pressed Viewed env: {self.view_env_id}")
+                self.view_env_id += 1
+            elif key == pynput_keyboard.Key.down:
+                self.view_env_id -= 1
+                print(f"Down arrow pressed,  Viewed env: {self.view_env_id}")
+        except AttributeError:
+            pass
+    
+    def keyboard_listener(self):
+        with pynput_keyboard.Listener(on_press=self.on_press) as listener:
+            listener.join()
 
     def step(self, obs_g, privileged_obs_g, is_training=True):
         """
@@ -70,7 +98,7 @@ class PPOTaskBase(nn.Module):
             actions = self.algo.act_eval(obs_g, privileged_obs_g)
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
-        next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
+        next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions, env_id=self.view_env_id)
 
         self.algo.process_env_step(obs_g, privileged_obs_g,rewards, dones, infos)
 

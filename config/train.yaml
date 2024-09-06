@@ -15,7 +15,7 @@ env:
   episode_length: 500
 
   single_obs_size: 48
-  single_obs_size_priv: 59
+  single_obs_size_priv: 57
 
   domain_rand:
     randomisation: True
@@ -49,7 +49,7 @@ env:
   reset_pos_y: [-5.0, 5.0]
 
   control:
-    stiff_range: [0.5, 2.0]
+    stiff_range: [0.8, 1.5]
     p_gain: 50.0
     d_gain: 1.0
 
@@ -61,7 +61,7 @@ ckpt_path: null
 log_dir: "Documents/TALocoMotion/outputs/"
 
 
-num_envs: 2000
+num_envs: 200
 
 timesteps_per_rollout: 48
 num_learning_iterations: 2001

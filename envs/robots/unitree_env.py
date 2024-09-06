@@ -729,8 +729,6 @@ class UnitreeEnv(MjxEnv):
         # Stack observations through time all in 1x(timesteps x obs_size) array
         obs = jp.roll(obs_history, obs.size).at[:obs.size].set(obs)
         privileged_obs = jp.roll(privileged_obs_history, privileged_obs.size).at[:privileged_obs.size].set(privileged_obs)
-        
-
 
         return obs, privileged_obs
 

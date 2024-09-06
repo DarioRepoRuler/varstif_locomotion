@@ -39,13 +39,13 @@ class RenderWrapper:
     def reset(self, initial_xy=jax.numpy.array([0.0,0.0]), manual_control: bool = False):
         return self._env.reset(initial_xy, manual_control)
 
-    def step(self, action):
+    def step(self, action, env_id=0):
         obs, privileged_obs, reward, done, info = self._env.step(action)
 
         if self.render_mode == "human":
             data = self._env.state.pipeline_state
-            self.data.qpos = data.qpos[0]
-            self.data.qvel = data.qvel[0]
+            self.data.qpos = data.qpos[env_id]
+            self.data.qvel = data.qvel[env_id]
             mujoco.mj_forward(self.model, self.data)
 
             self.render()
