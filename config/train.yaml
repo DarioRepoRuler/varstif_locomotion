@@ -3,14 +3,14 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.5
-  control_mode: "P"
+  action_scale: 0.3
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
   kick_vel: 0.5
-  push_interval: 75
+  push_interval: 100
   is_training: True
   episode_length: 500
 
@@ -49,7 +49,7 @@ env:
   reset_pos_y: [-5.0, 5.0]
 
   control:
-    stiff_range: [0.8, 1.5]
+    stiff_range: [0.5, 2.0]
     p_gain: 50.0
     d_gain: 1.0
 
@@ -68,7 +68,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: PositionControlled
 group: Bruce-P2
