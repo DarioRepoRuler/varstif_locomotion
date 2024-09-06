@@ -60,15 +60,11 @@ class PPOTaskBase(nn.Module):
 
     def on_press(self, key):
         try:
-            if key == pynput_keyboard.Key.right:
-                print(f"Right arrow pressed. ")
-            elif key == pynput_keyboard.Key.left:
-                print(f"Left arrow pressed.")
-            elif key == pynput_keyboard.Key.up:
+            if key == pynput_keyboard.Key.up:
                 print(f"Up arrow pressed Viewed env: {self.view_env_id}")
-                self.view_env_id += 1
+                self.view_env_id = min(self.cfg.num_envs, self.view_env_id+1)
             elif key == pynput_keyboard.Key.down:
-                self.view_env_id -= 1
+                self.view_env_id = max(0, self.view_env_id-1)
                 print(f"Down arrow pressed,  Viewed env: {self.view_env_id}")
         except AttributeError:
             pass
