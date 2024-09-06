@@ -414,7 +414,7 @@ class UnitreeEnv(MjxEnv):
         m = (self.stiff_range[0] +self.stiff_range[1])/2
         r= (self.stiff_range[1]-self.stiff_range[0])/2
         
-        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
+        action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
@@ -429,8 +429,8 @@ class UnitreeEnv(MjxEnv):
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             action_stiff = jp.tile(action[12:],4)
-            p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=10.0, a_max=100.0)
-            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=10.0, a_max=100.0)
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
@@ -438,7 +438,7 @@ class UnitreeEnv(MjxEnv):
             err = target_dof_pos - dof_pos
             action_stiff = jp.tile(action[12:],3)
             p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=10.0, a_max=100.0)
-            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
@@ -702,8 +702,8 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privilege'd
-            # state_info['kp_factor'],
-            # state_info['kd_factor'],
+            state_info['kp_factor'],
+            state_info['kd_factor'],
             state_info['motor_strength'],
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
