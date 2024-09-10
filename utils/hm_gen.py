@@ -40,7 +40,7 @@ class HeightMapGenerator:
         # Normalize the result to be between 0 and 255
         height_map = (height_map - height_map.min()) / (height_map.max() - height_map.min()) * maximum
         height_map = height_map.astype(np.uint8)
-        self.height_map[start_x:end_x, start_y:end_y] -= height_map[start_x:end_x, start_y:end_y]
+        self.height_map[start_x:end_x, start_y:end_y] += height_map[start_x:end_x, start_y:end_y]
         return height_map
     
     def generate_gaussian_hills(self, num_hills, hill_height=255, hill_radius=50, start_x=0, start_y=0, end_x=150, end_y=150):
@@ -75,6 +75,30 @@ class HeightMapGenerator:
         # Clip values to ensure they are within valid range
         height_map_with_hills = np.clip(height_map_with_hills, 0, 255)
         self.height_map[ start_y:end_y, start_x:end_x] += height_map_with_hills
+        return height_map_with_hills
+    
+    def generate_gaussian_hill(self, hill_height=255, hill_radius=50, center_x=0, center_y=0):
+        """
+        Generate a Gaussian hill on the height map.
+
+        :param hill_height: Height of the hill
+        :param hill_radius: Radius of the hill
+        :param center_x: x-coordinate of the center of the hill
+        :param center_y: y-coordinate of the center of the hill
+        :return: numpy array representing the height map with the Gaussian hill
+        """
+        height_map_with_hills = np.zeros((self.width,self.height), dtype=np.uint8)  # Create a copy of the original height map
+        start_x = center_x-hill_radius
+        end_x = center_x+hill_radius
+        start_y = center_y-hill_radius
+        end_y = center_y+hill_radius
+        for y in range(start_y, end_y-1):
+            for x in range(start_x, end_x-1):
+                distance = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
+                if distance < hill_radius:
+                    height_map_with_hills[y][x] += hill_height * np.exp(-((distance ** 2) / ((hill_radius**2 /4))))
+        height_map_with_hills = np.clip(height_map_with_hills, 0, 255)
+        self.height_map[center_y-hill_radius:center_y+hill_radius, center_x-hill_radius:center_x+hill_radius] += height_map_with_hills[center_y-hill_radius:center_y+hill_radius, center_x-hill_radius:center_x+hill_radius]
         return height_map_with_hills
     
     def generate_linear_steps(self, num_steps=10, corner_x=0, corner_y=0, staircase_width=10, staircase_height=10, direction='horizontal_right'):
@@ -261,12 +285,16 @@ def main():
     hm_gen.stripes(25, 10, height=5, direction='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
 
     # Generate gaussian hills
-    hm_gen.generate_gaussian_hills(num_hills=4, hill_height=-40, hill_radius=30, start_x=0, start_y=130, end_x=130, end_y=250)
+    #hm_gen.generate_gaussian_hills(num_hills=4, hill_height=-40, hill_radius=30, start_x=0, start_y=130, end_x=130, end_y=250)
+    hm_gen.generate_gaussian_hill(hill_height=-40, hill_radius=30, center_x=40, center_y=200)
+    hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=80, center_y=220)
+    hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=40, center_y=150)
+    hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=100, center_y=160)
 
     #
     hm_gen.blur_height_map(sigma=6, start_x=0, start_y=120, end_x=250, end_y=140)
     hm_gen.blur_height_map(sigma=6, start_x=120, start_y=0, end_x=140, end_y=250)
-    #hm_gen.blur_height_map(sigma=5, start_x=120, start_y=0, end_x=140, end_y=250)
+    hm_gen.blur_height_map(sigma=5, start_x=120, start_y=0, end_x=140, end_y=250)
 
     # Define the filename
     filename = 'new_terrain.png'
