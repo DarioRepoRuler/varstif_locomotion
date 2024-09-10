@@ -8,6 +8,9 @@ from utils.graphs_gen import eval_graph, create_multiple_box_plots
 import jax.numpy as jp
 import jax
 
+import threading
+from pynput import keyboard as pynput_keyboard
+import time
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -53,9 +56,6 @@ class PPOTaskBase(nn.Module):
 
         # # Start the keyboard listener thread
         if self.cfg.viz:
-            import threading
-            from pynput import keyboard as pynput_keyboard
-            import time
             self.keyboard_listener_thread = threading.Thread(target=self.keyboard_listener)
             self.keyboard_listener_thread.daemon = True
             self.keyboard_listener_thread.start()
@@ -190,7 +190,7 @@ class PPOTaskBase(nn.Module):
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
                 if 'time_out' not in key:
-                    self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
+                    self.wandb_logger.log({f'rewards_train/{key}': episode_infos[key]}, step=it)
 
     def agent_eval_step(self, it, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
@@ -204,7 +204,7 @@ class PPOTaskBase(nn.Module):
                                    }, step=it)
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
-                self.wandb_logger.log({f'rewards/val/{key}': episode_infos[key]}, step=it)
+                self.wandb_logger.log({f'rewards_val/{key}': episode_infos[key]}, step=it)
 
         self.algo.storage.clear()
 
