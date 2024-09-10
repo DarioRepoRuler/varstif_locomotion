@@ -196,10 +196,10 @@ class UnitreeEnv(MjxEnv):
             'stand_still': -0.5, 
             "foot_slip": -0.1,
             # Additional self created
-            "action_rate": -0.005,
+            "action_rate": -0.01,
             "action_rate2": 0.0,
             "abduction": 0.0,
-            "rew_pos_limits": -0.01,
+            "rew_pos_limits": -0.0,
             "rew_acceleration":-2.5e-7,
             "rew_collision": -10.0,
             "rew_velocity": -0.0,

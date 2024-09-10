@@ -7,9 +7,7 @@ import mujoco
 from utils.graphs_gen import eval_graph, create_multiple_box_plots
 import jax.numpy as jp
 import jax
-import threading
-from pynput import keyboard as pynput_keyboard
-import time
+
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -53,10 +51,14 @@ class PPOTaskBase(nn.Module):
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control.enable)
 
 
-        # Start the keyboard listener thread
-        self.keyboard_listener_thread = threading.Thread(target=self.keyboard_listener)
-        self.keyboard_listener_thread.daemon = True
-        self.keyboard_listener_thread.start()
+        # # Start the keyboard listener thread
+        if self.cfg.viz:
+            import threading
+            from pynput import keyboard as pynput_keyboard
+            import time
+            self.keyboard_listener_thread = threading.Thread(target=self.keyboard_listener)
+            self.keyboard_listener_thread.daemon = True
+            self.keyboard_listener_thread.start()
 
     def on_press(self, key):
         try:
@@ -94,8 +96,11 @@ class PPOTaskBase(nn.Module):
             actions = self.algo.act_eval(obs_g, privileged_obs_g)
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
-        next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions, env_id=self.view_env_id)
-
+        
+        if self.cfg.viz:
+            next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions, env_id=self.view_env_id)
+        else:
+            next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
         self.algo.process_env_step(obs_g, privileged_obs_g,rewards, dones, infos)
 
         return next_obs_g, next_priv_obs_g, dones, infos
