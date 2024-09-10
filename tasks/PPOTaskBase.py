@@ -190,7 +190,7 @@ class PPOTaskBase(nn.Module):
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
                 if 'time_out' not in key:
-                    self.wandb_logger.log({f'rewards_train/{key}': episode_infos[key]}, step=it)
+                    self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
 
     def agent_eval_step(self, it, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
@@ -204,7 +204,7 @@ class PPOTaskBase(nn.Module):
                                    }, step=it)
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
-                self.wandb_logger.log({f'rewards_val/{key}': episode_infos[key]}, step=it)
+                self.wandb_logger.log({f'rewards/val/{key}': episode_infos[key]}, step=it)
 
         self.algo.storage.clear()
 

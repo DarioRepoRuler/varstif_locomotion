@@ -121,7 +121,7 @@ class UnitreeEnv(MjxEnv):
             "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
             ]
         
-        terminate_geometries = ["base_0", "base_1", "base_2", "FR_hip","FL_hip","RR_hip","RL_hip"]
+        terminate_geometries = ["base_0", "base_1", "base_2","FR_hip","FL_hip","RR_hip","RL_hip"]
 
         feet_site_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_names
@@ -414,7 +414,7 @@ class UnitreeEnv(MjxEnv):
         m = (self.stiff_range[0] +self.stiff_range[1])/2
         r= (self.stiff_range[1]-self.stiff_range[0])/2
         
-        action = jp.clip(action, a_min=-1.0, a_max=1.0)
+        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
