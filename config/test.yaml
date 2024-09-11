@@ -4,18 +4,18 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
-  kick_vel: 0.5
+  kick_vel: 1.0
   push_interval: 100
   is_training: False
   episode_length: 500
 
   single_obs_size: 48
-  single_obs_size_priv: 57
+  single_obs_size_priv: 59
 
   domain_rand:
     randomisation: True
@@ -40,7 +40,7 @@ env:
 
   manual_control:
     enable: True
-    cmd_x: 1.
+    cmd_x: 0.3
     cmd_y: 0.0
     cmd_ang: 0.0
 
@@ -48,16 +48,18 @@ env:
   reset_pos_y: [0.0, 0.0]
 
   control:
-    stiff_range: [0.8, 1.5]
+    stiff_range: [0.5, 2.0]
     p_gain: 50.0
     d_gain: 1.0
 
 
-ckpt_path: 'best_models/vic_2.pt'
+ckpt_path: 'outputs/2024-09-10/13-11-59/checkpoints/model_2000.pt'
 timesteps_per_rollout: 100
 num_iterations: 100
 num_envs: 1
 
+
+viz: True
 device: 'cuda:0'
 curriculum: False
 scene_xml: 'unitree_go2/terrain_multi.xml'

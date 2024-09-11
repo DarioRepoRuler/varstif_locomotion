@@ -188,21 +188,23 @@ class UnitreeEnv(MjxEnv):
             "lin_vel_z": -2.0, 
             "ang_vel_xy": -0.05, 
             "orientation": -5.0, 
-            "torques": -0.0002, 
-            "smooth_rate": 0.0, #action_rate from tutorial
+            #"torques": -0.0002, 
+            #"smooth_rate": 0.0, #action_rate from tutorial
             'feet_air_time': 0.2,
-            'feet_contact_time': 0.0,
+            #'feet_contact_time': 0.0,
             'termination': -10.0,
             'stand_still': -0.5, 
             "foot_slip": -0.1,
             # Additional self created
-            "action_rate": -0.01,
-            "action_rate2": 0.0,
-            "abduction": 0.0,
+            "action_rate": -0.005,
+            #"action_rate2": 0.0,
+            #"abduction": 0.0,
             "rew_pos_limits": -0.0,
             "rew_acceleration":-2.5e-7,
             "rew_collision": -10.0,
-            "rew_velocity": -0.0,
+            #"rew_velocity": -0.0,
+            "rew_power": -2e-5,
+            "rew_power_distro": -1e-5,
         }
 
 
@@ -429,7 +431,7 @@ class UnitreeEnv(MjxEnv):
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             action_stiff = jp.tile(action[12:],4)
-            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=10.0, a_max=100.0)
+            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
@@ -437,7 +439,7 @@ class UnitreeEnv(MjxEnv):
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             action_stiff = jp.tile(action[12:],3)
-            p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=10.0, a_max=100.0)
+            p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
@@ -532,9 +534,9 @@ class UnitreeEnv(MjxEnv):
             'lin_vel_z': self._reward_lin_vel_z(xd),
             'ang_vel_xy': self._reward_ang_vel_xy(xd),
             'orientation': self._reward_orientation(x), 
-            'torques': self._reward_torques(data.qfrc_actuator),  # pytype: disable=attribute-error
+            #'torques': self._reward_torques(data.qfrc_actuator), 
 
-            'smooth_rate': self._reward_smooth_rate(joint_vel, state.info['last_vel']),
+            #'smooth_rate': self._reward_smooth_rate(joint_vel, state.info['last_vel']),
             'stand_still': self._reward_stand_still( 
                 state.info['command'], joint_angles,
             ),
@@ -543,26 +545,27 @@ class UnitreeEnv(MjxEnv):
                 first_contact,
                 state.info['command'],
             ),
-            'feet_contact_time': self._reward_feet_contact_time(
-                state.info['feet_contact_time'],
-                state.info['command'],
-            ),
+            #'feet_contact_time': self._reward_feet_contact_time(
+            #     state.info['feet_contact_time'],
+            #     state.info['command'],
+            # ),
             'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
             'termination': self._reward_termination(done, state.info['step'], data=data),
 
             'action_rate': self.action_rate(action, state.info['last_act']),
 
-            'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
-            'abduction': self.abduction(joint_angles),
+            #'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
+            #'abduction': self.abduction(joint_angles),
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
-            'rew_velocity': self._reward_velocity(joint_vel),
+            #'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
+            'rew_power': self._reward_power(data.qfrc_actuator, joint_vel),
+            'rew_power_distro': self._reward_power_distro(data.qfrc_actuator, joint_vel),
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
-        #jax.debug.print('Termination reward: {x}', x=rewards['termination'])
         #Reward clipping like in unitree rl
         reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
 
@@ -877,6 +880,12 @@ class UnitreeEnv(MjxEnv):
 
     def _reward_termination(self, done: jax.Array, step, data: mjx.Data) -> jax.Array:
         return done & (step < self.episode_length) & self.terminate_map*((jp.abs(data.qpos[0]) < 10.0) & (jp.abs(data.qpos[1]) < 10.0) & (jp.abs(data.qpos[2]) > -3.0))
+
+    def _reward_power(self, torques: jax.Array, qvel: jax.Array) -> jax.Array:
+        return jp.sum(jp.abs(torques)*jp.abs(qvel))
+
+    def _reward_power_distro(self, torques: jax.Array, qvel: jax.Array) -> jax.Array:
+        return jp.var(torques*qvel)
 
     def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
         foot_cycles = jp.array([
