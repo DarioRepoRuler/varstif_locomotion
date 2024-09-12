@@ -436,7 +436,7 @@ class UnitreeEnv(MjxEnv):
             err = target_dof_pos - dof_pos
             action_stiff = jp.tile(action[12:],4)
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
@@ -445,7 +445,7 @@ class UnitreeEnv(MjxEnv):
             action_stiff = jp.repeat(action[12:],3)
             p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             jax.debug.print('P gains: {x}', x=p_gains)
-            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_3":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
@@ -453,7 +453,7 @@ class UnitreeEnv(MjxEnv):
             err = target_dof_pos - dof_pos
             action_stiff = action[12:]
             p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 1.0#0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
