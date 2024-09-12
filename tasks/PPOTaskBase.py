@@ -38,6 +38,8 @@ class PPOTaskBase(nn.Module):
             num_actions= 15
         elif self.control_mode == 'VIC_2':
             num_actions= 16
+        elif self.control_mode == 'VIC_3':
+            num_actions= 24
 
         self.algo = PPO(cfg=self.cfg.policy,
                         num_envs=self.cfg.num_envs,

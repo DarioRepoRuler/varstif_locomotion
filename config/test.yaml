@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "P"
+  control_mode: "VIC_3"
   physics_steps_per_control_step: 4
 
   num_history_actor: 1 # number of previous observations to stack
@@ -53,7 +53,7 @@ env:
     d_gain: 1.0
 
 
-ckpt_path: 'outputs/2024-09-10/13-11-59/checkpoints/model_2000.pt'
+ckpt_path: null #'outputs/2024-09-10/13-11-59/checkpoints/model_2000.pt'
 timesteps_per_rollout: 100
 num_iterations: 100
 num_envs: 1
