@@ -420,7 +420,6 @@ class UnitreeEnv(MjxEnv):
         m = (self.stiff_range[0] +self.stiff_range[1])/2
         r= (self.stiff_range[1]-self.stiff_range[0])/2
         
-        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
 
         if self.control_mode == "P":
             target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
@@ -436,24 +435,23 @@ class UnitreeEnv(MjxEnv):
             err = target_dof_pos - dof_pos
             action_stiff = jp.tile(action[12:],4)
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             action_stiff = jp.repeat(action[12:],3)
-            p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            jax.debug.print('P gains: {x}', x=p_gains)
-            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_3":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             action_stiff = action[12:]
-            p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
@@ -838,7 +836,7 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.4*jp.linalg.norm(joint_vel - last_vel))
 
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
-        return jp.sum(jp.square(action[:12] - last_act[:12]))
+        return jp.sum(jp.square(action - last_act))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
         return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
@@ -898,6 +896,9 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.abs(torques)*jp.abs(qvel))
 
     def _reward_power_distro(self, torques: jax.Array, qvel: jax.Array) -> jax.Array:
+        leg_power = jp.array([jp.sum(torques[:3]*qvel[:3]), jp.sum(torques[3:6]*qvel[3:6]) , \
+                              jp.sum(torques[6:9]*qvel[6:9]), jp.sum(torques[9:12]*qvel[9:12])])
+        var = jp.var(leg_power)
         return jp.var(torques*qvel)
 
     def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
