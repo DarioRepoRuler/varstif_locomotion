@@ -202,13 +202,17 @@ class UnitreeEnv(MjxEnv):
             # Additional self created
             "action_rate": -0.005,
             #"action_rate2": 0.0,
-            #"abduction": 0.0,
+            
             "rew_pos_limits": -0.0,
             "rew_acceleration":-2.5e-7,
             "rew_collision": -10.0,
             #"rew_velocity": -0.0,
             "rew_power": -2e-5,
-            "rew_power_distro": -1e-5,
+            "rew_power_distro": -5e-6,
+
+            # Feet
+            "thigh": 0.05,
+            "hip": 0.05,
         }
 
 
@@ -565,13 +569,16 @@ class UnitreeEnv(MjxEnv):
             'action_rate': self.action_rate(action, state.info['last_act']),
 
             #'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
-            #'abduction': self.abduction(joint_angles),
+            
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
             #'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
             'rew_power': self._reward_power(data.qfrc_actuator, joint_vel),
             'rew_power_distro': self._reward_power_distro(data.qfrc_actuator, joint_vel),
+            # Feet posture
+            'thigh': self.rew_thigh(joint_angles),
+            'hip': self.rew_hip(joint_angles),
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -842,10 +849,15 @@ class UnitreeEnv(MjxEnv):
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
         return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
     
-    def abduction(
+    def rew_thigh(
             self, joint_angles: jax.Array
     ):
-        return jp.exp(-4*jp.sum(jp.square(joint_angles[::3])))
+        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[::3])))
+    
+    def rew_hip(
+            self, joint_angles: jax.Array
+    ):
+        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[1::3])-self.default_pos[8::3]))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -900,7 +912,7 @@ class UnitreeEnv(MjxEnv):
         leg_power = jp.array([jp.sum(torques[:3]*qvel[:3]), jp.sum(torques[3:6]*qvel[3:6]) , \
                               jp.sum(torques[6:9]*qvel[6:9]), jp.sum(torques[9:12]*qvel[9:12])])
         var = jp.var(leg_power)
-        return jp.var(torques*qvel)
+        return var#jp.var(torques*qvel)
 
     def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
         foot_cycles = jp.array([

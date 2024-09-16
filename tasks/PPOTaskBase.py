@@ -8,9 +8,9 @@ from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power
 import jax.numpy as jp
 import jax
 
-# import threading
-# from pynput import keyboard as pynput_keyboard
-# import time
+import threading
+from pynput import keyboard as pynput_keyboard
+import time
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -311,9 +311,9 @@ class PPOTaskBase(nn.Module):
             #print(f"configuration of env: {self.cfg.env}")
             stat, episode_info, eval_infos = self.simulate(it,is_training=False)
             
-            print(f"Eval infos power shape: {eval_infos['power'].shape}")
-            print(f"Eval infos foot pos z shape: {eval_infos['foot_pos_z'].shape}")
-            print(f"Eval infos q vel shape: {eval_infos['q_vel'].shape}")
+            #print(f"Eval infos power shape: {eval_infos['power'].shape}")
+            #print(f"Eval infos foot pos z shape: {eval_infos['foot_pos_z'].shape}")
+            #print(f"Eval infos q vel shape: {eval_infos['q_vel'].shape}")
 
             power_overall.append(torch.mean(eval_infos['power']))
             energy_overall.append(torch.sum(eval_infos['power']*0.02)/3600)
