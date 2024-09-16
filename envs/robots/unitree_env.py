@@ -397,7 +397,7 @@ class UnitreeEnv(MjxEnv):
 
         #jax.debug.print('Initial obs: {x}', x=obs)
         #jax.debug.print('Initial privileged obs: {x}', x=privileged_obs)
-        metrics = {'total_dist': 0.0}
+        metrics = {'total_dist': 0.0, 'power': 0.0}
         for k in state_info['rewards']:
             metrics[k] = state_info['rewards'][k]
         return State(pipeline_state=data,
@@ -436,7 +436,7 @@ class UnitreeEnv(MjxEnv):
             err = target_dof_pos - dof_pos
             action_stiff = jp.tile(action[12:],4)
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            d_gains =0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_2":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
@@ -444,8 +444,8 @@ class UnitreeEnv(MjxEnv):
             err = target_dof_pos - dof_pos
             action_stiff = jp.repeat(action[12:],3)
             p_gains = jp.clip(self.p_gains*(m+action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            jax.debug.print('P gains: {x}', x=p_gains)
-            d_gains = 1.0 #0.2*jp.sqrt(p_gains) # setting it after critical damping law
+            #jax.debug.print('P gains: {x}', x=p_gains)
+            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
         elif self.control_mode == "VIC_3":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
@@ -518,15 +518,14 @@ class UnitreeEnv(MjxEnv):
         foot_contacts = jp.zeros((4),dtype=int)
         foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
         foot_floor_dist = jp.zeros((4),dtype=float)
-        # jax.debug.print('data contact dist: {x}', x=data.contact.dist)
-        # jax.debug.print('amount of contacts: {x}', x=data.contact.dist.shape)
         foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
         ## general contact management
-        # jax.debug.print('Foot distances: {x}', x=foot_floor_dist)
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
-        # jax.debug.print('Foot contacts: {x}', x=contact)
         contact_filt_mm = contact | state.info['last_contact']
+        mean_z = jp.sum(foot_pos[:, 2]*contact_filt_mm) / (jp.sum(contact_filt_mm)+ 1e-6)
+        #contact_filt_cm = (((foot_pos[:,2]-self._foot_radius-mean_z) < 1e-2) & (foot_floor_dist < 1e-2)) | state.info['last_contact']
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
+        #jax.debug.print('Foot contacts: {x}', x=contact_filt_cm)
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         # for observations
         state.info['contact'] = contact_filt_mm
@@ -598,8 +597,10 @@ class UnitreeEnv(MjxEnv):
         state.info['last_vel'] = data.qvel
         state.info['last_qpos'] = data.qpos
         state.info['foot_pos_z'] = foot_pos[:, 2]
+
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
+        state.metrics['power'] = jp.sum(jp.abs(data.qfrc_actuator)) * jp.abs(jp.sum(joint_vel))
 
         state.info['command'] = jp.where(
             self.manual_control,

@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "P"
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
   num_history_actor: 1 # number of previous observations to stack
@@ -68,7 +68,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'VIC Controlled'
 group: Bruce-P2

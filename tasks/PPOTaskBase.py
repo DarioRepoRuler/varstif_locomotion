@@ -4,7 +4,7 @@ from torch import nn
 from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
 import mujoco
-from utils.graphs_gen import eval_graph, create_multiple_box_plots
+from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power_energy_bar_chart
 import jax.numpy as jp
 import jax
 
@@ -100,12 +100,13 @@ class PPOTaskBase(nn.Module):
             print(f"Action: {actions}")
         
         if self.cfg.viz:
-            next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions, env_id=self.view_env_id)
+            next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions, env_id=self.view_env_id)
         else:
-            next_obs_g, next_priv_obs_g,rewards, dones, infos = self.env.step(actions)
+            next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions)
+
         self.algo.process_env_step(obs_g, privileged_obs_g,rewards, dones, infos)
 
-        return next_obs_g, next_priv_obs_g, dones, infos
+        return next_obs_g, next_priv_obs_g, dones, infos, metrics
 
     def rollout(self,it, is_training=True):
         """
@@ -114,14 +115,17 @@ class PPOTaskBase(nn.Module):
         """
         episode_infos = {}
         # Gather evaluation information only in test mode
-        eval_infos = None
-
+        eval_infos = {}
+        foot_pos_z = []
+        q_vel = []
+        power = []
+        cmd = []
         with torch.inference_mode():
             pos_x = torch.zeros(self.cfg.timesteps_per_rollout, device=self.device, dtype=torch.float32)
             time_out = torch.zeros(self.cfg.num_envs, device=self.device, dtype=torch.bool)
 
             for i in range(self.cfg.timesteps_per_rollout):
-                next_obs_g, next_priv_obs_g, dones, info = self.step(self.obs, self.obs_priv, is_training)
+                next_obs_g, next_priv_obs_g, dones, info, metrics = self.step(self.obs, self.obs_priv, is_training)
                 #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
                 #print(f"Rewards: {rew_info}")
@@ -133,15 +137,34 @@ class PPOTaskBase(nn.Module):
                         episode_infos[key] = torch.mean(rew_info[key]) #mean over all envs
                     else:
                         episode_infos[key] += torch.mean(rew_info[key])
-                
-                # if not is_training:
-                #     eval_infos['foot_pos_z'][i] = info['foot_pos_z']
-                #     eval_infos['q_vel'][i] = info['last_vel']
-                #     eval_infos['cmd'][i] = info['command']
+
+                #print(f"Foot pos z: {info['foot_pos_z']}")                
+                if not is_training:
+                    foot_pos_z.append(info['foot_pos_z'])
+                    q_vel.append(info['last_vel'])
+                    cmd.append(info['command'])
+                    power.append(metrics['power'])
+
 
                 # update observation
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
+
+        if not is_training:
+            foot_pos_z= torch.stack(foot_pos_z)
+            q_vel = torch.stack(q_vel)
+            cmd = torch.stack(cmd)
+            power = torch.stack(power)
+            eval_infos['foot_pos_z'] = foot_pos_z
+            eval_infos['q_vel'] = q_vel
+            eval_infos['cmd'] = cmd
+            eval_infos['power'] = power
+
+            #print(f" Torch foot z:{foot_pos_z}")
+            # print(f"Foot pos z shape: {foot_pos_z.shape}")
+            # print(f"Power shape: {power.shape}")
+        
+        #print(f"Foot pos z: {foot_pos_z}")
 
         self.pos_x = pos_x
 
@@ -281,16 +304,19 @@ class PPOTaskBase(nn.Module):
         self.algo.actor_critic.eval()
         #eval_results = []
         single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
+        power_overall = []
+        energy_overall = []
         for it in range(num_iterations):
             #print(f"iteration: {it} ")
             #print(f"configuration of env: {self.cfg.env}")
-            if it ==1:
-                self.cfg.env.manual_control = True
-
             stat, episode_info, eval_infos = self.simulate(it,is_training=False)
             
+            print(f"Eval infos power shape: {eval_infos['power'].shape}")
+            print(f"Eval infos foot pos z shape: {eval_infos['foot_pos_z'].shape}")
+            print(f"Eval infos q vel shape: {eval_infos['q_vel'].shape}")
 
-
+            power_overall.append(torch.mean(eval_infos['power']))
+            energy_overall.append(torch.sum(eval_infos['power']*0.02)/3600)
             # # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
             # # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
             # total_tracking_error = torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)
@@ -311,13 +337,20 @@ class PPOTaskBase(nn.Module):
             # #print(f"Total tracking error norm: {total_tracking_error} with shape {total_tracking_error.shape}")
             # create_multiple_box_plots([total_tracking_error, lin_tracking_error, ang_tracking_error], ['total error', 'linear vel error', 'angular vel error'], 'tracking_test_error')
 
-            # eval_graph([eval_infos['foot_pos_z'][:,0], eval_infos['foot_pos_z'][:,1], 
-            #             eval_infos['foot_pos_z'][:,2], eval_infos['foot_pos_z'][:,3]], 
-            #             ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
+            eval_graph([eval_infos['foot_pos_z'][:,0,0], eval_infos['foot_pos_z'][:,0,1], 
+                        eval_infos['foot_pos_z'][:,0,2], eval_infos['foot_pos_z'][:,0,3]], 
+                        ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
             
             self.algo.storage.clear()
+        
 
-        #print(f"Evaluation results: {eval_results}")
+        power_overall = torch.mean(torch.stack(power_overall))
+        energy_overall = torch.mean(torch.stack(energy_overall))
+
+        y_lim=(500, 10)
+        print(f"Mean Power[W]: {power_overall}, Energy overall[Wh]: {energy_overall}")
+        print(f"Y lim: {y_lim}")
+        create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 
 
     def save(self, path, infos=None):

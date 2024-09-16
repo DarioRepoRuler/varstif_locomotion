@@ -54,7 +54,8 @@ class TorchWrapper:
         reward = torch.jax_to_torch(reward, device=self.device)
         done = torch.jax_to_torch(done, device=self.device)
         info = torch.jax_to_torch(info, device=self.device)
-        return obs, privileged_obs, reward, done, info
+        metrics = torch.jax_to_torch(self.state.metrics, device=self.device)
+        return obs, privileged_obs, reward, done, info, metrics
 
     def seed(self, seed: int = 0):
         self._key = jax.random.PRNGKey(seed)

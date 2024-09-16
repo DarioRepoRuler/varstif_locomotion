@@ -139,61 +139,120 @@ def load_tensor_from_csv(label, filename='tensor_data.csv'):
 
     return torch.tensor(tensor_data, dtype=tensor_dtype).reshape(tensor_shape)
 
+def create_power_energy_bar_chart(title, names, power, energy, filename, y_lim):
+    """
+    Creates a bar chart with the given title, names, power, and energy values, and saves it to a file.
+    Power and energy values are plotted on separate y-axes with fixed scaling.
+
+    Parameters:
+    title (str): The title of the bar chart.
+    names (list): A list of names for the x-axis.
+    power (torch.Tensor): A tensor of power values to plot on the primary y-axis.
+    energy (torch.Tensor): A tensor of energy values to plot on the secondary y-axis.
+    filename (str): The filename to save the plot.
+    y_lim (tuple): A tuple specifying the y-axis limits (min, max).
+    """
+    # Convert PyTorch tensors to NumPy arrays
+    power = power.cpu().numpy()
+    energy = energy.cpu().numpy()
+
+    # Generate x positions for the bars
+    x_positions = np.arange(len(names))
+
+    # Create the figure and the first y-axis
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    # Define the colors for the bars
+    power_color = 'blue'
+    energy_color = 'red'
+
+    # Plot the power values
+    ax1.bar(x_positions - 0.2, power, width=0.4, color=power_color, label='Power')
+    ax1.set_ylabel('Mean Power[W]', color=power_color)
+    ax1.tick_params(axis='y', labelcolor=power_color)
+    ax1.set_ylim((0,y_lim[0]))
+
+    # Create the second y-axis and plot the energy values
+    ax2 = ax1.twinx()
+    ax2.bar(x_positions + 0.2, energy, width=0.4, color=energy_color, label='Energy')
+    ax2.set_ylabel('Energy overall[Wh]', color=energy_color)
+    ax2.tick_params(axis='y', labelcolor=energy_color)
+    ax2.set_ylim((0,y_lim[1]))
+
+    # Add title and labels
+    ax1.set_title(title)
+
+    ax1.set_xticks(x_positions)
+    ax1.set_xticklabels(names)
+
+    # Save the plot to a file
+    plt.savefig(filename)
+    plt.close()
+
+
 
 
 def main():
-    data1 = torch.randn(100)
-    data2 = torch.randn(100) + 1  # Shift data2 for visual differentiation
-    labels = ["Data 1", "Data 2"]  # Labels for each line
+    # data1 = torch.randn(100)
+    # data2 = torch.randn(100) + 1  # Shift data2 for visual differentiation
+    # labels = ["Data 1", "Data 2"]  # Labels for each line
 
-    eval_graph([data1, data2], labels, "multiple_lines", 2)
+    # eval_graph([data1, data2], labels, "multiple_lines", 2)
 
-    # Create PyTorch tensors with different distributions
-    data1 = torch.randn(100)
-    data2 = torch.rand(80) * 5 + 2
-    data3 = torch.randint(0, 10, (120,))
+    # # Create PyTorch tensors with different distributions
+    # data1 = torch.randn(100)
+    # data2 = torch.rand(80) * 5 + 2
+    # data3 = torch.randint(0, 10, (120,))
 
-    # Create multiple box plots in one graph
-    box_labels = ["Standard Normal", "Uniform (2 to 7)", "Integers (0 to 9)"]
-    create_multiple_box_plots([data1, data2, data3], box_labels, "Combined Box Plots")
+    # # Create multiple box plots in one graph
+    # box_labels = ["Standard Normal", "Uniform (2 to 7)", "Integers (0 to 9)"]
+    # create_multiple_box_plots([data1, data2, data3], box_labels, "Combined Box Plots")
 
-    # Example tensors
-    # Create a sample tensor
-    # Create sample tensors
-    tensor1 = torch.randn(3, 3)
-    tensor2 = torch.randn(2, 4)
-    tensor3 = torch.randn(5, 2)
-    labels = ["tensor1", "tensor2", "tensor3"]
+    # # Example tensors
+    # # Create a sample tensor
+    # # Create sample tensors
+    # tensor1 = torch.randn(3, 3)
+    # tensor2 = torch.randn(2, 4)
+    # tensor3 = torch.randn(5, 2)
+    # labels = ["tensor1", "tensor2", "tensor3"]
 
-    # Save the tensors to a CSV file
-    save_tensors_to_csv([tensor1, tensor2, tensor3], labels)
+    # # Save the tensors to a CSV file
+    # save_tensors_to_csv([tensor1, tensor2, tensor3], labels)
 
-    # Load the tensors from the CSV file
-    loaded_tensor1 = load_tensor_from_csv("tensor1")
-    loaded_tensor2 = load_tensor_from_csv("tensor2")
-    loaded_tensor3 = load_tensor_from_csv("tensor3")
+    # # Load the tensors from the CSV file
+    # loaded_tensor1 = load_tensor_from_csv("tensor1")
+    # loaded_tensor2 = load_tensor_from_csv("tensor2")
+    # loaded_tensor3 = load_tensor_from_csv("tensor3")
 
-    # Verify that the loaded tensors match the original tensors
-    print("Original Tensor 1:")
-    print(tensor1)
-    print("\nLoaded Tensor 1:")
-    print(loaded_tensor1)
+    # # Verify that the loaded tensors match the original tensors
+    # print("Original Tensor 1:")
+    # print(tensor1)
+    # print("\nLoaded Tensor 1:")
+    # print(loaded_tensor1)
 
-    print("\nOriginal Tensor 2:")
-    print(tensor2)
-    print("\nLoaded Tensor 2:")
-    print(loaded_tensor2)
+    # print("\nOriginal Tensor 2:")
+    # print(tensor2)
+    # print("\nLoaded Tensor 2:")
+    # print(loaded_tensor2)
 
-    print("\nOriginal Tensor 3:")
-    print(tensor3)
-    print("\nLoaded Tensor 3:")
-    print(loaded_tensor3)
+    # print("\nOriginal Tensor 3:")
+    # print(tensor3)
+    # print("\nLoaded Tensor 3:")
+    # print(loaded_tensor3)
 
-    assert torch.equal(tensor1, loaded_tensor1), "Loaded tensor1 does not match the original tensor1."
-    assert torch.equal(tensor2, loaded_tensor2), "Loaded tensor2 does not match the original tensor2."
-    assert torch.equal(tensor3, loaded_tensor3), "Loaded tensor3 does not match the original tensor3."
+    # assert torch.equal(tensor1, loaded_tensor1), "Loaded tensor1 does not match the original tensor1."
+    # assert torch.equal(tensor2, loaded_tensor2), "Loaded tensor2 does not match the original tensor2."
+    # assert torch.equal(tensor3, loaded_tensor3), "Loaded tensor3 does not match the original tensor3."
 
-    print("\nAll loaded tensors match the original tensors.")
+    # print("\nAll loaded tensors match the original tensors.")
+
+    title = "Power and Energy Bar Chart"
+    names = ["Position based control"]
+    power = torch.tensor([20])
+    energy = torch.tensor([10])
+    filename = "power_energy_bar_chart.png"
+    y_lim = (30, 20)  # Set the y-axis limits
+    create_power_energy_bar_chart(title, names, power, energy, filename, y_lim)
 
 if __name__ == "__main__":
     main()
