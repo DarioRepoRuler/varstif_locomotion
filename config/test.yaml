@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_2"
+  control_mode: "VIC_1"
   physics_steps_per_control_step: 4
 
   num_history_actor: 1 # number of previous observations to stack
@@ -40,7 +40,7 @@ env:
 
   manual_control:
     enable: True
-    cmd_x: 0.3
+    cmd_x: 0.8
     cmd_y: 0.0
     cmd_ang: 0.0
 
@@ -53,7 +53,7 @@ env:
     d_gain: 1.0
 
 
-ckpt_path: 'best_models/test_vic_2_feet_air.pt'
+ckpt_path: 'best_models/test_vic1.pt' #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt'
 timesteps_per_rollout: 100
 num_iterations: 100
 num_envs: 1
