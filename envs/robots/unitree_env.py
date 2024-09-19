@@ -200,7 +200,7 @@ class UnitreeEnv(MjxEnv):
             'stand_still': -0.5, 
             "foot_slip": -0.1,
             # Additional self created
-            "action_rate": -0.005,
+            "action_rate": -0.01,
             #"action_rate2": 0.0,
             
             "rew_pos_limits": -0.0,
@@ -401,7 +401,17 @@ class UnitreeEnv(MjxEnv):
 
         #jax.debug.print('Initial obs: {x}', x=obs)
         #jax.debug.print('Initial privileged obs: {x}', x=privileged_obs)
-        metrics = {'total_dist': 0.0, 'power': 0.0}
+        metrics = {
+            'total_dist': 0.0, 
+            'power': 0.0, 
+            'local_v':jp.array([0.0, 0.0, 0.0]), 
+            'm_total':jp.sum(self.sys.body_mass), 
+            'foot_pos_z':jp.zeros(4),
+            'target_dof_pos': jp.zeros(12),
+            'dof_pos': jp.zeros(12),
+            'glob_pos': jp.zeros(2),
+            'command': jp.zeros(3),
+            }
         for k in state_info['rewards']:
             metrics[k] = state_info['rewards'][k]
         return State(pipeline_state=data,
@@ -606,16 +616,35 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics['power'] = jp.sum(jp.abs(data.qfrc_actuator)) * jp.abs(jp.sum(joint_vel))
+        
+        local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
+        state.metrics['local_v'] = local_vel
+        state.metrics['foot_pos_z'] = foot_pos[:, 2]
 
+        state.metrics['target_dof_pos'] = jp.clip(self.action_scale * action[:12] + self.default_pos[7:], a_min=self.lower_limits, a_max=self.upper_limits)
+        state.metrics['dof_pos'] = data.qpos[7:]
+        state.metrics['glob_pos'] = data.qpos[:2]
+        state.metrics['command'] = state.info['command']
+
+        
         state.info['command'] = jp.where(
-            self.manual_control,
+            jp.logical_and(self.manual_control,state.info['step'] < 100 ),
             jp.array([self.cmd_x, self.cmd_y, self.cmd_yaw]),
             state.info['command'],
             )
         
+        # state.info['command'] = jp.where(
+        #     jp.logical_and(self.manual_control,state.info['step'] > 100 ),
+        #     jp.array([-0.7, self.cmd_y, self.cmd_yaw]),
+        #     state.info['command'],
+        #     )
+        
+
+        
+
         # sample new command
         state.info['command'] = jp.where(
-            state.info['step'] > self.episode_length,
+            jp.logical_and(state.info['step'] > self.episode_length, ~self.manual_control),
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
@@ -857,7 +886,7 @@ class UnitreeEnv(MjxEnv):
     def rew_hip(
             self, joint_angles: jax.Array
     ):
-        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[1::3])-self.default_pos[8::3]))
+        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[1::3]-self.default_pos[8::3])))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array

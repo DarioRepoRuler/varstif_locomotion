@@ -4,7 +4,7 @@ from torch import nn
 from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
 import mujoco
-from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power_energy_bar_chart
+from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
 import jax.numpy as jp
 import jax
 
@@ -116,10 +116,8 @@ class PPOTaskBase(nn.Module):
         episode_infos = {}
         # Gather evaluation information only in test mode
         eval_infos = {}
-        foot_pos_z = []
-        q_vel = []
-        power = []
         cmd = []
+        eval_metrics = []
         with torch.inference_mode():
             pos_x = torch.zeros(self.cfg.timesteps_per_rollout, device=self.device, dtype=torch.float32)
             time_out = torch.zeros(self.cfg.num_envs, device=self.device, dtype=torch.bool)
@@ -140,31 +138,19 @@ class PPOTaskBase(nn.Module):
 
                 #print(f"Foot pos z: {info['foot_pos_z']}")                
                 if not is_training:
-                    foot_pos_z.append(info['foot_pos_z'])
-                    q_vel.append(info['last_vel'])
                     cmd.append(info['command'])
-                    power.append(metrics['power'])
-
+                    eval_metrics.append(metrics)
 
                 # update observation
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
 
         if not is_training:
-            foot_pos_z= torch.stack(foot_pos_z)
-            q_vel = torch.stack(q_vel)
             cmd = torch.stack(cmd)
-            power = torch.stack(power)
-            eval_infos['foot_pos_z'] = foot_pos_z
-            eval_infos['q_vel'] = q_vel
             eval_infos['cmd'] = cmd
-            eval_infos['power'] = power
-
-            #print(f" Torch foot z:{foot_pos_z}")
-            # print(f"Foot pos z shape: {foot_pos_z.shape}")
-            # print(f"Power shape: {power.shape}")
-        
-        #print(f"Foot pos z: {foot_pos_z}")
+            combined_metrics = {}
+            for key in eval_metrics[0].keys():
+                combined_metrics[key] = torch.stack([metric[key] for metric in eval_metrics])
 
         self.pos_x = pos_x
 
@@ -176,26 +162,45 @@ class PPOTaskBase(nn.Module):
         if episode_infos['termination']>0.0:
             print(f"Episode infos: {episode_infos}")
             print(f"Termination reward: {episode_infos['termination']}")
+        
         episode_infos['time_outs'] = time_out
-        return self.obs, self.obs_priv, dones, episode_infos, eval_infos
+        return self.obs, self.obs_priv, dones, episode_infos, eval_infos, combined_metrics
+    
+
+    def combine_dictionaries(dictionaries):
+            """Combines a list of dictionaries with the same keys, concatenating their values.
+
+            Args:
+                dictionaries: A list of dictionaries.
+
+            Returns:
+                A new dictionary with combined values.
+            """
+
+            combined_dict = {}
+            for key in dictionaries[0].keys():
+                combined_dict[key] = []
+                for dictionary in dictionaries:
+                    combined_dict[key].extend(dictionary[key])
+            return combined_dict
 
     def simulate(self,it, is_training=True): # Simulates through one episode
         """
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, next_priv_obs_g, dones, episode_infos, eval_infos = self.rollout(it,is_training=is_training)
+        next_obs_g, next_priv_obs_g, dones, episode_infos, eval_infos, eval_metrics = self.rollout(it,is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_priv_obs_g, dones)
         # Show statistics
         stat = self.algo.storage.statistics()
 
-        return stat, episode_infos, eval_infos
+        return stat, episode_infos, eval_infos, eval_metrics
 
     def agent_train_step(self, it):
         self.algo.actor_critic.train() # Switch to training mode
         # Simulate through one episode
-        stat, episode_infos, _ = self.simulate(it,is_training=True)
+        stat, episode_infos, _, _ = self.simulate(it,is_training=True)
         mean_value_loss, mean_actor_loss, mean_state_estimation_loss = self.algo.update()
 
         loss_info = {'loss/critic': mean_value_loss,
@@ -219,7 +224,7 @@ class PPOTaskBase(nn.Module):
 
     def agent_eval_step(self, it, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
-        stat, episode_infos, _ = self.simulate(it,is_training=is_training)
+        stat, episode_infos, _,_ = self.simulate(it,is_training=is_training)
 
         if self.wandb_logger:
             self.wandb_logger.log({'val/avg_traverse': stat["avg_traverse"],
@@ -306,17 +311,15 @@ class PPOTaskBase(nn.Module):
         single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
         power_overall = []
         energy_overall = []
+        trajectory = []
+        COT_total = []
         for it in range(num_iterations):
             #print(f"iteration: {it} ")
             #print(f"configuration of env: {self.cfg.env}")
-            stat, episode_info, eval_infos = self.simulate(it,is_training=False)
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
             
-            #print(f"Eval infos power shape: {eval_infos['power'].shape}")
-            #print(f"Eval infos foot pos z shape: {eval_infos['foot_pos_z'].shape}")
-            #print(f"Eval infos q vel shape: {eval_infos['q_vel'].shape}")
-
-            power_overall.append(torch.mean(eval_infos['power']))
-            energy_overall.append(torch.sum(eval_infos['power']*0.02)/3600)
+            #print(f"Episode metrics: {eval_metrics}")
+            #print(f"Foot pos z: {eval_metrics['foot_pos_z']}")
             # # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
             # # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
             # total_tracking_error = torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)
@@ -336,21 +339,45 @@ class PPOTaskBase(nn.Module):
             # total_tracking_error = torch.linalg.norm(total_tracking_error, dim=1)
             # #print(f"Total tracking error norm: {total_tracking_error} with shape {total_tracking_error.shape}")
             # create_multiple_box_plots([total_tracking_error, lin_tracking_error, ang_tracking_error], ['total error', 'linear vel error', 'angular vel error'], 'tracking_test_error')
+            
+            
+            
+            #print(f"Target dof pos: {eval_metrics['target_dof_pos'].shape} and DOF pos: {eval_metrics['dof_pos'].shape}")
+            #print(f"Displacement: {eval_metrics['total_dist']}")
+            print(f"Glob pos: {eval_metrics['glob_pos'].shape}")
+            trajectory.append(eval_metrics['glob_pos'])
 
-            eval_graph([eval_infos['foot_pos_z'][:,0,0], eval_infos['foot_pos_z'][:,0,1], 
-                        eval_infos['foot_pos_z'][:,0,2], eval_infos['foot_pos_z'][:,0,3]], 
+            print(f"Local vel(mean): {torch.mean(torch.linalg.norm(eval_metrics['local_v'], dim=2))}")
+            power_overall.append(torch.mean(eval_metrics['power']))
+            print(f"Power(mean): {torch.mean(eval_metrics['power'])}")
+            print(f"Energy shape :{eval_metrics['power'].shape}")
+            energy_overall.append(torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1)))
+            print(f"Energy(total): {torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1))}")
+            COT = torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) )))
+            COT_total.append(COT)
+            print(f"Cost of transport: {torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) )))}")
+            eval_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
+
+            eval_graph([eval_metrics['command'][:,0,0], eval_metrics['local_v'][:,0,0]], ['command', 'local_v_x'], f"command_track{it}", timestep=0.02)
+
+            # Recording of foot trajectories
+            save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
+            eval_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
+                        eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
                         ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
             
             self.algo.storage.clear()
         
-
+        # Concatinating all recorded trajectories
+        global_trajectory = torch.cat(trajectory, 0)
+        print(f"Global trajectory: {global_trajectory.shape}")
+        plot_xy_position(global_trajectory[:,0,:], "Global Position Trajectory")
         power_overall = torch.mean(torch.stack(power_overall))
-        energy_overall = torch.mean(torch.stack(energy_overall))
+        energy_overall = torch.sum(torch.stack(energy_overall))
+        COT = torch.mean(torch.stack(COT_total))
+        print(f"Mean Power[W]: {power_overall}, Energy overall[Wh]: {energy_overall}, COT mean: {COT}")
 
-        y_lim=(500, 10)
-        print(f"Mean Power[W]: {power_overall}, Energy overall[Wh]: {energy_overall}")
-        print(f"Y lim: {y_lim}")
-        create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
+        # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 
 
     def save(self, path, infos=None):

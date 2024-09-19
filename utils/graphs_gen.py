@@ -4,7 +4,7 @@ import os
 import numpy as np 
 import pandas as pd
 
-def eval_graph(tensor_datas, labels, graph_name, timestep):
+def eval_graph(tensor_datas, labels, graph_name, timestep=0.02):
     """
     Creates and saves a line graph with multiple lines from PyTorch tensors.
 
@@ -81,7 +81,7 @@ def save_tensors_to_csv(tensors, labels, filename='tensor_data.csv'):
     - filename: Name of the CSV file to save the tensors (default is 'tensor_data.csv').
     """
     if len(tensors) != len(labels):
-        raise ValueError("The number of tensors must match the number of labels.")
+        raise ValueError(f"The number of tensors {len(tensors)}  must match the number of labels. {len(labels)}")
     
     tensor_dict = {
         'label': [],
@@ -190,59 +190,87 @@ def create_power_energy_bar_chart(title, names, power, energy, filename, y_lim):
     plt.close()
 
 
+def plot_xy_position(tensor_xy, plot_name):
+    """
+    Creates and saves an xy position plot from a PyTorch tensor.
+
+    Args:
+        tensor_xy: A PyTorch tensor containing the xy position data.
+        plot_name: The name of the plot (used for the file name).
+    """
+    # Convert PyTorch tensor to NumPy array, ensuring it is on the CPU
+    xy_data = tensor_xy.detach().cpu().numpy()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(xy_data[:, 0], xy_data[:, 1], marker='o', linestyle='-', color='b')
+    plt.title(plot_name)
+    plt.xlabel("X Position")
+    plt.ylabel("Y Position")
+    plt.grid(True)
+
+    dir_name = os.path.join(os.getcwd(), 'outputs', 'graphs')
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    fig_path = os.path.join(dir_name, f"{plot_name}.png")
+    plt.savefig(fig_path)  # Save the xy position plot
+
+    plt.close()
+
+
 
 
 def main():
-    # data1 = torch.randn(100)
-    # data2 = torch.randn(100) + 1  # Shift data2 for visual differentiation
-    # labels = ["Data 1", "Data 2"]  # Labels for each line
+    data1 = torch.randn(100)
+    data2 = torch.randn(100) + 1  # Shift data2 for visual differentiation
+    labels = ["Data 1", "Data 2"]  # Labels for each line
 
-    # eval_graph([data1, data2], labels, "multiple_lines", 2)
+    eval_graph([data1, data2], labels, "multiple_lines", 2)
 
-    # # Create PyTorch tensors with different distributions
-    # data1 = torch.randn(100)
-    # data2 = torch.rand(80) * 5 + 2
-    # data3 = torch.randint(0, 10, (120,))
+    # Create PyTorch tensors with different distributions
+    data1 = torch.randn(100)
+    data2 = torch.rand(80) * 5 + 2
+    data3 = torch.randint(0, 10, (120,))
 
-    # # Create multiple box plots in one graph
-    # box_labels = ["Standard Normal", "Uniform (2 to 7)", "Integers (0 to 9)"]
-    # create_multiple_box_plots([data1, data2, data3], box_labels, "Combined Box Plots")
+    # Create multiple box plots in one graph
+    box_labels = ["Standard Normal", "Uniform (2 to 7)", "Integers (0 to 9)"]
+    create_multiple_box_plots([data1, data2, data3], box_labels, "Combined Box Plots")
 
-    # # Example tensors
-    # # Create a sample tensor
-    # # Create sample tensors
-    # tensor1 = torch.randn(3, 3)
-    # tensor2 = torch.randn(2, 4)
-    # tensor3 = torch.randn(5, 2)
-    # labels = ["tensor1", "tensor2", "tensor3"]
+    # Example tensors
+    # Create a sample tensor
+    # Create sample tensors
+    tensor1 = torch.randn(3, 3)
+    tensor2 = torch.randn(2, 4)
+    tensor3 = torch.randn(5, 2)
+    print(f"Tensor 1 shape: {tensor1.shape}")
+    labels = ["tensor1", "tensor2", "tensor3"]
 
-    # # Save the tensors to a CSV file
-    # save_tensors_to_csv([tensor1, tensor2, tensor3], labels)
+    # Save the tensors to a CSV file
+    save_tensors_to_csv([tensor1, tensor2, tensor3], labels)
 
-    # # Load the tensors from the CSV file
-    # loaded_tensor1 = load_tensor_from_csv("tensor1")
-    # loaded_tensor2 = load_tensor_from_csv("tensor2")
-    # loaded_tensor3 = load_tensor_from_csv("tensor3")
+    # Load the tensors from the CSV file
+    loaded_tensor1 = load_tensor_from_csv("tensor1")
+    loaded_tensor2 = load_tensor_from_csv("tensor2")
+    loaded_tensor3 = load_tensor_from_csv("tensor3")
 
-    # # Verify that the loaded tensors match the original tensors
-    # print("Original Tensor 1:")
-    # print(tensor1)
-    # print("\nLoaded Tensor 1:")
-    # print(loaded_tensor1)
+    # Verify that the loaded tensors match the original tensors
+    print("Original Tensor 1:")
+    print(tensor1)
+    print("\nLoaded Tensor 1:")
+    print(loaded_tensor1)
 
-    # print("\nOriginal Tensor 2:")
-    # print(tensor2)
-    # print("\nLoaded Tensor 2:")
-    # print(loaded_tensor2)
+    print("\nOriginal Tensor 2:")
+    print(tensor2)
+    print("\nLoaded Tensor 2:")
+    print(loaded_tensor2)
 
-    # print("\nOriginal Tensor 3:")
-    # print(tensor3)
-    # print("\nLoaded Tensor 3:")
-    # print(loaded_tensor3)
+    print("\nOriginal Tensor 3:")
+    print(tensor3)
+    print("\nLoaded Tensor 3:")
+    print(loaded_tensor3)
 
-    # assert torch.equal(tensor1, loaded_tensor1), "Loaded tensor1 does not match the original tensor1."
-    # assert torch.equal(tensor2, loaded_tensor2), "Loaded tensor2 does not match the original tensor2."
-    # assert torch.equal(tensor3, loaded_tensor3), "Loaded tensor3 does not match the original tensor3."
+    assert torch.equal(tensor1, loaded_tensor1), "Loaded tensor1 does not match the original tensor1."
+    assert torch.equal(tensor2, loaded_tensor2), "Loaded tensor2 does not match the original tensor2."
+    assert torch.equal(tensor3, loaded_tensor3), "Loaded tensor3 does not match the original tensor3."
 
     # print("\nAll loaded tensors match the original tensors.")
 
@@ -253,6 +281,12 @@ def main():
     filename = "power_energy_bar_chart.png"
     y_lim = (30, 20)  # Set the y-axis limits
     create_power_energy_bar_chart(title, names, power, energy, filename, y_lim)
+
+
+    # Example usage of xy plane
+    xy_tensor = torch.tensor([[0, 0], [1, 2], [2, 3], [1, -1]], device='cuda')
+    plot_name = "XY Position Plot"
+    plot_xy_position(xy_tensor, plot_name)
 
 if __name__ == "__main__":
     main()
