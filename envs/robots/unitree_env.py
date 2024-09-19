@@ -200,7 +200,7 @@ class UnitreeEnv(MjxEnv):
             'stand_still': -0.5, 
             "foot_slip": -0.1,
             # Additional self created
-            "action_rate": -0.01,
+            "action_rate": -0.005,
             #"action_rate2": 0.0,
             
             "rew_pos_limits": -0.0,
@@ -211,7 +211,6 @@ class UnitreeEnv(MjxEnv):
             "rew_power_distro": -5e-6,
 
             # Feet
-            "thigh": 0.05,
             "hip": 0.05,
         }
 
@@ -587,8 +586,8 @@ class UnitreeEnv(MjxEnv):
             'rew_power': self._reward_power(data.qfrc_actuator, joint_vel),
             'rew_power_distro': self._reward_power_distro(data.qfrc_actuator, joint_vel),
             # Feet posture
-            'thigh': self.rew_thigh(joint_angles),
             'hip': self.rew_hip(joint_angles),
+
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -638,9 +637,7 @@ class UnitreeEnv(MjxEnv):
         #     jp.array([-0.7, self.cmd_y, self.cmd_yaw]),
         #     state.info['command'],
         #     )
-        
-
-        
+    
 
         # sample new command
         state.info['command'] = jp.where(
@@ -789,10 +786,10 @@ class UnitreeEnv(MjxEnv):
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
-        # done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        # done |= jp.any(data.qpos[7:] > self.upper_limits)
+        done |= jp.any(data.qpos[7:] < self.lower_limits) 
+        done |= jp.any(data.qpos[7:] > self.upper_limits)
         # Old termination: based on z-heightfjp
-        # done |= data.xpos[self._torso_idx, 2] < self.min_z
+        #done |= data.xpos[self._torso_idx, 2] < self.min_z
         
         # New termination: If body touches the ground
         terminate_contacts = jp.zeros((7),dtype=int)
@@ -878,15 +875,11 @@ class UnitreeEnv(MjxEnv):
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
         return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
     
-    def rew_thigh(
+    def rew_hip(
             self, joint_angles: jax.Array
     ):
         return jp.exp(-0.4*jp.sum(jp.square(joint_angles[::3])))
     
-    def rew_hip(
-            self, joint_angles: jax.Array
-    ):
-        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[1::3]-self.default_pos[8::3])))
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -932,7 +925,10 @@ class UnitreeEnv(MjxEnv):
    
 
     def _reward_termination(self, done: jax.Array, step, data: mjx.Data) -> jax.Array:
-        return done & (step < self.episode_length) & self.terminate_map*((jp.abs(data.qpos[0]) < 10.0) & (jp.abs(data.qpos[1]) < 10.0) & (jp.abs(data.qpos[2]) > -3.0))
+        #receive reward if the robot is terminated, the step is within its range and the robot is within the limits
+        default_termination = done & (step < self.episode_length)
+        terrain_termination = done & (step < self.episode_length) & self.terminate_map*((jp.abs(data.qpos[0]) < 10.0) & (jp.abs(data.qpos[1]) < 10.0) & (jp.abs(data.qpos[2]) > -3.0))
+        return jp.where(self.terminate_map, terrain_termination, default_termination)
 
     def _reward_power(self, torques: jax.Array, qvel: jax.Array) -> jax.Array:
         return jp.sum(jp.abs(torques)*jp.abs(qvel))

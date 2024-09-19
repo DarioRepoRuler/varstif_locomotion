@@ -144,11 +144,11 @@ class PPOTaskBase(nn.Module):
                 # update observation
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
-
+        
+        combined_metrics = {}
         if not is_training:
             cmd = torch.stack(cmd)
-            eval_infos['cmd'] = cmd
-            combined_metrics = {}
+            eval_infos['cmd'] = cmd    
             for key in eval_metrics[0].keys():
                 combined_metrics[key] = torch.stack([metric[key] for metric in eval_metrics])
 
