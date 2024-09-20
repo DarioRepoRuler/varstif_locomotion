@@ -9,7 +9,7 @@ env:
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
-  kick_vel: 1.5
+  kick_vel: 2.0
   push_interval: 100
   is_training: False
   episode_length: 750
@@ -56,7 +56,7 @@ env:
 
 ckpt_path: 'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 timesteps_per_rollout: 50
-num_iterations: 17
+num_iterations: 64
 num_envs: 200
 
 
