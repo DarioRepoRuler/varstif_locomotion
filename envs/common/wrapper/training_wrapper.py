@@ -47,18 +47,17 @@ class VmapWrapper(Wrapper):
         self.data = env.data
         self.batch_size = batch_size
 
-    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_control:bool= False) -> State:
+    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_cmd:jax.Array) -> State:
         if self.batch_size is not None:
             rng = jax.random.split(rng, self.batch_size)
             # Match dimensions for vmaping at axis=0
             initial_xy = jp.expand_dims(initial_xy, 0)
             initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
             
-            manual_control = jp.array(manual_control, dtype=jp.bool)
-            manual_control = jp.expand_dims(manual_control, 0)
-            manual_control = jp.repeat(manual_control, self.batch_size,0)
+            manual_cmd = jp.expand_dims(manual_cmd, 0)
+            manual_cmd = jp.repeat(manual_cmd, self.batch_size, axis=0)
             
-        return jax.vmap(self.env.reset)(rng, initial_xy, manual_control)
+        return jax.vmap(self.env.reset)(rng, initial_xy, manual_cmd)
 
     def step(self, state: State, action: jax.Array) -> State:
         return jax.vmap(self.env.step)(state, action)
@@ -86,15 +85,19 @@ class DomainRandomizationVmapWrapper(Wrapper):
         env.unwrapped.sys = sys
         return env
 
-    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_control:bool= False) -> State:
-        def reset(sys, rng, initial_xy=initial_xy, manual_control=manual_control):
+    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_cmd: jax.Array) -> State:
+        def reset(sys, rng, initial_xy=initial_xy, manual_cmd=manual_cmd):
             env = self._env_fn(sys=sys)
-            return env.reset(rng, initial_xy=initial_xy, manual_control=manual_control)
+            return env.reset(rng, initial_xy=initial_xy, manual_cmd=manual_cmd)
         
         initial_xy = jp.expand_dims(initial_xy, 0)
         initial_xy = jp.repeat(initial_xy, self.batch_size, axis=0)
+
+        manual_cmd = jp.expand_dims(manual_cmd, 0)
+        manual_cmd = jp.repeat(manual_cmd, self.batch_size, axis=0)
+
         rng = jax.random.split(rng, self.batch_size)
-        state = jax.vmap(reset, in_axes=[self._in_axes, 0])(self._sys_v, rng, initial_xy=initial_xy )
+        state = jax.vmap(reset, in_axes=[self._in_axes, 0])(self._sys_v, rng, initial_xy=initial_xy, manual_cmd=manual_cmd)
         return state
 
     def step(self, state: State, action: jax.Array) -> State:
@@ -188,8 +191,8 @@ class AutoResetWrapper(Wrapper):
         self.model = env.model
         self.data = env.data
 
-    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_control:bool=False) -> State:
-        state = self.env.reset(rng, initial_xy, manual_control=manual_control)
+    def reset(self, rng: jax.Array, initial_xy: jax.Array, manual_cmd: jax.Array) -> State:
+        state = self.env.reset(rng, initial_xy, manual_cmd=manual_cmd)
         state.info['first_pipeline_state'] = state.pipeline_state
         state.info['first_obs'] = state.obs
         state.info['first_privileged_obs'] = state.privileged_obs

@@ -4,18 +4,18 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_3"
+  control_mode: "P"
   physics_steps_per_control_step: 4
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
-  kick_vel: 0.5
+  kick_vel: 1.0
   push_interval: 100
   is_training: False
-  episode_length: 500
+  episode_length: 750
 
   single_obs_size: 48
-  single_obs_size_priv: 59
+  single_obs_size_priv: 48
 
   domain_rand:
     randomisation: True
@@ -45,8 +45,8 @@ env:
     cmd_y: 0.0
     cmd_ang: 0.0
 
-  reset_pos_x: [-5.0, 5.0]
-  reset_pos_y: [-5.0, 5.0]
+  reset_pos_x: [-0.0, 0.0]
+  reset_pos_y: [-0.0, 0.0]
 
   control:
     stiff_range: [0.5, 2.0]
@@ -54,9 +54,9 @@ env:
     d_gain: 1.0
 
 
-ckpt_path: 'best_models/test_vic_3.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
-timesteps_per_rollout: 100
-num_iterations: 10
+ckpt_path: 'best_models/rando_all1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+timesteps_per_rollout: 50
+num_iterations: 65
 num_envs: 200
 
 

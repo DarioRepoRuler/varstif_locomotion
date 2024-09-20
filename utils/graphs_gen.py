@@ -216,7 +216,53 @@ def plot_xy_position(tensor_xy, plot_name):
 
     plt.close()
 
+def create_polar_plot(r, label, plot_name):
+    theta = np.deg2rad(np.arange(45, 406, 45))
+    fig = plt.figure(dpi=200)
+    ax = fig.add_subplot(projection='polar')
 
+    # Iterate over each data point in r
+    if r.dim() == 1:
+        plt.polar(theta, np.append(r, r[0]), marker='o', label='Data')
+        plt.legend()
+    if r.dim() >1:
+        for i in range(r.shape[0]):
+            # Plotting the polar coordinates on the system
+            plt.polar(theta, np.append(r[i,:], r[i,0]), marker='o', label=f'Data {i+1}')
+            plt.legend()
+
+    # Set the radial limits
+    ax.set_rorigin(0)
+    ax.set_ylim(0, r.max())
+
+    # to control how far the scale is from the plot (axes coordinates)
+    def add_scale(ax, X_OFF, Y_OFF):
+        # add extra axes for the scale
+        X_OFFSET = X_OFF
+        Y_OFFSET = Y_OFF
+        rect = ax.get_position()
+        rect = (rect.xmin-X_OFFSET, rect.ymin+rect.height/2-Y_OFFSET, # x, y
+                rect.width, rect.height/2) # width, height
+        scale_ax = ax.figure.add_axes(rect)
+        for loc in ['right', 'top', 'bottom']:
+            scale_ax.spines[loc].set_visible(False)
+        scale_ax.tick_params(bottom=False, labelbottom=False)
+        scale_ax.patch.set_visible(False) # hide white background
+        # adjust the scale
+        scale_ax.spines['left'].set_bounds(*ax.get_ylim())
+        scale_ax.set_ylim(ax.get_rorigin(), ax.get_rmax())
+        # add label to the axis
+        scale_ax.set_ylabel(label)
+
+    add_scale(ax, 0.1 ,0.2)
+
+    dir_name = os.path.join(os.getcwd(), 'outputs', 'graphs')
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    fig_path = os.path.join(dir_name, f"{plot_name}.png")
+    plt.savefig(fig_path)  # Save the xy position plot
+
+    plt.close()
 
 
 def main():
@@ -287,6 +333,14 @@ def main():
     xy_tensor = torch.tensor([[0, 0], [1, 2], [2, 3], [1, -1]], device='cuda')
     plot_name = "XY Position Plot"
     plot_xy_position(xy_tensor, plot_name)
+
+    # Generating the X and Y axis data points
+    r = torch.tensor([[10, 8, 8, 8, 8, 8, 8, 8], 
+                [5, 6, 7, 8, 9, 10, 9, 8], 
+                [0, 2, 3, 4, 5, 6, 5, 4]])
+    label = 'Speed(m/s)'
+    # Creating the polar plot using the function
+    create_polar_plot(r, label, 'polar_plot')
 
 if __name__ == "__main__":
     main()

@@ -36,6 +36,10 @@ class UnitreeEnv(MjxEnv):
         else:
             print(f"DEFAULT TERMINATION")
             self.terminate_map = False
+
+
+        if "eval" in model_path:
+            self.terminate_map = True
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
         mj_model.opt.ls_iterations = 6
@@ -322,7 +326,7 @@ class UnitreeEnv(MjxEnv):
 
         return new_cmd
 
-    def reset(self, rng: jp.ndarray, initial_xy=jp.array([0.,0.]), manual_control = False) -> State:
+    def reset(self, rng: jp.ndarray, initial_xy=jp.array([0.,0.]), manual_cmd=jp.array([0.,0.,0.])) -> State:
         """Resets the environment to an initial state.
         
         Args:
@@ -370,7 +374,8 @@ class UnitreeEnv(MjxEnv):
 
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
-        command = self._resample_commands(rng3)     
+        command_rand = self._resample_commands(rng3)
+        command = jp.where(self.manual_control, manual_cmd, command_rand)     
         #jax.debug.print('Mjdata: {x}', x=data)
         state_info = {
             'rng': rng,
@@ -577,7 +582,7 @@ class UnitreeEnv(MjxEnv):
 
             'action_rate': self.action_rate(action, state.info['last_act']),
 
-            #'action_rate2': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
+            #'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
@@ -626,11 +631,11 @@ class UnitreeEnv(MjxEnv):
         state.metrics['command'] = state.info['command']
 
         
-        state.info['command'] = jp.where(
-            jp.logical_and(self.manual_control,state.info['step'] < 100 ),
-            jp.array([self.cmd_x, self.cmd_y, self.cmd_yaw]),
-            state.info['command'],
-            )
+        # state.info['command'] = jp.where(
+        #     jp.logical_and(self.manual_control, state.info['step'] < 100 ),
+        #     jp.array([self.cmd_x, self.cmd_y, self.cmd_yaw]),
+        #     state.info['command'],
+        #     )
         
         # state.info['command'] = jp.where(
         #     jp.logical_and(self.manual_control,state.info['step'] > 100 ),
@@ -750,13 +755,13 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privilege'd
-            state_info['kp_factor'],
-            state_info['kd_factor'],
-            state_info['motor_strength'],
-            jp.array([self.sys.geom_friction[0, 0]]),
-            jp.array([self.sys.body_mass[1]]),
-            state_info['kick'],
-            state_info['contact'],
+            # state_info['kp_factor'],
+            # state_info['kd_factor'],
+            # state_info['motor_strength'],
+            # jp.array([self.sys.geom_friction[0, 0]]),
+            # jp.array([self.sys.body_mass[1]]),
+            # state_info['kick'],
+            # state_info['contact'],
             obs
         ])
 

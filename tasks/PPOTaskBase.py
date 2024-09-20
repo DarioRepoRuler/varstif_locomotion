@@ -8,9 +8,9 @@ from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power
 import jax.numpy as jp
 import jax
 
-# import threading
-# from pynput import keyboard as pynput_keyboard
-# import time
+import threading
+from pynput import keyboard as pynput_keyboard
+import time
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -28,6 +28,7 @@ class PPOTaskBase(nn.Module):
         self.save_interval = save_interval
         self.test_interval = test_interval
         self.initial_xy = jp.array([0, 0]) #starting in the first quadrant
+        self.manual_cmd = jp.array([cfg.env.manual_control.cmd_x, cfg.env.manual_control.cmd_y, cfg.env.manual_control.cmd_ang])
         self.env = env
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
@@ -53,7 +54,7 @@ class PPOTaskBase(nn.Module):
 
         self.current_learning_iteration = 0
         self.level = 0
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_control = self.cfg.env.manual_control.enable)
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd = self.manual_cmd)
 
 
         # # Start the keyboard listener thread
@@ -308,56 +309,50 @@ class PPOTaskBase(nn.Module):
             self.load(ckpt_path, load_optimizer=False)
         self.algo.actor_critic.eval()
         #eval_results = []
-        single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
-        power_overall = []
-        energy_overall = []
-        trajectory = []
-        COT_total = []
+        #single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
+
+        # eval data stores for every timestep, results are then the used metrics for overall comparison
+        eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': []}
+        results = {'power': [], 'energy': [], 'COT': [], 'local_v': []}
+
         for it in range(num_iterations):
-            #print(f"iteration: {it} ")
-            #print(f"configuration of env: {self.cfg.env}")
+            print(f"iteration: {it} ")
+
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
             
-            #print(f"Episode metrics: {eval_metrics}")
-            #print(f"Foot pos z: {eval_metrics['foot_pos_z']}")
-            # # Evaluate test run: Create box plots for the tracking error + draw foot z position graph            
-            # # Optionally it is also possible to store the values in csv files with the functions save_tensors_to_csv and load_tensor_from_csv
-            # total_tracking_error = torch.zeros((self.cfg.timesteps_per_rollout, 3), device=self.device, dtype=torch.float32)
-            # ang_tracking_error = torch.abs(stat['observations'][:,0,6] - stat['observations'][:,0,single_obs_size-1])
-            # #print(f"Observed ang. vel: {stat['observations'][:,0,6]}")
-            # #print(f"Observed lin. vel: {eval_infos['q_vel'][:,:2]}")
-            # #print(f"Commanded vel: {eval_infos['cmd']}")
-            # #print(f"Command ang: {stat['observations'][:,0,single_obs_size-1]}")
-            # #print(f"Command lin: {stat['observations'][:,0,single_obs_size-3:single_obs_size-1]}")
+            vel_xy = jp.sqrt(2)/2*self.cfg.env.manual_control.cmd_x
+            directions = [jp.array([vel_xy, vel_xy, 0.0]),
+                          jp.array([0.0, self.cfg.env.manual_control.cmd_x, 0.0]),
+                          jp.array([-vel_xy, vel_xy, 0.0]),
+                          jp.array([-self.cfg.env.manual_control.cmd_x, 0.0, 0.0]),
+                          jp.array([-vel_xy, -vel_xy, 0.0]),
+                          jp.array([0.0, -self.cfg.env.manual_control.cmd_x, 0.0]),
+                          jp.array([vel_xy, -vel_xy, 0.0])]
 
-            # lin_tracking_error = torch.abs(eval_infos['q_vel'][:,:2] - stat['observations'][:,0,single_obs_size-3:single_obs_size-1])
-            # #print(f"Lin tracking error: {lin_tracking_error}")
-            # total_tracking_error[:,0] = ang_tracking_error
-            # total_tracking_error[:,1:3] = lin_tracking_error
-            # lin_tracking_error = torch.linalg.norm(lin_tracking_error, dim=1)
-            # #print(f"Total tracking error: {total_tracking_error} with shape {total_tracking_error.shape}")
-            # total_tracking_error = torch.linalg.norm(total_tracking_error, dim=1)
-            # #print(f"Total tracking error norm: {total_tracking_error} with shape {total_tracking_error.shape}")
-            # create_multiple_box_plots([total_tracking_error, lin_tracking_error, ang_tracking_error], ['total error', 'linear vel error', 'angular vel error'], 'tracking_test_error')
+            if it % 8 == 0 and it >0:
+                results['power'].append(torch.mean(torch.stack(eval_data['power'])))
+                results['energy'].append(torch.mean(torch.stack(eval_data['power'])))
+                results['COT'].append(torch.mean(torch.stack(eval_data['COT'])))
+                results['local_v'].append(torch.mean(torch.stack(eval_data['local_v'])))
+                print(f" Finished experiment {it//8} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
+                
+                if it//8 < 8:
+                    self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
             
-            
-            
-            #print(f"Target dof pos: {eval_metrics['target_dof_pos'].shape} and DOF pos: {eval_metrics['dof_pos'].shape}")
-            #print(f"Displacement: {eval_metrics['total_dist']}")
-            print(f"Glob pos: {eval_metrics['glob_pos'].shape}")
-            trajectory.append(eval_metrics['glob_pos'])
 
-            print(f"Local vel(mean): {torch.mean(torch.linalg.norm(eval_metrics['local_v'], dim=2))}")
-            power_overall.append(torch.mean(eval_metrics['power']))
-            print(f"Power(mean): {torch.mean(eval_metrics['power'])}")
-            print(f"Energy shape :{eval_metrics['power'].shape}")
-            energy_overall.append(torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1)))
-            print(f"Energy(total): {torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1))}")
-            COT = torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) )))
-            COT_total.append(COT)
-            print(f"Cost of transport: {torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) )))}")
+            COT = torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) ) ))
+            
+            # Gather the eval_data data with a dictionary
+            eval_data['power'].append(torch.mean(eval_metrics['power']))
+            eval_data['energy'].append(torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1)))
+            eval_data['COT'].append(COT)
+            eval_data['local_v'].append(torch.linalg.norm(eval_metrics['local_v'],dim=2))
+            #print(f"Local velocity:{torch.mean(torch.stack(eval_data['local_v']))}")
+            eval_data['trajectory'].append(eval_metrics['glob_pos'])
+            #print(f"Power[W]: {torch.mean(torch.stack(eval_data['power']))}, Energy[Wh]: {torch.mean(torch.stack(eval_data['power']))}, COT: {torch.mean(torch.stack(eval_data['COT']))}")
+
+            # Plot foot tracking trajectories + command tracking 
             eval_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
-
             eval_graph([eval_metrics['command'][:,0,0], eval_metrics['local_v'][:,0,0]], ['command', 'local_v_x'], f"command_track{it}", timestep=0.02)
 
             # Recording of foot trajectories
@@ -369,14 +364,18 @@ class PPOTaskBase(nn.Module):
             self.algo.storage.clear()
         
         # Concatinating all recorded trajectories
-        global_trajectory = torch.cat(trajectory, 0)
+        global_trajectory = torch.cat(eval_data['trajectory'], 0)
         print(f"Global trajectory: {global_trajectory.shape}")
-        plot_xy_position(global_trajectory[:,0,:], "Global Position Trajectory")
-        power_overall = torch.mean(torch.stack(power_overall))
-        energy_overall = torch.sum(torch.stack(energy_overall))
-        COT = torch.mean(torch.stack(COT_total))
-        print(f"Mean Power[W]: {power_overall}, Energy overall[Wh]: {energy_overall}, COT mean: {COT}")
-
+        #plot_xy_position(global_trajectory[:,0,:], "Global Position Trajectory")
+        power_overall = torch.mean(torch.stack(eval_data['power']))
+        energy_overall = torch.sum(torch.stack(eval_data['energy']))
+        COT = torch.mean(torch.stack(eval_data['COT']))
+        for key in results.keys():      
+            results[key] = torch.stack(results[key]).cpu()
+        print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Wh]: {results['energy']}, COT mean: {results['COT']}")
+        save_tensors_to_csv([results['power'], results['energy'], results['local_v']], 
+                            [f'power', f'energy', 'local_v'], f'results.csv')
+        
         # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 
 
