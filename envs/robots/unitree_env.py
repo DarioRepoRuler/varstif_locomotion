@@ -406,7 +406,8 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Initial obs: {x}', x=obs)
         #jax.debug.print('Initial privileged obs: {x}', x=privileged_obs)
         metrics = {
-            'total_dist': 0.0, 
+            'total_dist': 0.0,
+            'total_time': 0.0, 
             'power': 0.0, 
             'local_v':jp.array([0.0, 0.0, 0.0]), 
             'm_total':jp.sum(self.sys.body_mass), 
@@ -619,6 +620,7 @@ class UnitreeEnv(MjxEnv):
 
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
+        state.metrics['total_time'] = state.info['step'] * self.dt
         state.metrics['power'] = jp.sum(jp.abs(data.qfrc_actuator)) * jp.abs(jp.sum(joint_vel))
         
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
@@ -743,18 +745,14 @@ class UnitreeEnv(MjxEnv):
             data.qpos[7:]-self.default_pos[7:],  
             self.joint_vel_scale *data.qvel[6:],
             state_info['last_act'], 
-            self.command_scale * state_info['command'],
-            #state_info['contact'], 
-            # foot_pos_local,
-            # foot_vel_local,
-            # err,
-            # rpy[:-1], 
+            self.command_scale * state_info['command'],            
         ])
 
         obs = jp.clip(obs, -100.0, 100.0)
 
         privileged_obs = jp.concatenate([
-            # Privilege'd
+            # Privileged
+
             # state_info['kp_factor'],
             # state_info['kd_factor'],
             # state_info['motor_strength'],

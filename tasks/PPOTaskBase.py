@@ -141,6 +141,7 @@ class PPOTaskBase(nn.Module):
                 if not is_training:
                     cmd.append(info['command'])
                     eval_metrics.append(metrics)
+                    
 
                 # update observation
                 self.obs = next_obs_g
@@ -312,9 +313,9 @@ class PPOTaskBase(nn.Module):
         #single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
 
         # eval data stores for every timestep, results are then the used metrics for overall comparison
-        eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': []}
-        results = {'power': [], 'energy': [], 'COT': [], 'local_v': []}
-
+        eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': [], 'total_dist':[], 'best_time':100.0, 'successful_envs': None}
+        results = {'power': [], 'energy': [], 'COT': [], 'local_v': [], 'top_times': [], 'success_rate':[]}
+        success_dist = 5.0
         for it in range(num_iterations):
             print(f"iteration: {it} ")
 
@@ -334,7 +335,10 @@ class PPOTaskBase(nn.Module):
                 results['energy'].append(torch.mean(torch.stack(eval_data['power'])))
                 results['COT'].append(torch.mean(torch.stack(eval_data['COT'])))
                 results['local_v'].append(torch.mean(torch.stack(eval_data['local_v'])))
-                print(f" Finished experiment {it//8} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
+                results['top_times'].append(torch.tensor([eval_data['best_time']]))
+                results['success_rate'].append(torch.tensor([len(eval_data['successful_envs'])/self.cfg.num_envs]))
+                print(f"Success rate: {results['success_rate'][-1]}")
+                print(f"Finished experiment {it//8} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
                 
                 if it//8 < 8:
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
@@ -347,6 +351,29 @@ class PPOTaskBase(nn.Module):
             eval_data['energy'].append(torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1)))
             eval_data['COT'].append(COT)
             eval_data['local_v'].append(torch.linalg.norm(eval_metrics['local_v'],dim=2))
+            eval_data['total_dist'].append(eval_metrics['total_dist'])
+            #print(f"Total distance: {eval_data['total_dist'][-1]}")
+            if torch.any(eval_data['total_dist'][-1] > success_dist):
+                indices = torch.where(eval_data['total_dist'][-1]>success_dist)
+                finished_env = torch.unique(indices[1])
+                #print(f"Finished envs: {finished_env}")
+                if eval_data['successful_envs'] is None:
+                    eval_data['successful_envs'] = finished_env
+                else:
+                    missing_envs = finished_env[~torch.isin(finished_env, eval_data['successful_envs'])]
+                    eval_data['successful_envs'] = torch.cat([eval_data['successful_envs'], missing_envs])
+                
+                finish_step = torch.min(eval_metrics['total_time'][indices])
+                #print(f"Finished step: {finish_step}")
+                eval_data['best_time'] = min(eval_data['best_time'], finish_step)
+                #print(f"Minimum time: {eval_data['total_time']}")
+                #eval_data['finishes_envs'].append(torch.unique(indices[1]))
+                #print(f"Total time: {eval_metrics['total_time'][indices]}")
+                #print(f"indices: {torch.min(indices[0])} and indices { indices[1]}")
+
+                #print(f"Env. {indices[1]} is a success: {eval_data['total_dist'][-1][indices]}")
+            #print(f"Total distance: {eval_metrics['total_dist']}")
+            #eval_data['total_time'].append(eval_metrics['total_time'])
             #print(f"Local velocity:{torch.mean(torch.stack(eval_data['local_v']))}")
             eval_data['trajectory'].append(eval_metrics['glob_pos'])
             #print(f"Power[W]: {torch.mean(torch.stack(eval_data['power']))}, Energy[Wh]: {torch.mean(torch.stack(eval_data['power']))}, COT: {torch.mean(torch.stack(eval_data['COT']))}")
@@ -374,7 +401,7 @@ class PPOTaskBase(nn.Module):
             results[key] = torch.stack(results[key]).cpu()
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Wh]: {results['energy']}, COT mean: {results['COT']}")
         save_tensors_to_csv([results['power'], results['energy'], results['local_v']], 
-                            [f'power', f'energy', 'local_v'], f'results.csv')
+                            [f'power', f'energy', 'local_v'], f'results_vic2.csv')
         
         # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 
