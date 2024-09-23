@@ -217,7 +217,8 @@ def plot_xy_position(tensor_xy, plot_name):
     plt.close()
 
 def create_polar_plot(r, label, scale_name, plot_name):
-    theta = np.deg2rad(np.arange(45, 406, 45))
+    theta = np.deg2rad(np.arange(0, 361, 45))
+
     fig = plt.figure(dpi=200)
     ax = fig.add_subplot(projection='polar')
 

@@ -415,7 +415,7 @@ class PPOTaskBase(nn.Module):
             results[key] = torch.stack(results[key]).cpu()
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
         save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate']], 
-                            [f'power', f'energy', 'local_v', 'success_rate'], f'results_vic2.csv')
+                            [f'power', f'energy', 'local_v', 'success_rate'], f'results_vic2_jt.csv')
         
         # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 
