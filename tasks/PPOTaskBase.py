@@ -331,15 +331,29 @@ class PPOTaskBase(nn.Module):
                           jp.array([vel_xy, -vel_xy, 0.0])]
 
             if it % 8 == 0 and it >0:
+                # Evaluate the results
                 results['power'].append(torch.mean(torch.stack(eval_data['power'])))
                 results['energy'].append(torch.mean(torch.stack(eval_data['power'])))
                 results['COT'].append(torch.mean(torch.stack(eval_data['COT'])))
                 results['local_v'].append(torch.mean(torch.stack(eval_data['local_v'])))
                 results['top_times'].append(torch.tensor([eval_data['best_time']]))
-                results['success_rate'].append(torch.tensor([len(eval_data['successful_envs'])/self.cfg.num_envs]))
+                if eval_data['successful_envs'] is not None:
+                    results['success_rate'].append(torch.tensor([len(eval_data['successful_envs'])/self.cfg.num_envs]))
+                else:
+                    results['success_rate'].append(torch.tensor([0.0]))
+
+                # Delete the eval_data
+                eval_data['successful_envs'] = None
+                eval_data['best_time'] = 100.0
+                eval_data['power'] = []
+                eval_data['energy'] = []
+                eval_data['COT'] = []
+                eval_data['local_v'] = []
+
                 print(f"Success rate: {results['success_rate'][-1]}")
                 print(f"Finished experiment {it//8} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
-                
+
+                # Change the direction of the manual command
                 if it//8 < 8:
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
             
@@ -354,7 +368,9 @@ class PPOTaskBase(nn.Module):
             eval_data['total_dist'].append(eval_metrics['total_dist'])
             #print(f"Total distance: {eval_data['total_dist'][-1]}")
             if torch.any(eval_data['total_dist'][-1] > success_dist):
+
                 indices = torch.where(eval_data['total_dist'][-1]>success_dist)
+                #print(f"Finished envs: {indices[1]}")
                 finished_env = torch.unique(indices[1])
                 #print(f"Finished envs: {finished_env}")
                 if eval_data['successful_envs'] is None:
@@ -376,7 +392,6 @@ class PPOTaskBase(nn.Module):
             #eval_data['total_time'].append(eval_metrics['total_time'])
             #print(f"Local velocity:{torch.mean(torch.stack(eval_data['local_v']))}")
             eval_data['trajectory'].append(eval_metrics['glob_pos'])
-            #print(f"Power[W]: {torch.mean(torch.stack(eval_data['power']))}, Energy[Wh]: {torch.mean(torch.stack(eval_data['power']))}, COT: {torch.mean(torch.stack(eval_data['COT']))}")
 
             # Plot foot tracking trajectories + command tracking 
             eval_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
@@ -387,7 +402,6 @@ class PPOTaskBase(nn.Module):
             eval_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
                         eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
                         ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
-            
             self.algo.storage.clear()
         
         # Concatinating all recorded trajectories
@@ -399,9 +413,9 @@ class PPOTaskBase(nn.Module):
         COT = torch.mean(torch.stack(eval_data['COT']))
         for key in results.keys():      
             results[key] = torch.stack(results[key]).cpu()
-        print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Wh]: {results['energy']}, COT mean: {results['COT']}")
-        save_tensors_to_csv([results['power'], results['energy'], results['local_v']], 
-                            [f'power', f'energy', 'local_v'], f'results_vic2.csv')
+        print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
+        save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate']], 
+                            [f'power', f'energy', 'local_v', 'success_rate'], f'results_vic2.csv')
         
         # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 

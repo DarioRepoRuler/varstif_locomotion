@@ -753,13 +753,13 @@ class UnitreeEnv(MjxEnv):
         privileged_obs = jp.concatenate([
             # Privileged
 
-            # state_info['kp_factor'],
-            # state_info['kd_factor'],
-            # state_info['motor_strength'],
-            # jp.array([self.sys.geom_friction[0, 0]]),
-            # jp.array([self.sys.body_mass[1]]),
-            # state_info['kick'],
-            # state_info['contact'],
+            state_info['kp_factor'],
+            state_info['kd_factor'],
+            state_info['motor_strength'],
+            jp.array([self.sys.geom_friction[0, 0]]),
+            jp.array([self.sys.body_mass[1]]),
+            state_info['kick'],
+            state_info['contact'],
             obs
         ])
 

@@ -216,19 +216,19 @@ def plot_xy_position(tensor_xy, plot_name):
 
     plt.close()
 
-def create_polar_plot(r, label, plot_name):
+def create_polar_plot(r, label, scale_name, plot_name):
     theta = np.deg2rad(np.arange(45, 406, 45))
     fig = plt.figure(dpi=200)
     ax = fig.add_subplot(projection='polar')
 
     # Iterate over each data point in r
     if r.dim() == 1:
-        plt.polar(theta, np.append(r, r[0]), marker='o', label='Data')
+        plt.polar(theta, np.append(r, r[0]), marker='o', label=label)
         plt.legend()
     if r.dim() >1:
         for i in range(r.shape[0]):
             # Plotting the polar coordinates on the system
-            plt.polar(theta, np.append(r[i,:], r[i,0]), marker='o', label=f'Data {i+1}')
+            plt.polar(theta, np.append(r[i,:], r[i,0]), marker='o', label=label[i])
             plt.legend()
 
     # Set the radial limits
@@ -252,7 +252,7 @@ def create_polar_plot(r, label, plot_name):
         scale_ax.spines['left'].set_bounds(*ax.get_ylim())
         scale_ax.set_ylim(ax.get_rorigin(), ax.get_rmax())
         # add label to the axis
-        scale_ax.set_ylabel(label)
+        scale_ax.set_ylabel(scale_name)
 
     add_scale(ax, 0.1 ,0.2)
 
