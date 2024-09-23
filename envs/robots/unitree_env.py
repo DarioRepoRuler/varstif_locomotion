@@ -211,8 +211,8 @@ class UnitreeEnv(MjxEnv):
             "rew_acceleration":-2.5e-7,
             "rew_collision": -10.0,
             #"rew_velocity": -0.0,
-            "rew_power": -2e-5,
-            "rew_power_distro": -5e-6,
+            "rew_power": -2e-6,
+            "rew_power_distro": -5e-7,
 
             # Feet
             "hip": 0.05,

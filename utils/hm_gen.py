@@ -272,32 +272,31 @@ def main():
     height = 250
     hm_gen = HeightMapGenerator(height, width)
     
-    # Generate the Perlin noise height map
-    hm_gen.generate_perlin_noise(start_x=130, start_y=130, end_x=250, end_y=250, maximum=50) 
+    # # Generate the Perlin noise height map
+    # hm_gen.generate_perlin_noise(start_x=130, start_y=130, end_x=250, end_y=250, maximum=50) 
     
-    # Generate Pyramids
-    hm_gen.pyramid(5, 20, 80, 50, maximum=30)
-    hm_gen.pyramid(5, 10, 10, 50,maximum=30)
-    hm_gen.pyramid(5, 60, 50, 50, maximum=30)
+    # # Generate Pyramids
+    hm_gen.pyramid(num_steps=5, corner_x=62, corner_y=62, staircase_width=50, maximum=100)
+
     
-    # Generate checkerboard pattern
-    hm_gen.stripes(25, 10, height=5, direction='vertical', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
-    hm_gen.stripes(25, 10, height=5, direction='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
+    # # Generate checkerboard pattern
+    # hm_gen.stripes(25, 10, height=5, direction='vertical', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
+    # hm_gen.stripes(25, 10, height=5, direction='horizontal', win_start_x=0, win_start_y=130, win_end_x=130, win_end_y=250)
 
-    # Generate gaussian hills
-    #hm_gen.generate_gaussian_hills(num_hills=4, hill_height=-40, hill_radius=30, start_x=0, start_y=130, end_x=130, end_y=250)
-    hm_gen.generate_gaussian_hill(hill_height=-40, hill_radius=30, center_x=40, center_y=200)
-    hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=80, center_y=220)
-    hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=40, center_y=150)
-    hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=100, center_y=160)
+    # # Generate gaussian hills
+    # #hm_gen.generate_gaussian_hills(num_hills=4, hill_height=-40, hill_radius=30, start_x=0, start_y=130, end_x=130, end_y=250)
+    # hm_gen.generate_gaussian_hill(hill_height=-40, hill_radius=30, center_x=40, center_y=200)
+    # hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=80, center_y=220)
+    # hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=40, center_y=150)
+    # hm_gen.generate_gaussian_hill(hill_height=-30, hill_radius=30, center_x=100, center_y=160)
 
-    #
-    hm_gen.blur_height_map(sigma=6, start_x=0, start_y=120, end_x=250, end_y=140)
-    hm_gen.blur_height_map(sigma=6, start_x=120, start_y=0, end_x=140, end_y=250)
-    hm_gen.blur_height_map(sigma=5, start_x=120, start_y=0, end_x=140, end_y=250)
+    # #
+    # hm_gen.blur_height_map(sigma=6, start_x=0, start_y=120, end_x=250, end_y=140)
+    # hm_gen.blur_height_map(sigma=6, start_x=120, start_y=0, end_x=140, end_y=250)
+    # hm_gen.blur_height_map(sigma=5, start_x=120, start_y=0, end_x=140, end_y=250)
 
     # Define the filename
-    filename = 'new_terrain.png'
+    filename = 'pyramids.png'
     
     # Save the height map with steps as an image
     hm_gen.save_height_map_as_image(filename)
