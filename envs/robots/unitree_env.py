@@ -204,7 +204,7 @@ class UnitreeEnv(MjxEnv):
             'stand_still': -0.5, 
             "foot_slip": -0.1,
             # Additional self created
-            "action_rate": -0.005,
+            "action_rate": -0.0,
             #"action_rate2": 0.0,
             
             "rew_pos_limits": -0.0,
@@ -216,6 +216,8 @@ class UnitreeEnv(MjxEnv):
 
             # Feet
             "hip": 0.05,
+
+            "rew_joint_track": -0.01,
         }
 
 
@@ -594,6 +596,8 @@ class UnitreeEnv(MjxEnv):
             # Feet posture
             'hip': self.rew_hip(joint_angles),
 
+            'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
+
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -805,7 +809,7 @@ class UnitreeEnv(MjxEnv):
         done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
         done |= done_map*self.terminate_map
 
-        #done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
+        done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         
 
         return done
@@ -859,6 +863,7 @@ class UnitreeEnv(MjxEnv):
         out_of_bounds = -(pos - self.lower_limits).clip(max=0.)
         out_of_bounds += (pos - self.upper_limits).clip(min=0.)
         return jp.sum(out_of_bounds)
+    
     
     def _reward_collision(self, data) -> jax.Array:
         body_contacts = jp.zeros((19),dtype=int)
@@ -941,6 +946,10 @@ class UnitreeEnv(MjxEnv):
                               jp.sum(torques[6:9]*qvel[6:9]), jp.sum(torques[9:12]*qvel[9:12])])
         var = jp.var(leg_power)
         return var#jp.var(torques*qvel)
+    
+    def _reward_joint_track(self, joint_angles: jax.Array, action: jax.Array) -> jax.Array:
+        target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
+        return jp.sum(jp.square(joint_angles-target_dof_pos))
 
     def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
         foot_cycles = jp.array([
