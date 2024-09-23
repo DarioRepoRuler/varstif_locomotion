@@ -522,7 +522,7 @@ class UnitreeEnv(MjxEnv):
         # Performs physics timesteps per control step
         actuator_param = jp.concatenate([state.info['kp_factor'], state.info['kd_factor'], state.info['motor_strength']])
         data = self.pipeline_step(data0, action, actuator_param) #passed data is action as angle -> convert to torque in mjx
-
+        #jax.debug.print('Height: {x}', x=data.sensordata)
         # ----------------- POST Physics step --------------- #
         # Here we 1.)extract the state information, 2.)check termination, 3.) calculate the reward and 4.) get observations 
         

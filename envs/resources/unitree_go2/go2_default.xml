@@ -247,6 +247,38 @@
   <worldbody>
     <light name="spotlight" mode="targetbodycom" target="trunk" pos="0 -1 2"/>
     <body name="trunk" pos="0 0 0.445" childclass="go2">
+<!-- 
+      <site name="rf_1_1" pos="0.3 0.3 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_1_2" pos="0.3 0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_1_3" pos="0.3 0.0 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_1_4" pos="0.3 -0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_1_5" pos="0.3 -0.3 -0.1" zaxis="0 0 -1"/>
+
+      <site name="rf_2_1" pos="0.15 0.3 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_2_2" pos="0.15 0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_2_3" pos="0.15 0.0 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_2_4" pos="0.15 -0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_2_5" pos="0.15 -0.3 -0.1" zaxis="0 0 -1"/>
+
+      <site name="rf_3_1" pos="0. 0.3 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_3_2" pos="0. 0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_3_3" pos="0. 0.0 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_3_4" pos="0. -0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_3_5" pos="0. -0.3 -0.1" zaxis="0 0 -1"/>
+
+      <site name="rf_4_1" pos="-0.15 0.3 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_4_2" pos="-0.15 0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_4_3" pos="-0.15 0.0 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_4_4" pos="-0.15 -0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_4_5" pos="-0.15 -0.3 -0.1" zaxis="0 0 -1"/>
+
+      <site name="rf_5_1" pos="-0.3 0.3 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_5_2" pos="-0.3 0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_5_3" pos="-0.3 0.0 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_5_4" pos="-0.3 -0.15 -0.1" zaxis="0 0 -1"/>
+      <site name="rf_5_5" pos="-0.3 -0.3 -0.1" zaxis="0 0 -1"/> -->
+
+
       <camera name="tracking" mode="trackcom" pos="0 -1 0.8" xyaxes="1 0 0 0 1 1"/>
       <inertial pos="0.021112 0 -0.005366" quat="-0.000543471 0.713435 -0.00173769 0.700719" mass="6.921"
         diaginertia="0.107027 0.0980771 0.0244531"/>
@@ -399,6 +431,39 @@
     <motor class="hip" name="RL_thigh" joint="RL_thigh_joint"/>
     <motor class="knee" name="RL_calf" joint="RL_calf_joint"/>
   </actuator>
+
+  <!-- <sensor>
+	  <rangefinder name="rangefinder1_1" site="rf_1_1"/>
+    <rangefinder name="rangefinder1_2" site="rf_1_2"/>
+    <rangefinder name="rangefinder1_3" site="rf_1_3"/>
+    <rangefinder name="rangefinder1_4" site="rf_1_4"/>
+    <rangefinder name="rangefinder1_5" site="rf_1_5"/>
+
+    <rangefinder name="rangefinder2_1" site="rf_2_1"/>
+    <rangefinder name="rangefinder2_2" site="rf_2_2"/>
+    <rangefinder name="rangefinder2_3" site="rf_2_3"/>
+    <rangefinder name="rangefinder2_4" site="rf_2_4"/>
+    <rangefinder name="rangefinder2_5" site="rf_2_5"/>
+
+    <rangefinder name="rangefinder3_1" site="rf_3_1"/>
+    <rangefinder name="rangefinder3_2" site="rf_3_2"/>
+    <rangefinder name="rangefinder3_3" site="rf_3_3"/>
+    <rangefinder name="rangefinder3_4" site="rf_3_4"/>
+    <rangefinder name="rangefinder3_5" site="rf_3_5"/>
+
+    <rangefinder name="rangefinder4_1" site="rf_4_1"/>
+    <rangefinder name="rangefinder4_2" site="rf_4_2"/>
+    <rangefinder name="rangefinder4_3" site="rf_4_3"/>
+    <rangefinder name="rangefinder4_4" site="rf_4_4"/>
+    <rangefinder name="rangefinder4_5" site="rf_4_5"/>
+
+    <rangefinder name="rangefinder5_1" site="rf_5_1"/>
+    <rangefinder name="rangefinder5_2" site="rf_5_2"/>
+    <rangefinder name="rangefinder5_3" site="rf_5_3"/>
+    <rangefinder name="rangefinder5_4" site="rf_5_4"/>
+    <rangefinder name="rangefinder5_5" site="rf_5_5"/>
+
+  </sensor> -->
 
   <keyframe>
     <key name="home" qpos="0 0 0.27 1 0 0 0 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8"
