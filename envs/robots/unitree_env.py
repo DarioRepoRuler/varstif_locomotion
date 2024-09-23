@@ -218,6 +218,7 @@ class UnitreeEnv(MjxEnv):
             "hip": 0.05,
 
             "rew_joint_track": -0.01,
+            "rew_stiff_default": 2-5e-7,
         }
 
 
@@ -597,6 +598,7 @@ class UnitreeEnv(MjxEnv):
             'hip': self.rew_hip(joint_angles),
 
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
+            'rew_stiff_default': self._reward_stiff_default(action[12:])
 
         }
         rewards = {
@@ -975,3 +977,14 @@ class UnitreeEnv(MjxEnv):
     def _get_desired_contact(self, foot_cycles: jax.Array)-> jax.Array:
         C_cmd = self._von_mises(foot_cycles)*(1- self._von_mises(foot_cycles-0.5)) + self._von_mises(foot_cycles-1)*(1-self._von_mises(foot_cycles-1.5))
         return C_cmd
+    
+    def _reward_stiff_default(self, action: jax.Array) -> jax.Array:
+        m = (self.stiff_range[0] +self.stiff_range[1])/2
+        r= (self.stiff_range[1]-self.stiff_range[0])/2
+        action_stiff1 = jp.where(self.control_mode == "VIC_1", jp.repeat(action,4), 0.0)
+        action_stiff2 = jp.where(self.control_mode == "VIC_2", jp.repeat(action,3), 0.0)
+        action_stiff3 = jp.where(self.control_mode == "VIC_3", action, 0.0)
+        action_stiff = action_stiff1 + action_stiff2 + action_stiff3
+
+        stiff = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
+        return jp.sum((stiff-self.default_stiffness))*jp.where((self.control_mode == "VIC_1")| (self.control_mode=="VIC_2") | (self.control_mode=="VIC_3"), 1.0, 0.0)
