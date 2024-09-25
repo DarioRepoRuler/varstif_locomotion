@@ -52,9 +52,30 @@ env:
     stiff_range: [0.5, 2.0]
     p_gain: 50.0
     d_gain: 1.0
+  
+  reward_scales: { 
+            'tracking_lin_vel': 1.5, 
+            'tracking_ang_vel': 0.8, 
+            'lin_vel_z': -2.0, 
+            'ang_vel_xy': -0.05, 
+            'orientation': -5.0, 
+            'feet_air_time': 0.2,
+            'termination': -10.0,
+            'stand_still': -0.5, 
+            "foot_slip": -0.1,
+            "action_rate": -0.0,
+            'rew_pos_limits': -0.0,
+            "rew_acceleration": -2.5e-7,
+            "rew_collision": -10.0,
+            "rew_power": -2.e-5,
+            "rew_power_distro": -1.e-5,
+            "hip": 0.05,
+            "rew_joint_track": -0.1,
+            'rew_stiff_default': 0.0 #-2.5e-7
+    }
  
 
-ckpt_path: 'best_models/test_vic2_jt_middle.pt' #'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+ckpt_path: 'best_models/test_vic2_jt_hard.pt' #'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 timesteps_per_rollout: 50
 num_iterations: 65
 num_envs: 200

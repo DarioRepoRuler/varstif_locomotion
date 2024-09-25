@@ -109,6 +109,8 @@ class UnitreeEnv(MjxEnv):
         self.p_gain = cfg.control.p_gain
         self.d_gain = cfg.control.d_gain
 
+        self.reward_scales = cfg.reward_scales
+
         # set up robot properties
         self._setup()
 
@@ -187,39 +189,39 @@ class UnitreeEnv(MjxEnv):
         assert floor_id != -1, 'Floor not found.'
         self.floor_id = floor_id        
 
-        # Scaling of the rewards
+                # Scaling of the rewards
         # These rewards are from the tutorial: https://colab.research.google.com/github/google-deepmind/mujoco/blob/main/mjx/tutorial.ipynb
-        self.reward_scales = {
-            # From turtoial
-            'tracking_lin_vel': 1.5, 
-            'tracking_ang_vel': 0.8, 
-            "lin_vel_z": -2.0, 
-            "ang_vel_xy": -0.05, 
-            "orientation": -5.0, 
-            #"torques": -0.0002, 
-            #"smooth_rate": 0.0, #action_rate from tutorial
-            'feet_air_time': 0.2,
-            #'feet_contact_time': 0.0,
-            'termination': -10.0,
-            'stand_still': -0.5, 
-            "foot_slip": -0.1,
-            # Additional self created
-            "action_rate": -0.0,
-            #"action_rate2": 0.0,
+        # self.reward_scales = {
+        #     # From turtoial
+        #     'tracking_lin_vel': 1.5, 
+        #     'tracking_ang_vel': 0.8, 
+        #     "lin_vel_z": -2.0, 
+        #     "ang_vel_xy": -0.05, 
+        #     "orientation": -5.0, 
+        #     #"torques": -0.0002, 
+        #     #"smooth_rate": 0.0, #action_rate from tutorial
+        #     'feet_air_time': 0.2,
+        #     #'feet_contact_time': 0.0,
+        #     'termination': -10.0,
+        #     'stand_still': -0.5, 
+        #     "foot_slip": -0.1,
+        #     # Additional self created
+        #     "action_rate": -0.0,
+        #     #"action_rate2": 0.0,
             
-            "rew_pos_limits": -0.0,
-            "rew_acceleration":-2.5e-7,
-            "rew_collision": -10.0,
-            #"rew_velocity": -0.0,
-            "rew_power": -2e-6,
-            "rew_power_distro": -5e-7,
+        #     "rew_pos_limits": -0.0,
+        #     "rew_acceleration":-2.5e-7,
+        #     "rew_collision": -10.0,
+        #     #"rew_velocity": -0.0,
+        #     "rew_power": -2e-6,
+        #     "rew_power_distro": -5e-7,
 
-            # Feet
-            "hip": 0.05,
+        #     # Feet
+        #     "hip": 0.05,
 
-            "rew_joint_track": -0.01,
-            "rew_stiff_default": -2.5e-6,
-        }
+        #     "rew_joint_track": -0.01,
+        #     "rew_stiff_default": -2.5e-7,
+        # }
 
 
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
