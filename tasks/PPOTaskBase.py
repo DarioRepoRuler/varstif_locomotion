@@ -35,6 +35,9 @@ class PPOTaskBase(nn.Module):
         self.env = self.init_env(self.cfg.scene_xml)
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
+        
+        if not cfg.env.is_training:
+            self.result_file_name = cfg.result_name
         self.view_env_id = 0
         if self.control_mode == 'P' or self.control_mode == 'T':
             num_actions = 12
@@ -44,6 +47,8 @@ class PPOTaskBase(nn.Module):
             num_actions= 16
         elif self.control_mode == 'VIC_3':
             num_actions= 24
+        elif self.control_mode == 'VIC_4':
+            num_actions= 12+7
 
         self.algo = PPO(cfg=self.cfg.policy,
                         num_envs=self.cfg.num_envs,
@@ -100,6 +105,7 @@ class PPOTaskBase(nn.Module):
             print(f"Action before: {self.algo.storage.actions[-2][torch.where(torch.isnan(obs_g))[0]]}")
             print(f"Observation: {obs_g[torch.where(torch.isnan(obs_g))]}")
 
+        
         if is_training:
             actions = self.algo.act(obs_g, privileged_obs_g)
         else:
@@ -335,7 +341,7 @@ class PPOTaskBase(nn.Module):
         # eval data stores for every timestep, results are then the used metrics for overall comparison
         eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': [], 'total_dist':[], 'best_time':100.0, 'successful_envs': None}
         results = {'power': [], 'energy': [], 'COT': [], 'local_v': [], 'top_times': [], 'success_rate':[]}
-        success_dist = 5.0
+        success_dist = 3.0
         for it in range(num_iterations):
             print(f"iteration: {it} ")
 
@@ -435,7 +441,7 @@ class PPOTaskBase(nn.Module):
             results[key] = torch.stack(results[key]).cpu()
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
         save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate']], 
-                            [f'power', f'energy', 'local_v', 'success_rate'], f'results_vic2_jt_middle.csv')
+                            [f'power', f'energy', 'local_v', 'success_rate'], self.result_file_name)
         
         # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 

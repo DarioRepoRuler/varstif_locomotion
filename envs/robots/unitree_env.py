@@ -87,6 +87,10 @@ class UnitreeEnv(MjxEnv):
             self.action_shape = self.action_size + 12
             self.single_obs_size = self.single_obs_size + 12
             self.privileged_obs_size = self.privileged_obs_size + 12
+        elif cfg.control_mode == "VIC_4":
+            self.action_shape = self.action_size + 7
+            self.single_obs_size = self.single_obs_size + 7
+            self.privileged_obs_size = self.privileged_obs_size + 7
         else:
             self.action_shape = self.action_size
         # Randomization ranges:
@@ -479,6 +483,16 @@ class UnitreeEnv(MjxEnv):
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
+        elif self.control_mode == "VIC_4":
+            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
+                                    a_min=self.lower_limits, a_max=self.upper_limits)
+            err = target_dof_pos - dof_pos
+            stiff_leg = jp.tile(action[12:12+4], 3).reshape(3,4)
+            stiff_joint = action[12+4:12+4+3]
+            action_stiff = jp.ravel(stiff_leg*stiff_joint[:,jp.newaxis])
+            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
+            d_gains = 0.2*jp.sqrt(p_gains)
+            torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
 
@@ -500,6 +514,10 @@ class UnitreeEnv(MjxEnv):
             action_stiff = jp.repeat(action[12:],3)
         elif self.control_mode == "VIC_3":
             action_stiff = action[12:]
+        elif self.control_mode == "VIC_4":
+            stiff_leg = jp.tile(action[12:12+4], 3).reshape(3,4)
+            stiff_joint = action[12+4:12+4+3]
+            action_stiff = jp.ravel(stiff_leg*stiff_joint[:,jp.newaxis])
 
         p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
         return p_gains
@@ -626,7 +644,7 @@ class UnitreeEnv(MjxEnv):
             'hip': self.rew_hip(joint_angles),
 
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
-            'rew_stiff_default': self._reward_stiff_default(action[12:])
+            'rew_stiff_default': self._reward_stiff_default(action)
 
         }
         rewards = {
@@ -1008,12 +1026,8 @@ class UnitreeEnv(MjxEnv):
     def _reward_stiff_default(self, action: jax.Array) -> jax.Array:
         m = (self.stiff_range[0] +self.stiff_range[1])/2
         r= (self.stiff_range[1]-self.stiff_range[0])/2
-        if self.control_mode == "VIC_1":
-            action_stiff = jp.tile(action,4)
-        elif self.control_mode == "VIC_2":
-            action_stiff = jp.repeat(action,3) 
-        else:
-            action_stiff = action
+
+        action_stiff = self.compute_stiffness(action)
 
 
         stiff = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)

@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_2"
+  control_mode: "VIC_4"
 
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
@@ -89,9 +89,8 @@ log_dir: "Documents/TALocoMotion/outputs/"
 
 
 num_envs: 200
-
 timesteps_per_rollout: 48
-num_learning_iterations: 4001
+num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False

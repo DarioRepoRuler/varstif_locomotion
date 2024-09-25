@@ -225,13 +225,16 @@ def create_polar_plot(r, label, scale_name, plot_name):
     # Iterate over each data point in r
     if r.dim() == 1:
         plt.polar(theta, np.append(r, r[0]), marker='o', label=label)
-        plt.legend()
+        #plt.legend()
     if r.dim() >1:
         for i in range(r.shape[0]):
             # Plotting the polar coordinates on the system
             plt.polar(theta, np.append(r[i,:], r[i,0]), marker='o', label=label[i])
-            plt.legend()
+            #plt.legend()
 
+
+    # Position the legend outside the plot
+    plt.legend(loc='upper left', bbox_to_anchor=(0.6, 1.1), borderaxespad=0.)
     # Set the radial limits
     ax.set_rorigin(0)
     ax.set_ylim(0, r.max())

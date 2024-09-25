@@ -1,25 +1,41 @@
 from graphs_gen import *
 
 
-default_speed = load_tensor_from_csv('local_v' ,filename='results_pos.csv')
-vic2_speed = load_tensor_from_csv('local_v',filename='results_vic2_feet_air.csv')
-vic2_woar_speed = load_tensor_from_csv('local_v',filename='results_vic2_woar.csv')
-vic2_default_speed = load_tensor_from_csv('local_v',filename='results_vic2.csv')
-vic2_jt_speed = load_tensor_from_csv('local_v',filename='results_vic2_jt.csv')
-vic2_jt_hard_speed = load_tensor_from_csv('local_v',filename='results_vic2_jt_hard.csv')
-vic2_jz_middle_speed = load_tensor_from_csv('local_v', filename='results_vic2_jt_middle.csv')
-print(default_speed)
-print(vic2_speed)
+# default_speed = load_tensor_from_csv('local_v' ,filename='results_pos.csv')
+# vic2_speed = load_tensor_from_csv('local_v',filename='results_vic2_feet_air.csv')
+# vic2_woar_speed = load_tensor_from_csv('local_v',filename='results_vic2_woar.csv')
+# vic2_default_speed = load_tensor_from_csv('local_v',filename='results_vic2.csv')
+# vic2_jt_speed = load_tensor_from_csv('local_v',filename='results_vic2_jt.csv')
+# vic2_jt_hard_speed = load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_continue.csv')
+# vic2_jz_middle_speed = load_tensor_from_csv('local_v', filename='results_vic2_jt_middle.csv')
+
+speeds_comp={
+    'Baseline': load_tensor_from_csv('local_v' ,filename='results_pos.csv'),
+    #'VIC2 w ar feet air': load_tensor_from_csv('local_v',filename='results_vic2_feet_air.csv'),
+    #'VIC2 w ar default': load_tensor_from_csv('local_v',filename='results_vic2.csv'),
+    #'VIC2 wo ar': load_tensor_from_csv('local_v',filename='results_vic2_woar.csv'),
+    'VIC2 wo ar& w jt': load_tensor_from_csv('local_v',filename='results_vic2_jt.csv'),
+    'VIC2 wo ar & w jt hard': load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_continue.csv'),
+    'VIC2 wo ar & w jt middle': load_tensor_from_csv('local_v', filename='results_vic2_jt_middle.csv'),
+    'VIC2 wo ar & w jt hard new': load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_newnew.csv')
+}
+
+success_rates = {
+    'Baseline': load_tensor_from_csv('success_rate',filename='results_pos.csv'),
+    'VIC2 w ar feet air': load_tensor_from_csv('success_rate',filename='results_vic2_feet_air.csv'),
+    'VIC2 w ar default': load_tensor_from_csv('success_rate',filename='results_vic2.csv'),
+    'VIC2 wo ar': load_tensor_from_csv('success_rate',filename='results_vic2_woar.csv'),
+    'VIC2 wo ar& w jt': load_tensor_from_csv('success_rate',filename='results_vic2_jt.csv'),
+    'VIC wo ar & w jt hard': load_tensor_from_csv('success_rate',filename='results_vic2_jt_hard_continue.csv'),
+    'VIC wo ar & w jt middle': load_tensor_from_csv('success_rate', filename='results_vic2_jt_middle.csv')
+}
 
 
-success_rate_pos = load_tensor_from_csv('success_rate',filename='results_pos.csv')
-success_rate_vic2 = load_tensor_from_csv('success_rate',filename='results_vic2.csv')
-success_rate_vic2_woar = load_tensor_from_csv('success_rate',filename='results_vic2_woar.csv')
 
 
+speeds_t=torch.stack([speeds_comp[key] for key in speeds_comp.keys()],dim=0)
+success_rates_t = torch.stack([success_rates[key] for key in success_rates.keys()],dim=0)
 
-speeds=torch.stack([default_speed,vic2_speed, vic2_default_speed, vic2_woar_speed, vic2_jt_speed, vic2_jt_hard_speed,vic2_jz_middle_speed],dim=0)
-success_rates = torch.stack([success_rate_pos,success_rate_vic2,success_rate_vic2_woar],dim=0)
-print(speeds.shape)
-create_polar_plot( speeds,['Baseline', 'VIC2 w ar feet air', 'VIC2 w ar default', 'VIC2 wo ar', 'VIC2 wo ar& w jt', 'VIC wo ar & w jt hard', 'VIC wo ar & w jt middle'] ,'Speed (m/s)','speed_comparison.png')
-create_polar_plot(success_rates,['Baseline', 'VIC2 w ar', 'VIC2 wo ar'],'Success Rate','success_rate_comparison.png')
+
+create_polar_plot( speeds_t, [key for key in speeds_comp.keys()] ,'Speed (m/s)','speed_comparison')
+create_polar_plot( success_rates_t,[key for key in success_rates.keys()] ,'Success Rate','success_rate_comparison.png')
