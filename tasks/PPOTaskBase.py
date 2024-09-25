@@ -31,7 +31,7 @@ class PPOTaskBase(nn.Module):
         self.test_interval = test_interval
         self.initial_xy = jp.array([0, 0]) #starting in the first quadrant
         self.manual_cmd = jp.array([cfg.env.manual_control.cmd_x, cfg.env.manual_control.cmd_y, cfg.env.manual_control.cmd_ang])
-        
+        self.high_score_avg_reward =0.0
         self.env = self.init_env(self.cfg.scene_xml)
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
@@ -231,9 +231,14 @@ class PPOTaskBase(nn.Module):
                 if 'time_out' not in key:
                     self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
 
-    def agent_eval_step(self, it, is_training=True): # this function can be called via test or train
+    def agent_eval_step(self, it, save_dir, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
+        self.save(os.path.join(save_dir, f'model_{it}.pt'))
+        
         stat, episode_infos, _,_ = self.simulate(it,is_training=is_training)
+        if stat["avg_reward"] > self.high_score_avg_reward:
+            print(f"New high score: {stat['avg_reward']}")
+            self.save(os.path.join(save_dir, f'best.pt'))
 
         if self.wandb_logger:
             self.wandb_logger.log({'val/avg_traverse': stat["avg_traverse"],
@@ -283,8 +288,8 @@ class PPOTaskBase(nn.Module):
             
             if it % self.eval_interval == 0:
                 print(f"Evaluation at epoch: {it}")
-                self.agent_eval_step(it, is_training=True)
-                self.save(os.path.join(save_dir, f'model_{it}.pt'))
+                self.agent_eval_step(it, save_dir,is_training=True)
+                
 
 
             if (it == 2000):
@@ -294,14 +299,13 @@ class PPOTaskBase(nn.Module):
             if (it == 4000):
                 self.env = self.init_env('unitree_go2/terrain_gaussian.xml')
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
-                
+
             if self.curriculum and it % (self.eval_interval+1) ==0:
                 # Update level according to paper(Learn to walk in minutes)
                 print(f"System level update at epoch: {it}")
                 temp = self.cfg.env.manual_control
                 self.cfg.env.manual_control = True # walk straight
-                self.agent_eval_step(it, is_training=True)
-                self.save(os.path.join(save_dir, f'model_{it}.pt'))
+                self.agent_eval_step(it, save_dir, is_training=True)
                 # Move to different terrain if successfull
                 self.update_level()
                 self.cfg.env.manual_control = temp # TODO: improve layout and yaml
@@ -368,9 +372,7 @@ class PPOTaskBase(nn.Module):
 
                 print(f"Success rate: {results['success_rate'][-1]}")
                 print(f"Finished experiment {it//8} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
-                # if it//8 == 1:
-                #     self.env = self.init_env('unitree_go2/terrain_multi.xml' )
-                    #self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
+
                 # Change the direction of the manual command
                 if it//8 < 8:
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
