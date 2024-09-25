@@ -7,14 +7,17 @@ import mujoco
 from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
 import jax.numpy as jp
 import jax
+from envs.robots.go2_env import GO2Env
+from envs.common.wrapper import _create_env
 
-# import threading
-# from pynput import keyboard as pynput_keyboard
+
+import threading
+from pynput import keyboard as pynput_keyboard
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
                  cfg,
-                 env,
+                 #env,
                  eval_interval=50,
                  save_interval=50,
                  test_interval=100,
@@ -28,7 +31,8 @@ class PPOTaskBase(nn.Module):
         self.test_interval = test_interval
         self.initial_xy = jp.array([0, 0]) #starting in the first quadrant
         self.manual_cmd = jp.array([cfg.env.manual_control.cmd_x, cfg.env.manual_control.cmd_y, cfg.env.manual_control.cmd_ang])
-        self.env = env
+        
+        self.env = self.init_env(self.cfg.scene_xml)
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
         self.view_env_id = 0
@@ -61,6 +65,10 @@ class PPOTaskBase(nn.Module):
             self.keyboard_listener_thread = threading.Thread(target=self.keyboard_listener)
             self.keyboard_listener_thread.daemon = True
             self.keyboard_listener_thread.start()
+
+    def init_env(self, scene_xml=None):
+        env = _create_env(GO2Env(self.cfg.env, scene_xml=scene_xml), num_envs=self.cfg.num_envs, device=self.cfg.device, viz=self.cfg.viz, domain_cfg=self.cfg.env.domain_rand)
+        return env
 
     def on_press(self, key):
         try:
@@ -278,6 +286,15 @@ class PPOTaskBase(nn.Module):
                 self.agent_eval_step(it, is_training=True)
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
 
+
+            if (it == 2000):
+                self.env = self.init_env('unitree_go2/terrain_multi.xml')
+                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
+
+            if (it == 4000):
+                self.env = self.init_env('unitree_go2/terrain_gaussian.xml')
+                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
+                
             if self.curriculum and it % (self.eval_interval+1) ==0:
                 # Update level according to paper(Learn to walk in minutes)
                 print(f"System level update at epoch: {it}")
@@ -351,7 +368,9 @@ class PPOTaskBase(nn.Module):
 
                 print(f"Success rate: {results['success_rate'][-1]}")
                 print(f"Finished experiment {it//8} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
-
+                # if it//8 == 1:
+                #     self.env = self.init_env('unitree_go2/terrain_multi.xml' )
+                    #self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
                 # Change the direction of the manual command
                 if it//8 < 8:
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
