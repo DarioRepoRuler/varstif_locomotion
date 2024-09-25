@@ -78,7 +78,7 @@ env:
 
 log: True
 
-ckpt_path: null 
+ckpt_path: 'outputs/2024-09-23/14-32-09/checkpoints/model_2000.pt' 
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
