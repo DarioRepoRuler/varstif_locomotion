@@ -109,6 +109,7 @@ class UnitreeEnv(MjxEnv):
         self.p_gain = cfg.control.p_gain
         self.d_gain = cfg.control.d_gain
 
+        self.control_range = cfg.control_range
         self.reward_scales = cfg.reward_scales
 
         # set up robot properties
@@ -311,9 +312,9 @@ class UnitreeEnv(MjxEnv):
     
     def _resample_commands(self, rng: jax.Array) -> jax.Array:
         # Define constraints for the commands# From turtoial
-        lin_vel_x = [-0.6, 1.0]  # min max [m/s]
-        lin_vel_y = [-0.5, 0.5]  # min max [m/s]
-        ang_vel_yaw = [-0.7, 0.7]  # min max [rad/s] 
+        lin_vel_x = self.control_range['cmd_x'] # min max [m/s]
+        lin_vel_y = self.control_range['cmd_y'] # min max [m/s]
+        ang_vel_yaw = self.control_range['cmd_ang']  # min max [rad/s] 
 
         _, key1, key2, key3 = jax.random.split(rng, 4)
 
@@ -785,7 +786,6 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privileged
-
             state_info['kp_factor'],
             state_info['kd_factor'],
             state_info['motor_strength'],
