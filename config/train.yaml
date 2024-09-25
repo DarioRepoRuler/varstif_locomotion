@@ -54,10 +54,30 @@ env:
     p_gain: 50.0
     d_gain: 1.0
 
-
+  reward_scales: { 
+            'tracking_lin_vel': 1.5, 
+            'tracking_ang_vel': 0.8, 
+            'lin_vel_z': -2.0, 
+            'ang_vel_xy': -0.05, 
+            'orientation': -5.0, 
+            'feet_air_time': 0.2,
+            'termination': -10.0,
+            'stand_still': -0.5, 
+            "foot_slip": -0.1,
+            "action_rate": -0.0,
+            'rew_pos_limits': -0.0,
+            "rew_acceleration": -2.5e-7,
+            "rew_collision": -10.0,
+            "rew_power": -2e-6,
+            "rew_power_distro": -5.e-7,
+            "hip": 0.05,
+            "rew_joint_track": -0.01,
+            'rew_stiff_default': -2.5e-7
+    }
+    
 log: True
 
-ckpt_path: null 
+ckpt_path: 'outputs/2024-09-23/14-32-09/checkpoints/model_2000.pt' 
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
