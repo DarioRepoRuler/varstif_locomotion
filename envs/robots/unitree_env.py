@@ -218,7 +218,7 @@ class UnitreeEnv(MjxEnv):
             "hip": 0.05,
 
             "rew_joint_track": -0.01,
-            "rew_stiff_default": 2-5e-7,
+            "rew_stiff_default": -2.5e-6,
         }
 
 
@@ -411,7 +411,8 @@ class UnitreeEnv(MjxEnv):
         metrics = {
             'total_dist': 0.0,
             'total_time': 0.0, 
-            'power': 0.0, 
+            'power': 0.0,
+            'p_gains':jp.zeros(12),
             'local_v':jp.array([0.0, 0.0, 0.0]), 
             'm_total':jp.sum(self.sys.body_mass), 
             'foot_pos_z':jp.zeros(4),
@@ -480,6 +481,27 @@ class UnitreeEnv(MjxEnv):
 
         return jp.clip(torques*actuator_param[2], a_min=-self.torque_limits, a_max=self.torque_limits)
 
+    def compute_stiffness(self, action: jp.ndarray) -> jp.ndarray:
+        """
+        :param action: in (-1, 1)
+        :return:
+        """
+        m = (self.stiff_range[0] +self.stiff_range[1])/2
+        r= (self.stiff_range[1]-self.stiff_range[0])/2
+
+        if self.control_mode == "P":
+            return self.p_gains
+        elif self.control_mode == "VIC_1":
+            action_stiff = jp.tile(action[12:],4)
+        elif self.control_mode == "VIC_2":
+            action_stiff = jp.repeat(action[12:],3)
+        elif self.control_mode == "VIC_3":
+            action_stiff = action[12:]
+
+        p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
+        return p_gains
+
+
     def kick_robot(self, state: State, rng: jp.ndarray):
         """
         Adjusts the velocity of the robot base to simulate a kick, for every push_interval steps.
@@ -522,6 +544,9 @@ class UnitreeEnv(MjxEnv):
 
         # Performs physics timesteps per control step
         actuator_param = jp.concatenate([state.info['kp_factor'], state.info['kd_factor'], state.info['motor_strength']])
+
+        p_gains = self.compute_stiffness(action)
+        #jax.debug.print('P gains: {x}', x=p_gains)
         data = self.pipeline_step(data0, action, actuator_param) #passed data is action as angle -> convert to torque in mjx
         #jax.debug.print('Height: {x}', x=data.sensordata)
         # ----------------- POST Physics step --------------- #
@@ -981,10 +1006,13 @@ class UnitreeEnv(MjxEnv):
     def _reward_stiff_default(self, action: jax.Array) -> jax.Array:
         m = (self.stiff_range[0] +self.stiff_range[1])/2
         r= (self.stiff_range[1]-self.stiff_range[0])/2
-        action_stiff1 = jp.where(self.control_mode == "VIC_1", jp.repeat(action,4), 0.0)
-        action_stiff2 = jp.where(self.control_mode == "VIC_2", jp.repeat(action,3), 0.0)
-        action_stiff3 = jp.where(self.control_mode == "VIC_3", action, 0.0)
-        action_stiff = action_stiff1 + action_stiff2 + action_stiff3
+        if self.control_mode == "VIC_1":
+            action_stiff = jp.tile(action,4)
+        elif self.control_mode == "VIC_2":
+            action_stiff = jp.repeat(action,3) 
+        else:
+            action_stiff = action
+
 
         stiff = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-        return jp.sum((stiff-self.default_stiffness))*jp.where((self.control_mode == "VIC_1")| (self.control_mode=="VIC_2") | (self.control_mode=="VIC_3"), 1.0, 0.0)
+        return jp.sum((stiff-self.p_gains)) * jp.where((self.control_mode == "VIC_1")| (self.control_mode=="VIC_2") | (self.control_mode=="VIC_3"), 1.0, 0.0)

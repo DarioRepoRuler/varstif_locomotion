@@ -41,7 +41,7 @@ env:
 
   manual_control:
     enable: True
-    cmd_x: 0.4
+    cmd_x: 0.8
     cmd_y: 0.0
     cmd_ang: 0.0
 
@@ -54,7 +54,7 @@ env:
     d_gain: 1.0
  
 
-ckpt_path: 'best_models/test_vic2_jt.pt' #'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+ckpt_path: 'best_models/test_vic2_jt_middle.pt' #'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 timesteps_per_rollout: 50
 num_iterations: 65
 num_envs: 200
