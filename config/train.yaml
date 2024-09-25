@@ -75,14 +75,11 @@ env:
           "rew_acceleration": -2.5e-7,
           "rew_collision": -10.0,
           "rew_power": -2.e-5,
-          "rew_power_distro": -1.e-5,
+          "rew_power_distro": -5.e-6,
           "hip": 0.05,
           "rew_joint_track": -0.1,
           'rew_stiff_default': 0.0 
   }
-
-
-
 
 log: True
 
