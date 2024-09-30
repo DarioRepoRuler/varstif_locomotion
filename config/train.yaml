@@ -79,6 +79,7 @@ env:
           "hip": 0.05,
           "rew_joint_track": -0.1,
           'rew_stiff_default': 0.0 
+          'rew_base_height': -0.6
   }
 
 log: True
@@ -94,7 +95,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'VIC Controlled'
 group: Bruce-P2

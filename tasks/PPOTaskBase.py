@@ -13,6 +13,7 @@ from envs.common.wrapper import _create_env
 
 import threading
 from pynput import keyboard as pynput_keyboard
+from time import time
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -113,11 +114,15 @@ class PPOTaskBase(nn.Module):
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
         
+        time_start = time()
+
         if self.cfg.viz:
             next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions, env_id=self.view_env_id)
         else:
             next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions)
-
+        time_end = time()
+        time_diff = time_end - time_start
+        print(f"Time for step: {time_diff}")
         self.algo.process_env_step(obs_g, privileged_obs_g,rewards, dones, infos)
 
         return next_obs_g, next_priv_obs_g, dones, infos, metrics
@@ -298,11 +303,11 @@ class PPOTaskBase(nn.Module):
                 
 
 
-            if (it == 2000):
+            if (it == 4000):
                 self.env = self.init_env('unitree_go2/terrain_multi.xml')
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
 
-            if (it == 4000):
+            if (it == 6000):
                 self.env = self.init_env('unitree_go2/terrain_gaussian.xml')
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
 
@@ -339,9 +344,12 @@ class PPOTaskBase(nn.Module):
         #single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
 
         # eval data stores for every timestep, results are then the used metrics for overall comparison
-        eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': [], 'total_dist':[], 'best_time':100.0, 'successful_envs': None}
+        eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': [], 'total_dist':[], 'best_time':100.0, 'successful_envs': None, 'p_gains': []}
         results = {'power': [], 'energy': [], 'COT': [], 'local_v': [], 'top_times': [], 'success_rate':[]}
-        success_dist = 3.0
+        time_per_experiment = 0.02*self.cfg.rollouts_per_experiment*self.cfg.timesteps_per_rollout
+        print(f"Time per experiment: {time_per_experiment}")
+        success_dist = self.cfg.env.manual_control.cmd_x*time_per_experiment*self.cfg.success_threshold
+        print(f"Success after distance: {success_dist}")
         for it in range(num_iterations):
             print(f"iteration: {it} ")
 
@@ -356,7 +364,7 @@ class PPOTaskBase(nn.Module):
                           jp.array([0.0, -self.cfg.env.manual_control.cmd_x, 0.0]),
                           jp.array([vel_xy, -vel_xy, 0.0])]
 
-            if it % 8 == 0 and it >0:
+            if it % self.cfg.rollouts_per_experiment == 0 and it >0:
                 # Evaluate the results
                 results['power'].append(torch.mean(torch.stack(eval_data['power'])))
                 results['energy'].append(torch.mean(torch.stack(eval_data['power'])))
@@ -375,13 +383,14 @@ class PPOTaskBase(nn.Module):
                 eval_data['energy'] = []
                 eval_data['COT'] = []
                 eval_data['local_v'] = []
+                
 
                 print(f"Success rate: {results['success_rate'][-1]}")
-                print(f"Finished experiment {it//8} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
+                print(f"Finished experiment {it//self.cfg.rollouts_per_experiment} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
 
                 # Change the direction of the manual command
-                if it//8 < 8:
-                    self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // 8])
+                if it//self.cfg.rollouts_per_experiment < self.cfg.rollouts_per_experiment:
+                    self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // self.cfg.rollouts_per_experiment])
             
 
             COT = torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) ) ))
@@ -392,6 +401,7 @@ class PPOTaskBase(nn.Module):
             eval_data['COT'].append(COT)
             eval_data['local_v'].append(torch.linalg.norm(eval_metrics['local_v'],dim=2))
             eval_data['total_dist'].append(eval_metrics['total_dist'])
+            eval_data['p_gains'].append(eval_metrics['p_gains'])
             #print(f"Total distance: {eval_data['total_dist'][-1]}")
             if torch.any(eval_data['total_dist'][-1] > success_dist):
 
@@ -421,7 +431,10 @@ class PPOTaskBase(nn.Module):
 
             # Plot foot tracking trajectories + command tracking 
             eval_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
-            eval_graph([eval_metrics['command'][:,0,0], eval_metrics['local_v'][:,0,0]], ['command', 'local_v_x'], f"command_track{it}", timestep=0.02)
+            error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
+            eval_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
+            #eval_graph([eval_metrics['command'][:,0,0], eval_metrics['local_v'][:,0,0]], ['command', 'local_v_x'], f"command_track{it}", timestep=0.02)
+
 
             # Recording of foot trajectories
             save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
@@ -434,14 +447,13 @@ class PPOTaskBase(nn.Module):
         global_trajectory = torch.cat(eval_data['trajectory'], 0)
         print(f"Global trajectory: {global_trajectory.shape}")
         #plot_xy_position(global_trajectory[:,0,:], "Global Position Trajectory")
-        power_overall = torch.mean(torch.stack(eval_data['power']))
-        energy_overall = torch.sum(torch.stack(eval_data['energy']))
+
         COT = torch.mean(torch.stack(eval_data['COT']))
         for key in results.keys():      
             results[key] = torch.stack(results[key]).cpu()
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
-        save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate']], 
-                            [f'power', f'energy', 'local_v', 'success_rate'], self.result_file_name)
+        save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate'], results['COT']], 
+                            [f'power', f'energy', 'local_v', 'success_rate', 'COT'], self.result_file_name)
         
         # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
 

@@ -487,9 +487,9 @@ class UnitreeEnv(MjxEnv):
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
-            stiff_leg = jp.tile(action[12:12+4], 3).reshape(3,4)
-            stiff_joint = action[12+4:12+4+3]
-            action_stiff = jp.ravel(stiff_leg*stiff_joint[:,jp.newaxis])
+            stiff_leg = jp.tile(unscale(action[12:12+4], self.stiff_range[0], self.stiff_range[1]), 3).reshape(3,4)
+            stiff_joint = unscale(action[12+4:12+4+3], self.stiff_range[0], self.stiff_range[1])
+            action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains = 0.2*jp.sqrt(p_gains)
             torques = p_gains * err - d_gains * dof_vel
@@ -644,8 +644,8 @@ class UnitreeEnv(MjxEnv):
             'hip': self.rew_hip(joint_angles),
 
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
-            'rew_stiff_default': self._reward_stiff_default(action)
-
+            'rew_stiff_default': self._reward_stiff_default(action),
+            'rew_base_height': self._reward_base_height(data.qpos[2]),
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -683,7 +683,7 @@ class UnitreeEnv(MjxEnv):
         state.metrics['dof_pos'] = data.qpos[7:]
         state.metrics['glob_pos'] = data.qpos[:2]
         state.metrics['command'] = state.info['command']
-
+        state.metrics['p_gains'] = p_gains
         
         # state.info['command'] = jp.where(
         #     jp.logical_and(self.manual_control, state.info['step'] < 100 ),
@@ -1014,6 +1014,10 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Desired contacts: {x}', x=desired_contacts)
         foot_clearance = jp.square(target_height-foot_z)*(1-desired_contacts)
         return jp.sum(foot_clearance)
+    
+    def _reward_base_height(self, base_z: jax.Array) -> jax.Array:
+        target_height = 0.27
+        return jp.square(base_z-target_height)
 
     def _von_mises(self, t: jax.Array)-> jax.Array:
         kappa = 0.07
