@@ -490,7 +490,7 @@ class UnitreeEnv(MjxEnv):
             stiff_leg = jp.tile(unscale(action[12:12+4], self.stiff_range[0], self.stiff_range[1]), 3).reshape(3,4)
             stiff_joint = unscale(action[12+4:12+4+3], self.stiff_range[0], self.stiff_range[1])
             action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
-            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
+            p_gains = jp.clip(self.p_gains*action_stiff, a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains = 0.2*jp.sqrt(p_gains)
             torques = p_gains * err - d_gains * dof_vel
         else:
@@ -804,13 +804,13 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privileged
-            state_info['kp_factor'],
-            state_info['kd_factor'],
-            state_info['motor_strength'],
-            jp.array([self.sys.geom_friction[0, 0]]),
-            jp.array([self.sys.body_mass[1]]),
-            state_info['kick'],
-            state_info['contact'],
+            # state_info['kp_factor'],
+            # state_info['kd_factor'],
+            # state_info['motor_strength'],
+            # jp.array([self.sys.geom_friction[0, 0]]),
+            # jp.array([self.sys.body_mass[1]]),
+            # state_info['kick'],
+            # state_info['contact'],
             obs
         ])
 

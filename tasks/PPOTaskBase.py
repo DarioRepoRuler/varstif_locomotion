@@ -114,15 +114,15 @@ class PPOTaskBase(nn.Module):
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
         
-        time_start = time()
+        #time_start = time()
 
         if self.cfg.viz:
             next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions, env_id=self.view_env_id)
         else:
             next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions)
-        time_end = time()
-        time_diff = time_end - time_start
-        print(f"Time for step: {time_diff}")
+        #time_end = time()
+        #time_diff = time_end - time_start
+        #print(f"Time for step: {time_diff}")
         self.algo.process_env_step(obs_g, privileged_obs_g,rewards, dones, infos)
 
         return next_obs_g, next_priv_obs_g, dones, infos, metrics

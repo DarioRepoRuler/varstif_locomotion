@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_4"
+  control_mode: "P"
   physics_steps_per_control_step: 4
 
   num_history_actor: 1 # number of previous observations to stack
@@ -15,7 +15,7 @@ env:
   episode_length: 750
 
   single_obs_size: 48
-  single_obs_size_priv: 59
+  single_obs_size_priv: 48
 
   domain_rand:
     randomisation: True
@@ -60,37 +60,38 @@ env:
     d_gain: 1.0
   
   reward_scales: { 
-            'tracking_lin_vel': 1.5, 
-            'tracking_ang_vel': 0.8, 
-            'lin_vel_z': -2.0, 
-            'ang_vel_xy': -0.05, 
-            'orientation': -5.0, 
-            'feet_air_time': 0.2,
-            'termination': -10.0,
-            'stand_still': -0.5, 
-            "foot_slip": -0.1,
-            "action_rate": -0.0,
-            'rew_pos_limits': -0.0,
-            "rew_acceleration": -2.5e-7,
-            "rew_collision": -10.0,
-            "rew_power": -2.e-5,
-            "rew_power_distro": -1.e-5,
-            "hip": 0.05,
-            "rew_joint_track": -0.1,
-            'rew_stiff_default': 0.0 #-2.5e-7
-    }
+          'tracking_lin_vel': 1.5, 
+          'tracking_ang_vel': 0.8, 
+          'lin_vel_z': -2.0, 
+          'ang_vel_xy': -0.05, 
+          'orientation': -5.0, 
+          'feet_air_time': 0.2,
+          'termination': -10.0,
+          'stand_still': -0.5, 
+          "foot_slip": -0.1,
+          "action_rate": -0.0,
+          'rew_pos_limits': -0.0,
+          "rew_acceleration": -2.5e-7,
+          "rew_collision": -10.0,
+          "rew_power": -2.e-5,
+          "rew_power_distro": -5.e-6,
+          "hip": 0.05,
+          "rew_joint_track": -0.1,
+          'rew_stiff_default': 0.0,
+          'rew_base_height': -0.6
+  }
  
 success_threshold: 0.78125
 rollouts_per_experiment: 8
 
-ckpt_path: best_models/test_vic4_jt.pt #'best_models/test_vic1_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
-result_name: 'results_vic4_jt.csv'
+ckpt_path: 'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+result_name: 'results_pos.csv'
 timesteps_per_rollout: 50
 num_iterations: 65
-num_envs: 1000
+num_envs: 200
 
 
-viz: False
+viz: True
 device: 'cuda:0'
 curriculum: False
 scene_xml: 'unitree_go2/flat.xml'
