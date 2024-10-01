@@ -576,7 +576,7 @@ class UnitreeEnv(MjxEnv):
         #1.) Extract the state information: positions/velocities, joint angles/velocities, foot contacts, etc.
         x, xd = self._pos_vel(data)
         joint_angles = data.qpos[7:]
-        joint_vel = data.qvel       
+        joint_vel = data.qvel  
 
         # Foot contact data
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
@@ -591,7 +591,6 @@ class UnitreeEnv(MjxEnv):
         mean_z = jp.sum(foot_pos[:, 2]*contact_filt_mm) / (jp.sum(contact_filt_mm)+ 1e-6)
         #contact_filt_cm = (((foot_pos[:,2]-self._foot_radius-mean_z) < 1e-2) & (foot_floor_dist < 1e-2)) | state.info['last_contact']
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
-        #jax.debug.print('Foot contacts: {x}', x=contact_filt_cm)
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         # for observations
         state.info['contact'] = contact_filt_mm
@@ -638,8 +637,8 @@ class UnitreeEnv(MjxEnv):
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
             #'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
-            'rew_power': self._reward_power(data.qfrc_actuator, joint_vel),
-            'rew_power_distro': self._reward_power_distro(data.qfrc_actuator, joint_vel),
+            'rew_power': self._reward_power(data.ctrl, joint_vel[6:]),
+            'rew_power_distro': self._reward_power_distro(data.ctrl, joint_vel[6:]),
             # Feet posture
             'hip': self.rew_hip(joint_angles),
 
@@ -683,24 +682,11 @@ class UnitreeEnv(MjxEnv):
         state.metrics['dof_pos'] = data.qpos[7:]
         state.metrics['glob_pos'] = data.qpos[:2]
         state.metrics['command'] = state.info['command']
-        state.metrics['p_gains'] = p_gains
-        
-        # state.info['command'] = jp.where(
-        #     jp.logical_and(self.manual_control, state.info['step'] < 100 ),
-        #     jp.array([self.cmd_x, self.cmd_y, self.cmd_yaw]),
-        #     state.info['command'],
-        #     )
-        
-        # state.info['command'] = jp.where(
-        #     jp.logical_and(self.manual_control,state.info['step'] > 100 ),
-        #     jp.array([-0.7, self.cmd_y, self.cmd_yaw]),
-        #     state.info['command'],
-        #     )
-    
+        state.metrics['p_gains'] = p_gains   
 
         # sample new command
         state.info['command'] = jp.where(
-            jp.logical_and(state.info['step'] > self.episode_length, ~self.manual_control),
+            jp.logical_and( state.info['step'] % 100 == 0, jp.logical_not(self.manual_control)), #normally a ~ would be sufficient but it somehow converts the boolean into -2 and thus this and does not work anymore
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
@@ -720,10 +706,7 @@ class UnitreeEnv(MjxEnv):
         state = state.replace(
             pipeline_state=data, obs=obs, reward=reward, done=done, privileged_obs=privileged_obs
         )
-        # jax.debug.print('Last obs: {x}', x=state.obs[-self.single_obs_size:])
-        # jax.debug.print('Last privileged obs: {x}', x=state.privileged_obs[-self.privileged_obs_size:])
-        # jax.debug.print('State current obs: {x}', x=state.obs[:self.single_obs_size])
-        # jax.debug.print('State privileged obs: {x}', x=state.privileged_obs[:self.privileged_obs_size])
+
 
         
         return state
@@ -966,18 +949,11 @@ class UnitreeEnv(MjxEnv):
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
-        # get velocities at feet which are offset from lower legs
-        # pytype: disable=attribute-error
-        pos = pipeline_state.site_xpos[self.feet_site_id]  # feet position
-        feet_offset = pos - pipeline_state.xpos[self._lower_leg_body_id]
-        # pytype: enable=attribute-error
-        offset = Transform.create(pos=feet_offset)
-        foot_indices = self._lower_leg_body_id - 1  # we got rid of the world body
-        foot_vel = offset.vmap().do(xd.take(foot_indices)).vel
+        foot_indices = self.foot_body_id - 1
+        foot_vel = xd.take(foot_indices).vel
 
         # Penalize large feet velocity for feet that are in contact with the ground.
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
-   
 
     def _reward_termination(self, done: jax.Array, step, data: mjx.Data) -> jax.Array:
         #receive reward if the robot is terminated, the step is within its range and the robot is within the limits

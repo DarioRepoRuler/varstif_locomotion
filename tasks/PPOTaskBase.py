@@ -304,6 +304,12 @@ class PPOTaskBase(nn.Module):
 
 
             if (it == 4000):
+                self.cfg.env.control_range = {
+                    'cmd_x': [-3.0, 3.0],
+                    'cmd_y': [-1.0, 1.0],
+                    'cmd_ang': [-1.0, 1.0]
+                }
+                print(f"Config env: {self.cfg.env}")
                 self.env = self.init_env('unitree_go2/terrain_multi.xml')
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
 
