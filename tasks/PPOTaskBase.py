@@ -5,6 +5,7 @@ from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
 import mujoco
 from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
+
 import jax.numpy as jp
 import jax
 from envs.robots.go2_env import GO2Env
@@ -14,6 +15,9 @@ from envs.common.wrapper import _create_env
 import threading
 from pynput import keyboard as pynput_keyboard
 from time import time
+
+
+from utils.helper_traj import create_combined_command
 
 class PPOTaskBase(nn.Module):
     def __init__(self,
@@ -63,6 +67,7 @@ class PPOTaskBase(nn.Module):
 
         self.current_learning_iteration = 0
         self.level = 0
+
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd = self.manual_cmd)
 
 
@@ -185,24 +190,6 @@ class PPOTaskBase(nn.Module):
         
         episode_infos['time_outs'] = time_out
         return self.obs, self.obs_priv, dones, episode_infos, eval_infos, combined_metrics
-    
-
-    def combine_dictionaries(dictionaries):
-            """Combines a list of dictionaries with the same keys, concatenating their values.
-
-            Args:
-                dictionaries: A list of dictionaries.
-
-            Returns:
-                A new dictionary with combined values.
-            """
-
-            combined_dict = {}
-            for key in dictionaries[0].keys():
-                combined_dict[key] = []
-                for dictionary in dictionaries:
-                    combined_dict[key].extend(dictionary[key])
-            return combined_dict
 
     def simulate(self,it, is_training=True): # Simulates through one episode
         """
@@ -241,6 +228,8 @@ class PPOTaskBase(nn.Module):
             for key in episode_infos.keys():
                 if 'time_out' not in key:
                     self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
+                if 'tracking_lin_vel' in key:
+                    self._rew_track_lin_vel = episode_infos[key]
 
     def agent_eval_step(self, it, save_dir, is_training=True): # this function can be called via test or train
         self.algo.actor_critic.eval()
@@ -265,7 +254,7 @@ class PPOTaskBase(nn.Module):
 
     def update_level(self):
         """
-        Check the level of the agent.
+        Check the level of the agent. 
         """
         max_distance =max(self.pos_x[:] - self.pos_x[0])
         print(f"Max distance: {max_distance}")
@@ -282,6 +271,26 @@ class PPOTaskBase(nn.Module):
             self.initial_xy = jp.array([-2, 2.5])
         print(f"Set next position to: {self.initial_xy}")
 
+    def create_sinusoidal_command(self, amplitude, frequency, episode_length, sampling_rate):
+        """
+        Creates a sinusoidal command with the given amplitude, frequency, episode length, and sampling rate.
+
+        Args:
+            amplitude: The maximum value of the sinusoid.
+            frequency: The frequency of the sinusoid in Hz.
+            episode_length: The duration of the episode in seconds.
+            sampling_rate: The sampling rate in Hz.
+
+        Returns:
+            A JAX array containing the sinusoidal command.
+        """
+
+        num_timesteps = int(episode_length * sampling_rate)
+        time_values = jp.linspace(0, episode_length, num_timesteps)
+        sinusoidal_values = amplitude * jp.sin(2 * jp.pi * frequency * time_values)
+        return jp.stack([time_values, sinusoidal_values], axis=1)
+
+
     def train_loop(self, num_learning_iterations, save_dir, ckpt_path=None):
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=True)
@@ -289,12 +298,17 @@ class PPOTaskBase(nn.Module):
 
         if self.cfg.curriculum:
             self.initial_xy = jp.array([-2., -2.5])
+        
+
+        
 
         num_total_iteration = num_learning_iterations + self.current_learning_iteration
         for it in range(self.current_learning_iteration, num_total_iteration):
             #print(f"Current position: {self.initial_xy}")
             print(f"Epoch: {it}")
             self.agent_train_step(it)
+            print(f"Tracking lin vel: {self._rew_track_lin_vel}")
+            
             self.current_learning_iteration += 1
             
             if it % self.eval_interval == 0:
@@ -303,19 +317,21 @@ class PPOTaskBase(nn.Module):
                 
 
 
-            if (it == 4000):
-                self.cfg.env.control_range = {
-                    'cmd_x': [-3.0, 3.0],
-                    'cmd_y': [-1.0, 1.0],
-                    'cmd_ang': [-1.0, 1.0]
-                }
-                print(f"Config env: {self.cfg.env}")
-                self.env = self.init_env('unitree_go2/terrain_multi.xml')
-                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
+            # if (it > 500) and self._rew_track_lin_vel > 1.2:
+            #     # Adapting the control range
+            #     for key in self.cfg.env.control_range.keys():
+            #         cr = self.cfg.env.control_range[key]
+            #         cr_new = [num * 1.5 for num in cr]
+            #         self.cfg.env.control_range[key] = cr_new
 
-            if (it == 6000):
-                self.env = self.init_env('unitree_go2/terrain_gaussian.xml')
-                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
+            #     self._rew_track_lin_vel = 0.0
+            #     print(f"Config env: {self.cfg.env}")
+            #     self.env = self.init_env(self.cfg.scene_xml)
+            #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
+
+            # if (it == 6000):
+            #     self.env = self.init_env('unitree_go2/terrain_gaussian.xml')
+            #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
 
             if self.curriculum and it % (self.eval_interval+1) ==0:
                 # Update level according to paper(Learn to walk in minutes)
@@ -330,14 +346,6 @@ class PPOTaskBase(nn.Module):
         self.current_learning_iteration = num_total_iteration
         self.save(os.path.join(save_dir, f'last.pt'))
 
-    def validate_agent(self, ckpt_path=None): # not used
-        if ckpt_path:
-            self.load(ckpt_path, load_optimizer=False)
-        it = 0
-        self.rollout(it,is_training=False)
-        failure_ids = self.algo.storage.find_failures()
-        self.algo.storage.clear()
-        return failure_ids
 
     def test_agent(self, num_iterations, ckpt_path=None):
         """
@@ -348,7 +356,25 @@ class PPOTaskBase(nn.Module):
         self.algo.actor_critic.eval()
         #eval_results = []
         #single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
+        if self.cfg.env.manual_control.enable and self.cfg.env.manual_control.task == 'experiments':
+            self.test_experiments(num_iterations)
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'track trajectory':
+            self.test_tracking_traj(num_iterations)
 
+    def test_tracking_traj(self, num_iterations):
+        # eval data stores for every timestep, results are then the used metrics for overall comparison
+        trajectory = create_combined_command(0.4, 0.25, 10.0, 50, 0.8, 0.0)[:,1:]
+        print(f"Trajectory: {trajectory.shape}")
+        print(f"Trajectory: {trajectory}")
+
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]),traj=trajectory)
+
+        for it in range(num_iterations):
+            print(f"iteration: {it} ")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            self.algo.storage.clear()
+        
+    def test_experiments(self, num_iterations):
         # eval data stores for every timestep, results are then the used metrics for overall comparison
         eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': [], 'total_dist':[], 'best_time':100.0, 'successful_envs': None, 'p_gains': []}
         results = {'power': [], 'energy': [], 'COT': [], 'local_v': [], 'top_times': [], 'success_rate':[]}
@@ -424,22 +450,13 @@ class PPOTaskBase(nn.Module):
                 finish_step = torch.min(eval_metrics['total_time'][indices])
                 #print(f"Finished step: {finish_step}")
                 eval_data['best_time'] = min(eval_data['best_time'], finish_step)
-                #print(f"Minimum time: {eval_data['total_time']}")
-                #eval_data['finishes_envs'].append(torch.unique(indices[1]))
-                #print(f"Total time: {eval_metrics['total_time'][indices]}")
-                #print(f"indices: {torch.min(indices[0])} and indices { indices[1]}")
 
-                #print(f"Env. {indices[1]} is a success: {eval_data['total_dist'][-1][indices]}")
-            #print(f"Total distance: {eval_metrics['total_dist']}")
-            #eval_data['total_time'].append(eval_metrics['total_time'])
-            #print(f"Local velocity:{torch.mean(torch.stack(eval_data['local_v']))}")
             eval_data['trajectory'].append(eval_metrics['glob_pos'])
 
             # Plot foot tracking trajectories + command tracking 
             eval_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
             error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
             eval_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
-            #eval_graph([eval_metrics['command'][:,0,0], eval_metrics['local_v'][:,0,0]], ['command', 'local_v_x'], f"command_track{it}", timestep=0.02)
 
 
             # Recording of foot trajectories

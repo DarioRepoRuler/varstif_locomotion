@@ -29,8 +29,9 @@ vic_speeds_comp={
     'VIC2 jt 0.2': load_tensor_from_csv('local_v',filename='results_vic2_jt_harder.csv'),
     # # #'VIC3 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic3_jt.csv'),
     # 'VIC3 jt 0.2': load_tensor_from_csv('local_v',filename='results_vic3_jt_hard.csv'),
-    'VIC2 best set': load_tensor_from_csv('local_v',filename='results_vic2_best_set.csv')
+    'VIC2 best set': load_tensor_from_csv('local_v',filename='results_vic2_best_set.csv'),
     # 'VIC4 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic4_jt.csv'),
+    'VIC2 bugfix': load_tensor_from_csv('local_v',filename='results_vic2_bf.csv')
 }
 
 success_rates = {

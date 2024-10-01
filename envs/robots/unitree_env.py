@@ -66,6 +66,7 @@ class UnitreeEnv(MjxEnv):
         self.gravity_noise = cfg.domain_rand.gravity_noise
 
         self.manual_control = cfg.manual_control.enable
+        self.track_traj = (cfg.manual_control.task == "track trajectory")
         self.cmd_x = cfg.manual_control.cmd_x
         self.cmd_y = cfg.manual_control.cmd_y
         self.cmd_yaw = cfg.manual_control.cmd_ang
@@ -192,41 +193,7 @@ class UnitreeEnv(MjxEnv):
         self.foot_body_id = jp.array(foot_body_id)
 
         assert floor_id != -1, 'Floor not found.'
-        self.floor_id = floor_id        
-
-                # Scaling of the rewards
-        # These rewards are from the tutorial: https://colab.research.google.com/github/google-deepmind/mujoco/blob/main/mjx/tutorial.ipynb
-        # self.reward_scales = {
-        #     # From turtoial
-        #     'tracking_lin_vel': 1.5, 
-        #     'tracking_ang_vel': 0.8, 
-        #     "lin_vel_z": -2.0, 
-        #     "ang_vel_xy": -0.05, 
-        #     "orientation": -5.0, 
-        #     #"torques": -0.0002, 
-        #     #"smooth_rate": 0.0, #action_rate from tutorial
-        #     'feet_air_time': 0.2,
-        #     #'feet_contact_time': 0.0,
-        #     'termination': -10.0,
-        #     'stand_still': -0.5, 
-        #     "foot_slip": -0.1,
-        #     # Additional self created
-        #     "action_rate": -0.0,
-        #     #"action_rate2": 0.0,
-            
-        #     "rew_pos_limits": -0.0,
-        #     "rew_acceleration":-2.5e-7,
-        #     "rew_collision": -10.0,
-        #     #"rew_velocity": -0.0,
-        #     "rew_power": -2e-6,
-        #     "rew_power_distro": -5e-7,
-
-        #     # Feet
-        #     "hip": 0.05,
-
-        #     "rew_joint_track": -0.01,
-        #     "rew_stiff_default": -2.5e-7,
-        # }
+        self.floor_id = floor_id
 
 
     def get_foot_contacts(self, data)->jax.Array: # should be returned in the order of FR, FL, RR, RL
@@ -336,13 +303,13 @@ class UnitreeEnv(MjxEnv):
 
         return new_cmd
 
-    def reset(self, rng: jp.ndarray, initial_xy=jp.array([0.,0.]), manual_cmd=jp.array([0.,0.,0.])) -> State:
-        """Resets the environment to an initial state.
+    def reset(self, rng: jp.ndarray, initial_xy=jp.array([0.,0.]), manual_cmd=jp.array([0.,0.,0.]), traj = jp.zeros((500, 3))) -> State:
+        """Resets the environment to an initial state.self
         
         Args:
             rng: random number generator
             initial_xy: offset position for the robot
-        
+
         Returns:
             state: the initial state of the environment
         """
@@ -407,6 +374,7 @@ class UnitreeEnv(MjxEnv):
             'kd_factor': kd_factor,
             'motor_strength': motor_strength,
             'gait_idx': jp.array(0.),
+            'trajectory': traj,
         }
         obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
         privileged_obs_history = jp.zeros(self.num_history_critic*self.privileged_obs_size)
@@ -554,6 +522,8 @@ class UnitreeEnv(MjxEnv):
             state: the new state of the environment
         """
         
+        #jax.debug.print('Command: {x}', x=state.info['trajectory'][state.info['step'].astype(int), :])
+
         # For randomization
         rng, obs_rng, kick_noise, cmd_rng = jax.random.split(state.info['rng'], 4)
         
@@ -691,6 +661,13 @@ class UnitreeEnv(MjxEnv):
             state.info['command'],
             )
         
+        state.info['command'] = jp.where(
+            jp.logical_and(self.manual_control, self.track_traj),
+            state.info['trajectory'][state.info['step'].astype(int), :],
+            state.info['command'],
+        )
+        #jax.debug.print('Command: {x}', x=state.info['command'])
+        
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.episode_length), 0, state.info['step']
@@ -703,6 +680,7 @@ class UnitreeEnv(MjxEnv):
         state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(privileged_obs).any()
         done = jp.float32(done)
 
+        
         state = state.replace(
             pipeline_state=data, obs=obs, reward=reward, done=done, privileged_obs=privileged_obs
         )
