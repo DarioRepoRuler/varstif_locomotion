@@ -546,7 +546,7 @@ class UnitreeEnv(MjxEnv):
         #1.) Extract the state information: positions/velocities, joint angles/velocities, foot contacts, etc.
         x, xd = self._pos_vel(data)
         joint_angles = data.qpos[7:]
-        joint_vel = data.qvel  
+        joint_vel = data.qvel[6:]  
 
         # Foot contact data
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
@@ -604,11 +604,11 @@ class UnitreeEnv(MjxEnv):
             #'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
-            'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel']),
+            'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel'][6:]),
             #'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
-            'rew_power': self._reward_power(data.ctrl, joint_vel[6:]),
-            'rew_power_distro': self._reward_power_distro(data.ctrl, joint_vel[6:]),
+            'rew_power': self._reward_power(data.ctrl, joint_vel),
+            'rew_power_distro': self._reward_power_distro(data.ctrl, joint_vel),
             # Feet posture
             'hip': self.rew_hip(joint_angles),
 
@@ -642,7 +642,7 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics['total_time'] = state.info['step'] * self.dt
-        state.metrics['power'] = jp.sum(jp.abs(data.qfrc_actuator)) * jp.abs(jp.sum(joint_vel))
+        state.metrics['power'] = jp.sum(jp.abs(data.ctrl)) * jp.abs(jp.sum(joint_vel))
         
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         state.metrics['local_v'] = local_vel
@@ -859,7 +859,7 @@ class UnitreeEnv(MjxEnv):
         return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
     def _reward_acceleration(self, last_dof_vel: jax.Array, dof_vel:jax.Array) -> jax.Array:
-        return jp.sum(jp.square((dof_vel - last_dof_vel)/self.dt))
+        return jp.sum(jp.abs((dof_vel - last_dof_vel)/self.dt))
     
     def _reward_velocity(self, dof_vel: jax.Array) -> jax.Array:
         return jp.sum(jp.square(dof_vel))
@@ -950,10 +950,12 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.abs(torques)*jp.abs(qvel))
 
     def _reward_power_distro(self, torques: jax.Array, qvel: jax.Array) -> jax.Array:
-        leg_power = jp.array([jp.sum(torques[:3]*qvel[:3]), jp.sum(torques[3:6]*qvel[3:6]) , \
-                              jp.sum(torques[6:9]*qvel[6:9]), jp.sum(torques[9:12]*qvel[9:12])])
+        power = jp.abs(torques * qvel)
+
+        leg_power = jp.array([jp.sum(power[:3]), jp.sum(power[3:6]) , \
+                              jp.sum(power[6:9]), jp.sum(power[9:12])])
         var = jp.var(leg_power)
-        return var#jp.var(torques*qvel)
+        return var
     
     def _reward_joint_track(self, joint_angles: jax.Array, action: jax.Array) -> jax.Array:
         target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
