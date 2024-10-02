@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_2"
+  control_mode: "P"
 
   physics_steps_per_control_step: 4 # corresponds to 50Hz
 
@@ -85,7 +85,7 @@ env:
 
 log: True
 
-ckpt_path: 'best_models/test_vic2_bf.pt' #'outputs/2024-09-23/14-32-09/checkpoints/model_2000.pt' 
+ckpt_path: null # 'best_models/test_vic2_bf.pt' #'outputs/2024-09-23/14-32-09/checkpoints/model_2000.pt' 
 
 log_dir: "Documents/TALocoMotion/outputs/"
 
@@ -96,7 +96,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'VIC Controlled'
 group: Bruce-P2

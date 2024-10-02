@@ -40,7 +40,7 @@ class TorchWrapper:
 
         self._step_jit = jax.jit(step_mjx, backend=self.backend)
 
-    def reset(self, initial_xy: jax.Array, manual_cmd: jax.Array, traj: jax.Array):
+    def reset(self, initial_xy: jax.Array, manual_cmd: jax.Array, traj=jax.numpy.zeros((500,3))):
         self.state, obs, privileged_obs, self._key = self._reset_jit(self._key, initial_xy, manual_cmd, traj)
         obs = torch.jax_to_torch(obs, device=self.device)
         privileged_obs = torch.jax_to_torch(privileged_obs, device=self.device)
