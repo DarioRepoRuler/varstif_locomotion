@@ -11,27 +11,28 @@ from graphs_gen import *
 
 speeds_comp={
     'Baseline': load_tensor_from_csv('local_v' ,filename='results_pos.csv'),
-    'VIC2 w ar feet air': load_tensor_from_csv('local_v',filename='results_vic2_feet_air.csv'),
+    #'VIC2 w ar feet air': load_tensor_from_csv('local_v',filename='results_vic2_feet_air.csv'),
     'VIC2 w ar default': load_tensor_from_csv('local_v',filename='results_vic2.csv'),
-    'VIC2 wo ar': load_tensor_from_csv('local_v',filename='results_vic2_woar.csv'),
-    'VIC2 wo ar& w jt': load_tensor_from_csv('local_v',filename='results_vic2_jt.csv'),
-    'VIC2 wo ar & w jt 0.1': load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_continue.csv'),
-    'VIC2 wo ar & w jt 0.05': load_tensor_from_csv('local_v', filename='results_vic2_jt_middle.csv'),
+    #'VIC2 wo ar': load_tensor_from_csv('local_v',filename='results_vic2_woar.csv'),
+    #'VIC2 wo ar& w jt': load_tensor_from_csv('local_v',filename='results_vic2_jt.csv'),
+    #'VIC2 wo ar & w jt 0.1': load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_continue.csv'),
+    #'VIC2 wo ar & w jt 0.05': load_tensor_from_csv('local_v', filename='results_vic2_jt_middle.csv'),
     'VIC2 wo ar & w jt 0.1': load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_newnew.csv'),
     'VIC2 wo ar & w jt 0.2': load_tensor_from_csv('local_v',filename='results_vic2_jt_harder.csv')
 }
 
 vic_speeds_comp={
     'Baseline': load_tensor_from_csv('local_v' ,filename='results_pos.csv'),
-    # #'VIC1 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic1_jt.csv'),
+    'VIC1 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic1_jt.csv'),
     # 'VIC1 jt 0.2': load_tensor_from_csv('local_v',filename='results_vic1_jt_hard.csv'),
-    # #'VIC2 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_newnew.csv'),
-    'VIC2 jt 0.2': load_tensor_from_csv('local_v',filename='results_vic2_jt_harder.csv'),
-    # # #'VIC3 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic3_jt.csv'),
+    'VIC2 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic2_jt_hard_newnew.csv'),
+    #'VIC2 jt 0.2': load_tensor_from_csv('local_v',filename='results_vic2_jt_harder.csv'),
+    #'VIC2 best set': load_tensor_from_csv('local_v',filename='results_vic2_best_set.csv'),
+    'VIC3 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic3_jt.csv'),
     # 'VIC3 jt 0.2': load_tensor_from_csv('local_v',filename='results_vic3_jt_hard.csv'),
-    'VIC2 best set': load_tensor_from_csv('local_v',filename='results_vic2_best_set.csv'),
-    # 'VIC4 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic4_jt.csv'),
-    'VIC2 bugfix': load_tensor_from_csv('local_v',filename='results_vic2_bf.csv')
+    
+    'VIC4 jt 0.1': load_tensor_from_csv('local_v',filename='results_vic4_jt.csv'),
+    #'VIC2 bugfix': load_tensor_from_csv('local_v',filename='results_vic2_bf.csv')
 }
 
 success_rates = {
