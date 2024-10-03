@@ -80,6 +80,16 @@ class UnitreeEnv(MjxEnv):
         self.force_kick_duration = cfg.force_kick_duration
         self.force_kick_interval = cfg.force_kick_interval
         self.force_kick_counter = self.force_kick_duration / self.dt
+        self.force_push_directions = jp.concatenate([
+                        jp.array([-1.0, 0.0]),
+                        jp.array([-1/jp.sqrt(2), -1/jp.sqrt(2)]),
+                        jp.array([0.0, -1.0]),
+                        jp.array([1/jp.sqrt(2), -1/jp.sqrt(2)]),
+                        jp.array([1.0, 0.0]),
+                        jp.array([1/jp.sqrt(2), 1/jp.sqrt(2)]),
+                        jp.array([0.0, 1.0]),
+                        jp.array([1/jp.sqrt(2), 1/jp.sqrt(2)])
+        ])
         
 
         self.stiff_range = cfg.control.stiff_range  
@@ -385,6 +395,9 @@ class UnitreeEnv(MjxEnv):
             'trajectory': traj,
             'force_kick': jp.array([0.0,0.0]),
             'kick_counter': jp.array(0.),
+            'force_direction_counter': jp.array(0),
+            'kick_theta': jp.array([0.0,0.0]),
+            'kick_force_magnitude': jp.array(0.0),
         }
         obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
         privileged_obs_history = jp.zeros(self.num_history_critic*self.privileged_obs_size)
@@ -528,13 +541,42 @@ class UnitreeEnv(MjxEnv):
     
     def force_kick_robot(self, state: State, rng: jp.ndarray):
         if self.enable_force_kick:
-            kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
-            kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * self.kick_force
+            increase_counter = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
+            # Push curriculum
+            state.info['force_direction_counter'] = jp.where(increase_counter, jp.mod(state.info['force_direction_counter']+1, 8), state.info['force_direction_counter'])
+            jax.debug.print('Force direction counter: {x}', x=state.info['force_direction_counter'])
+            push_x = self.force_push_directions[state.info['force_direction_counter'].astype(int)*2]
+            push_y = self.force_push_directions[(state.info['force_direction_counter']*2+1).astype(int)]
+            push_direction = jp.array([push_x, push_y])
+            jax.debug.print('Push direction: {x}', x=push_direction)
+            kick = push_direction * self.kick_force
 
+            #kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
+            #kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * self.kick_force
+            
             state.info['force_kick'] = jp.where((jp.mod(state.info['step'], self.force_kick_interval) == 0), kick, state.info['force_kick'])
+            
             state.info['kick_counter'] = jp.where(jp.mod(state.info['step'], self.force_kick_interval)==0, self.force_kick_counter, state.info['kick_counter'])
             state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
             state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], jp.zeros(2))
+        else:
+            state.info['force_kick'] = jp.zeros(2)
+        return state
+    
+    def force_kick_robot_random(self, state: State, rng: jp.ndarray):
+        if self.enable_force_kick:
+            # Push randomly
+            kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
+            kick_force = self.kick_force#jax.random.uniform(rng, minval=0.0, maxval=self.kick_force)
+            kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
+            kick_condition = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
+            state.info['force_kick'] = jp.where(kick_condition, kick, state.info['force_kick'])
+            state.info['kick_theta']=jp.where(kick_condition, kick_theta, state.info['kick_theta'])
+            state.info['kick_counter'] = jp.where(kick_condition, self.force_kick_counter, state.info['kick_counter'])
+            state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
+            state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], jp.zeros(2))
+            state.info['kick_theta'] = jp.where(state.info['kick_counter']>0, state.info['kick_theta'], jp.zeros(2))
+            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>0,kick_force , 0.0)
         else:
             state.info['force_kick'] = jp.zeros(2)
         return state
@@ -558,7 +600,9 @@ class UnitreeEnv(MjxEnv):
         
         # kick robot
         state = self.kick_robot(state, kick_noise)
-        state = self.force_kick_robot(state, kick_noise)
+        #state = self.force_kick_robot(state, kick_noise)
+        state = self.force_kick_robot_random(state, kick_noise)
+
         #jax.debug.print('Kick: {x}', x=state.info['force_kick'])
         #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
         action_kick = jp.concatenate([action, jp.array(state.info['force_kick'])])
@@ -689,6 +733,8 @@ class UnitreeEnv(MjxEnv):
         state.metrics['command'] = state.info['command']
         state.metrics['p_gains'] = p_gains   
 
+        #self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
+        
         # sample new command
         state.info['command'] = jp.where(
             jp.logical_and( state.info['step'] % 100 == 0, jp.logical_not(self.manual_control)), #normally a ~ would be sufficient but it somehow converts the boolean into -2 and thus this and does not work anymore
@@ -805,13 +851,13 @@ class UnitreeEnv(MjxEnv):
 
         privileged_obs = jp.concatenate([
             # Privileged
-            state_info['kp_factor'],
-            state_info['kd_factor'],
-            state_info['motor_strength'],
-            jp.array([self.sys.geom_friction[0, 0]]),
-            jp.array([self.sys.body_mass[1]]),
-            state_info['kick'],
-            state_info['contact'],
+            # state_info['kp_factor'],
+            # state_info['kd_factor'],
+            # state_info['motor_strength'],
+            # jp.array([self.sys.geom_friction[0, 0]]),
+            # jp.array([self.sys.body_mass[1]]),
+            # state_info['kick'],
+            # state_info['contact'],
             obs
         ])
 
@@ -1000,7 +1046,8 @@ class UnitreeEnv(MjxEnv):
     def _reward_joint_track(self, joint_angles: jax.Array, action: jax.Array) -> jax.Array:
         target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
         return jp.sum(jp.square(joint_angles-target_dof_pos))
-
+    
+    ## Rewards for Gait behaviours ---------------
     def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
         foot_cycles = jp.array([
             gait_cycle_idx+0.5,
@@ -1010,9 +1057,9 @@ class UnitreeEnv(MjxEnv):
         ])
         foot_cycles = jp.remainder(foot_cycles, 1.0)
         phases = 1 - jp.abs(1.0 - jp.clip((foot_cycles*2.0)-1.0, 0.0,1.0) *2.0 )
-        #jax.debug.print('Phases {x}', x=phases)
+        jax.debug.print('Phases {x}', x=phases)
         target_height = 0.2*phases
-        #jax.debug.print('Target height {x}', x=target_height)
+        jax.debug.print('Target height {x}', x=target_height)
         desired_contacts = self._get_desired_contact(foot_cycles)
         #jax.debug.print('Desired contacts: {x}', x=desired_contacts)
         foot_clearance = jp.square(target_height-foot_z)*(1-desired_contacts)
@@ -1030,6 +1077,8 @@ class UnitreeEnv(MjxEnv):
         C_cmd = self._von_mises(foot_cycles)*(1- self._von_mises(foot_cycles-0.5)) + self._von_mises(foot_cycles-1)*(1-self._von_mises(foot_cycles-1.5))
         return C_cmd
     
+    ##---------------------------------------
+
     def _reward_stiff_default(self, action: jax.Array) -> jax.Array:
         m = (self.stiff_range[0] +self.stiff_range[1])/2
         r= (self.stiff_range[1]-self.stiff_range[0])/2

@@ -4,7 +4,7 @@ from torch import nn
 from rl_algo.ppo import PPO
 from envs.common.mjx_env import MjxEnv
 import mujoco
-from utils.graphs_gen import eval_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
+from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
 
 import jax.numpy as jp
 import jax
@@ -120,6 +120,8 @@ class PPOTaskBase(nn.Module):
             print(f"Action: {actions}")
         
         #time_start = time()
+        # if self.cfg.enable_force_kick:
+        #     action = torch.concat([actions, self.cfg.env.kick_force*torch.ones(self.cfg.num_envs, device=self.device, dtype=torch.float32)], dim=1)
 
         if self.cfg.viz:
             next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions, env_id=self.view_env_id)
@@ -142,9 +144,13 @@ class PPOTaskBase(nn.Module):
         eval_infos = {}
         cmd = []
         eval_metrics = []
+        kick_metrics = {'kick_theta':[], 'kick_force_magnitude':[]}
+
         with torch.inference_mode():
             pos_x = torch.zeros(self.cfg.timesteps_per_rollout, device=self.device, dtype=torch.float32)
             time_out = torch.zeros(self.cfg.num_envs, device=self.device, dtype=torch.bool)
+            steps=torch.zeros(self.cfg.timesteps_per_rollout, self.cfg.num_envs, device=self.device, dtype=torch.int32)
+
 
             for i in range(self.cfg.timesteps_per_rollout):
                 next_obs_g, next_priv_obs_g, dones, info, metrics = self.step(self.obs, self.obs_priv, is_training)
@@ -159,21 +165,31 @@ class PPOTaskBase(nn.Module):
                         episode_infos[key] = torch.mean(rew_info[key]) #mean over all envs
                     else:
                         episode_infos[key] += torch.mean(rew_info[key])
-
+                steps[i,:] = info['step']
+                
                 #print(f"Foot pos z: {info['foot_pos_z']}")                
                 if not is_training:
                     cmd.append(info['command'])
                     eval_metrics.append(metrics)
-                    
-
+                    kick_metrics['kick_theta'].append(info['kick_theta'])
+                    kick_metrics['kick_force_magnitude'].append(info['kick_force_magnitude'])
+                
                 # update observation
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
         
+        
+        
+
         combined_metrics = {}
-        if not is_training:
+        if not is_training: 
+            kick_metrics['kick_theta'] = torch.stack(kick_metrics['kick_theta'])
+            kick_metrics['kick_force_magnitude'] = torch.stack(kick_metrics['kick_force_magnitude'])
             cmd = torch.stack(cmd)
-            eval_infos['cmd'] = cmd    
+            eval_infos['kick_theta'] = kick_metrics['kick_theta']
+            eval_infos['kick_force_magnitude'] = kick_metrics['kick_force_magnitude']
+            eval_infos['cmd'] = cmd 
+            eval_infos['steps'] = steps[-1,:] 
             for key in eval_metrics[0].keys():
                 combined_metrics[key] = torch.stack([metric[key] for metric in eval_metrics])
 
@@ -181,8 +197,7 @@ class PPOTaskBase(nn.Module):
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
-        #print(f"Termination reward: {episode_infos['termination']}")
-        #print(f"Time outs:{torch.sum(time_out)}")
+
         print(f"Rewards infos: {episode_infos}")
         if episode_infos['termination']>0.0:
             print(f"Episode infos: {episode_infos}")
@@ -343,7 +358,6 @@ class PPOTaskBase(nn.Module):
                 # Move to different terrain if successfull
                 self.update_level()
                 self.cfg.env.manual_control = temp # TODO: improve layout and yaml
-
         self.current_learning_iteration = num_total_iteration
         self.save(os.path.join(save_dir, f'last.pt'))
 
@@ -362,28 +376,143 @@ class PPOTaskBase(nn.Module):
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'track trajectory':
             self.test_tracking_traj(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'force push':
-            self.test_force_push(num_iterations)
+            self.test_force_push_random(num_iterations)
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'escape pyramids':
+            self.test_escape_pyramid(num_iterations)
 
-    def test_force_push(self, num_iterations):
-        # eval data stores for every timestep, results are then the used metrics for overall comparison
-        trajectory = create_combined_command(0.4, 0.25, 10.0, 50, 0.8, 0.0)[:,1:]
-        print(f"Trajectory: {trajectory.shape}")
-        print(f"Trajectory: {trajectory}")
-
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
+    def test_force_push_random(self, num_iterations):
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        results = {'success_rate': [], 'kick_theta':[], 'kick_force_magnitude':[]}
 
         for it in range(num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            #print(f"Kick theta: {eval_infos['kick_theta']}")
+            #print(f"Kick force magnitude: {eval_infos['kick_force_magnitude']}")
+            results['kick_theta'].append(torch.unique(eval_infos['kick_theta'], dim=0))
+            results['kick_force_magnitude'].append(torch.unique(eval_infos['kick_force_magnitude'], dim=0))
+
+            print(f"Kick magnitudes found: {results['kick_force_magnitude'][-1]}")
+            print(f"Kick thetas found: {results['kick_theta'][-1]}")
+            
+            if it % 5 == 0:
+                self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+
+            # Calculate successrate: 
             self.algo.storage.clear()
+
+        # for key in results.keys():      
+        #     results[key] = torch.stack(results[key]).cpu()
+        # name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        # save_tensors_to_csv([results['success_rate']],['success_rate'], f'force_push_results_{name}.csv')
+ 
+
+
+    def test_force_push(self, num_iterations):
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        results = {'success_rate': []}
+
+        for it in range(num_iterations):
+            print(f"iteration: {it} ")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            # Choose hyperparemeters like that: force_kick_duration=0.1, force_kick_interval=250, timesteps_per_rollout=50, episode_length=
+            # This way we have a kick every 5 seconds
+            if (((it+1) % (self.cfg.env.force_kick_interval / self.cfg.timesteps_per_rollout)) == 0) and it !=0 :
+                #print(f"Steps must be greater the {self.cfg.timesteps_per_rollout * it}")
+                #print(f"Steps: {eval_infos['steps']}")
+                success = eval_infos['steps'] >= (self.cfg.timesteps_per_rollout * (it))-1
+                success = torch.sum(success)/self.cfg.num_envs
+                #print(f"Success: {success}")
+                results['success_rate'].append(success)
+            # Calculate successrate: 
+            self.algo.storage.clear()
+        for key in results.keys():      
+            results[key] = torch.stack(results[key]).cpu()
+        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        save_tensors_to_csv([results['success_rate']],['success_rate'], f'force_push_results_{name}.csv')
+
+    def test_force_push_auto(self, num_iterations):
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        results = {'success_rate': []}
+        offset = 0
+        for it in range(num_iterations):
+            print(f"iteration: {it} ")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            # Choose hyperparemeters like that: force_kick_duration=0.1, force_kick_interval=250, timesteps_per_rollout=50, episode_length=
+            # This way we have a kick every 5 seconds
+            if (((it+1-offset) % (self.cfg.env.force_kick_interval / self.cfg.timesteps_per_rollout)) == 0) and it !=0 :
+                #print(f"Steps must be greater the {self.cfg.timesteps_per_rollout * it}")
+                success = eval_infos['steps'] >= (self.cfg.timesteps_per_rollout * (it-offset))-1
+                success = torch.sum(success)/self.cfg.num_envs
+                results['success_rate'].append(success)
+                print(f"Success rate: {results['success_rate'][-1]}")
+
+            # rollouts per experiment should be (self.cfg.env.force_kick_interval / self.cfg.timesteps_per_rollout)*6
+            if it % self.cfg.rollouts_per_experiment == 0 and it >0:
+                offset = it
+                self.cfg.env.kick_force = self.cfg.env.kick_force + 50
+                self.env = self.init_env(self.cfg.scene_xml)
+                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+
+            # Calculate successrate: 
+            self.algo.storage.clear()
+        for key in results.keys():      
+            results[key] = torch.stack(results[key]).cpu()
+        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        save_tensors_to_csv([results['success_rate']],['success_rate'], f'force_push_results_{name}.csv')
+
+        
+    def test_escape_pyramid(self, num_iterations):
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        results = {'success_rate': []}
+        eval_data = {'total_dist':[], 'successful_envs': None}
+        success_dist = 4.5
+        level = 1
+        for it in range(num_iterations):
+            print(f"iteration: {it} ")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            # Calculate successrate: 
+            print(f" Dones: {stat['dones']}")
+            eval_data['total_dist'].append(eval_metrics['total_dist'])
+            
+
+            if torch.any(eval_data['total_dist'][-1] > success_dist):
+                indices = torch.where(eval_data['total_dist'][-1]>success_dist)
+                #print(f"Finished envs: {indices[1]}")
+                finished_env = torch.unique(indices[1])
+                #print(f"Finished envs: {finished_env}")
+                if eval_data['successful_envs'] is None:
+                    eval_data['successful_envs'] = finished_env
+                else:
+                    missing_envs = finished_env[~torch.isin(finished_env, eval_data['successful_envs'])]
+                    eval_data['successful_envs'] = torch.cat([eval_data['successful_envs'], missing_envs])
+
+            if it % self.cfg.rollouts_per_experiment == 0 and it >0 :
+                if eval_data['successful_envs'] is not None:
+                    results['success_rate'].append(torch.tensor([len(eval_data['successful_envs'])/self.cfg.num_envs]))
+                else:
+                    results['success_rate'].append(torch.tensor([0.0]))
+                print(f"Finished experiment {it//self.cfg.rollouts_per_experiment} with success rate: {results['success_rate'][-1]}")
+                eval_data['successful_envs'] = None
+                if level < 5:
+                    level += 1
+                    self.env = self.init_env(f'unitree_go2/terrain_pyramid_l{level}.xml')
+                    self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+
+            self.algo.storage.clear()
+
+        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        for key in results.keys():      
+            results[key] = torch.stack(results[key]).cpu()
+        save_tensors_to_csv([results['success_rate']], 
+                        [f'success_rate', ], f'pyramid_results_{name}.csv')
+        
+        
 
 
     def test_tracking_traj(self, num_iterations):
         # eval data stores for every timestep, results are then the used metrics for overall comparison
         trajectory = create_combined_command(0.4, 0.25, 10.0, 50, 0.8, 0.0)[:,1:]
-        print(f"Trajectory: {trajectory.shape}")
-        print(f"Trajectory: {trajectory}")
-
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]),traj=trajectory)
 
         for it in range(num_iterations):
@@ -471,14 +600,14 @@ class PPOTaskBase(nn.Module):
             eval_data['trajectory'].append(eval_metrics['glob_pos'])
 
             # Plot foot tracking trajectories + command tracking 
-            eval_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
+            time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
             error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
-            eval_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
+            time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
 
 
             # Recording of foot trajectories
             save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
-            eval_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
+            time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
                         eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
                         ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
             self.algo.storage.clear()

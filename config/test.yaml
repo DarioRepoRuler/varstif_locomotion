@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4
 
   num_history_actor: 1 # number of previous observations to stack
@@ -15,14 +15,14 @@ env:
   # Force kick in test
   enable_force_kick: True
   force_kick_duration: 0.1
-  force_kick_interval: 100
+  force_kick_interval: 150
   kick_force: 300.0
 
   is_training: False
-  episode_length: 750
+  episode_length: 3250
 
   single_obs_size: 48
-  single_obs_size_priv: 59
+  single_obs_size_priv: 48
 
   domain_rand:
     randomisation: True
@@ -54,7 +54,7 @@ env:
 
   manual_control:
     enable: True
-    task: 'experiments'
+    task: 'force push'
     cmd_x: 0.8
     cmd_y: 0.0
     cmd_ang: 0.0
@@ -90,13 +90,13 @@ env:
   }
  
 success_threshold: 0.78125
-rollouts_per_experiment: 8
+rollouts_per_experiment: 40
 
-ckpt_path: 'best_models/test_vic2_bf.pt' #'best_models/rando_all1.pt' #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+ckpt_path: 'best_models/rando_all1.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 result_name: 'results_vic2_bf.csv'
 timesteps_per_rollout: 50
-num_iterations: 65
-num_envs: 1
+num_iterations: 300
+num_envs: 2
 
 viz: True
 device: 'cuda:0'

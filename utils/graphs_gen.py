@@ -4,7 +4,7 @@ import os
 import numpy as np 
 import pandas as pd
 
-def eval_graph(tensor_datas, labels, graph_name, timestep=0.02):
+def time_graph(tensor_datas, labels, graph_name, timestep=0.02):
     """
     Creates and saves a line graph with multiple lines from PyTorch tensors.
 
@@ -36,6 +36,43 @@ def eval_graph(tensor_datas, labels, graph_name, timestep=0.02):
     plt.savefig(fig_path)  # Save the combined graph
 
     plt.close()  
+
+
+def create_graph(y_data, x_data, labels, graph_name, label_y, label_x):
+    """
+    Creates and saves a line graph with multiple lines from PyTorch tensors.
+
+    Args:
+        tensor_datas: A list of PyTorch tensors containing the data to plot.
+        labels: A list of labels for each line.
+        graph_name: The name of the graph (used for the file name).
+        timestep: The timestep value (for adding to the graph title).
+    """
+    
+    plt.figure(figsize=(10, 6))
+
+    for tensor_data, label in zip(y_data, labels):
+        data_array = tensor_data.detach().cpu().numpy()
+        # Create time array for x-axis
+        x_array = x_data.detach().cpu().numpy()
+        plt.plot(x_array, data_array, label=label)
+
+    plt.title(f"{graph_name}")
+    plt.xlabel(label_x)  # Change x-axis label to "Time"
+    plt.ylabel(label_y)
+    plt.grid(axis='y', linestyle='--')
+    plt.legend()  # Add legend to display labels
+
+    dir_name = os.path.join(os.getcwd(), 'outputs', 'graphs')
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    fig_path = os.path.join(dir_name, f"{graph_name}.png")
+    plt.savefig(fig_path)  # Save the combined graph
+
+    plt.close()  
+
+
+
 
 
 def create_multiple_box_plots(data_arrays, labels, plot_name):
