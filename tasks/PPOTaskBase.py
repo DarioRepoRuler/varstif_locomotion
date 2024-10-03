@@ -232,6 +232,7 @@ class PPOTaskBase(nn.Module):
                     self._rew_track_lin_vel = episode_infos[key]
 
     def agent_eval_step(self, it, save_dir, is_training=True): # this function can be called via test or train
+
         self.algo.actor_critic.eval()
         self.save(os.path.join(save_dir, f'model_{it}.pt'))
         
@@ -360,6 +361,22 @@ class PPOTaskBase(nn.Module):
             self.test_experiments(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'track trajectory':
             self.test_tracking_traj(num_iterations)
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'force push':
+            self.test_force_push(num_iterations)
+
+    def test_force_push(self, num_iterations):
+        # eval data stores for every timestep, results are then the used metrics for overall comparison
+        trajectory = create_combined_command(0.4, 0.25, 10.0, 50, 0.8, 0.0)[:,1:]
+        print(f"Trajectory: {trajectory.shape}")
+        print(f"Trajectory: {trajectory}")
+
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
+
+        for it in range(num_iterations):
+            print(f"iteration: {it} ")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            self.algo.storage.clear()
+
 
     def test_tracking_traj(self, num_iterations):
         # eval data stores for every timestep, results are then the used metrics for overall comparison

@@ -9,8 +9,15 @@ env:
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
-  kick_vel: 0.5
+  kick_vel: 0.0
   push_interval: 100
+
+  # Force kick in test
+  enable_force_kick: True
+  force_kick_duration: 0.1
+  force_kick_interval: 100
+  kick_force: 300.0
+
   is_training: False
   episode_length: 750
 

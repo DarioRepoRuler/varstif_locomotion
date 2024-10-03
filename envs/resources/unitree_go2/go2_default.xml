@@ -282,7 +282,7 @@
       <camera name="tracking" mode="trackcom" pos="0 -1 0.8" xyaxes="1 0 0 0 1 1"/>
       <inertial pos="0.021112 0 -0.005366" quat="-0.000543471 0.713435 -0.00173769 0.700719" mass="6.921"
         diaginertia="0.107027 0.0980771 0.0244531"/>
-      <freejoint/>
+      <joint name="floating" type="free"/>
       <geom name="base_mirror_0" mesh="base_0" material="black" class="visual"/>
       <geom name="base_mirror_1" mesh="base_1" material="black" class="visual"/>
       <geom name="base_mirror_2" mesh="base_2" material="black" class="visual"/>
@@ -430,6 +430,10 @@
     <motor class="abduction" name="RL_hip" joint="RL_hip_joint"/>
     <motor class="hip" name="RL_thigh" joint="RL_thigh_joint"/>
     <motor class="knee" name="RL_calf" joint="RL_calf_joint"/>
+
+
+    <motor name="f_x" joint="floating" gear ="1 0 0 0 0 0"/>
+    <motor name="f_y" joint="floating" gear ="0 1 0 0 0 0"/>
   </actuator>
 
   <!-- <sensor>
@@ -467,6 +471,6 @@
 
   <keyframe>
     <key name="home" qpos="0 0 0.27 1 0 0 0 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8"
-      ctrl="0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8"/>
+      ctrl="0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8 0 0"/>
   </keyframe>
 </mujoco>

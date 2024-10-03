@@ -75,25 +75,33 @@ class UnitreeEnv(MjxEnv):
         self.single_obs_size = cfg.single_obs_size # defined in _get_obs
         self.privileged_obs_size = cfg.single_obs_size_priv
 
-        self.stiff_range = cfg.control.stiff_range        
+        self.enable_force_kick = cfg.enable_force_kick
+        self.kick_force = cfg.kick_force
+        self.force_kick_duration = cfg.force_kick_duration
+        self.force_kick_interval = cfg.force_kick_interval
+        self.force_kick_counter = self.force_kick_duration / self.dt
+        
+
+        self.stiff_range = cfg.control.stiff_range  
+        # Define shapes, action shape subtracted by 2 for the kick      
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
-            self.action_shape = self.action_size + 3
-            self.single_obs_size = self.single_obs_size + 3
-            self.privileged_obs_size = self.privileged_obs_size +3
+            self.action_shape = self.action_size-2 + 3
+            self.single_obs_size = self.single_obs_size+2 + 3
+            self.privileged_obs_size = self.privileged_obs_size+2 +3
         elif cfg.control_mode == "VIC_2": # for every leg
-            self.action_shape = self.action_size + 4
+            self.action_shape = self.action_size-2 + 4
             self.single_obs_size = self.single_obs_size + 4
             self.privileged_obs_size = self.privileged_obs_size + 4 
         elif cfg.control_mode == "VIC_3": # for every leg
-            self.action_shape = self.action_size + 12
+            self.action_shape = self.action_size-2 + 12
             self.single_obs_size = self.single_obs_size + 12
             self.privileged_obs_size = self.privileged_obs_size + 12
         elif cfg.control_mode == "VIC_4":
-            self.action_shape = self.action_size + 7
+            self.action_shape = self.action_size-2 + 7
             self.single_obs_size = self.single_obs_size + 7
             self.privileged_obs_size = self.privileged_obs_size + 7
         else:
-            self.action_shape = self.action_size
+            self.action_shape = self.action_size-2
         # Randomization ranges:
         self.x_pos = cfg.reset_pos_x
         self.y_pos = cfg.reset_pos_y 
@@ -375,6 +383,8 @@ class UnitreeEnv(MjxEnv):
             'motor_strength': motor_strength,
             'gait_idx': jp.array(0.),
             'trajectory': traj,
+            'force_kick': jp.array([0.0,0.0]),
+            'kick_counter': jp.array(0.),
         }
         obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
         privileged_obs_history = jp.zeros(self.num_history_critic*self.privileged_obs_size)
@@ -420,18 +430,18 @@ class UnitreeEnv(MjxEnv):
         
 
         if self.control_mode == "P":
-            target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],
+            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
             torques = self.p_gains*actuator_param[0] * err - self.d_gains*actuator_param[1] * dof_vel
 
         elif self.control_mode == "T":
-            torques = unscale(self.action_scale * action, lower=-self.torque_limits, upper=self.torque_limits)
+            torques = unscale(self.action_scale * action[:12], lower=-self.torque_limits, upper=self.torque_limits)
         elif self.control_mode == "VIC_1":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
-            action_stiff = jp.tile(action[12:],4)
+            action_stiff = jp.tile(action[12:12+3],4)
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains =0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
@@ -439,7 +449,7 @@ class UnitreeEnv(MjxEnv):
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
-            action_stiff = jp.repeat(action[12:],3)
+            action_stiff = jp.repeat(action[12:12+4],3)
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
@@ -447,7 +457,7 @@ class UnitreeEnv(MjxEnv):
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             err = target_dof_pos - dof_pos
-            action_stiff = action[12:]
+            action_stiff = action[12:12+12]
             p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
             d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
             torques = p_gains * err - d_gains * dof_vel
@@ -463,8 +473,14 @@ class UnitreeEnv(MjxEnv):
             torques = p_gains * err - d_gains * dof_vel
         else:
             raise RuntimeError("control model: P|T")
+        
+        torques = jp.clip(torques*actuator_param[2], a_min=-self.torque_limits, a_max=self.torque_limits)
+        
 
-        return jp.clip(torques*actuator_param[2], a_min=-self.torque_limits, a_max=self.torque_limits)
+        torques = jp.concatenate([torques, action[-2:]])
+        #jax.debug.print('Torques: {x}', x=torques)
+
+        return torques
 
     def compute_stiffness(self, action: jp.ndarray) -> jp.ndarray:
         """
@@ -509,6 +525,19 @@ class UnitreeEnv(MjxEnv):
         # update state info
         state.info['kick'] = kick
         return state
+    
+    def force_kick_robot(self, state: State, rng: jp.ndarray):
+        if self.enable_force_kick:
+            kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
+            kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * self.kick_force
+
+            state.info['force_kick'] = jp.where((jp.mod(state.info['step'], self.force_kick_interval) == 0), kick, state.info['force_kick'])
+            state.info['kick_counter'] = jp.where(jp.mod(state.info['step'], self.force_kick_interval)==0, self.force_kick_counter, state.info['kick_counter'])
+            state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
+            state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], jp.zeros(2))
+        else:
+            state.info['force_kick'] = jp.zeros(2)
+        return state
 
     def step(self, state: State, action: jp.ndarray) -> State:
         """
@@ -521,7 +550,7 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the new state of the environment
         """
-        
+        #jax.debug.print('Step: {x}', x=state.info['step'])
         #jax.debug.print('Command: {x}', x=state.info['trajectory'][state.info['step'].astype(int), :])
 
         # For randomization
@@ -529,7 +558,11 @@ class UnitreeEnv(MjxEnv):
         
         # kick robot
         state = self.kick_robot(state, kick_noise)
-
+        state = self.force_kick_robot(state, kick_noise)
+        #jax.debug.print('Kick: {x}', x=state.info['force_kick'])
+        #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
+        action_kick = jp.concatenate([action, jp.array(state.info['force_kick'])])
+        #jax.debug.print('Action: {x}', x=action_kick)
         # Get the current state of the physics
         data0 = state.pipeline_state
 
@@ -538,7 +571,7 @@ class UnitreeEnv(MjxEnv):
 
         p_gains = self.compute_stiffness(action)
         #jax.debug.print('P gains: {x}', x=p_gains)
-        data = self.pipeline_step(data0, action, actuator_param) #passed data is action as angle -> convert to torque in mjx
+        data = self.pipeline_step(data0, action_kick, actuator_param) #passed data is action as angle -> convert to torque in mjx
         #jax.debug.print('Height: {x}', x=data.sensordata)
         # ----------------- POST Physics step --------------- #
         # Here we 1.)extract the state information, 2.)check termination, 3.) calculate the reward and 4.) get observations 
@@ -558,6 +591,8 @@ class UnitreeEnv(MjxEnv):
         ## general contact management
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']
+        #jax.debug.print('foot dist: {x}', x=foot_floor_dist)
+        #jax.debug.print('Foot contacts: {x}', x=contact_filt_mm)
         mean_z = jp.sum(foot_pos[:, 2]*contact_filt_mm) / (jp.sum(contact_filt_mm)+ 1e-6)
         #contact_filt_cm = (((foot_pos[:,2]-self._foot_radius-mean_z) < 1e-2) & (foot_floor_dist < 1e-2)) | state.info['last_contact']
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
@@ -607,8 +642,8 @@ class UnitreeEnv(MjxEnv):
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel'][6:]),
             #'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
-            'rew_power': self._reward_power(data.ctrl, joint_vel),
-            'rew_power_distro': self._reward_power_distro(data.ctrl, joint_vel),
+            'rew_power': self._reward_power(data.ctrl[:12], joint_vel),
+            'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
             # Feet posture
             'hip': self.rew_hip(joint_angles),
 
@@ -642,7 +677,7 @@ class UnitreeEnv(MjxEnv):
         # log total displacement as a proxy metric
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics['total_time'] = state.info['step'] * self.dt
-        state.metrics['power'] = jp.sum(jp.abs(data.ctrl)) * jp.abs(jp.sum(joint_vel))
+        state.metrics['power'] = jp.sum(jp.abs(data.ctrl[:12])) * jp.abs(jp.sum(joint_vel))
         
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         state.metrics['local_v'] = local_vel
@@ -749,6 +784,11 @@ class UnitreeEnv(MjxEnv):
         # Orientation quaternion
         quaternion = data.qpos[3:7] 
         rpy = math.quat_to_euler(quaternion)
+
+        # jax.debug.print('qpos shape: {x}', x=data.qpos.shape)
+        # jax.debug.print('qvel shape: {x}', x=data.qvel.shape)
+        # jax.debug.print('Last act shape: {x}', x=state_info['last_act'].shape)
+        # jax.debug.print('Action: {x}', x=state_info['last_act'])
         
         # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
         obs = jp.concatenate([
@@ -859,7 +899,7 @@ class UnitreeEnv(MjxEnv):
         return jp.sqrt(jp.sum(jp.square(torques))) + jp.sum(jp.abs(torques))
     
     def _reward_acceleration(self, last_dof_vel: jax.Array, dof_vel:jax.Array) -> jax.Array:
-        return jp.sum(jp.abs((dof_vel - last_dof_vel)/self.dt))
+        return jp.sum(jp.square((dof_vel - last_dof_vel)/self.dt))
     
     def _reward_velocity(self, dof_vel: jax.Array) -> jax.Array:
         return jp.sum(jp.square(dof_vel))
