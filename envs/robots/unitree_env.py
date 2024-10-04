@@ -661,6 +661,7 @@ class UnitreeEnv(MjxEnv):
             state.info['command'],
             )
         
+        # track the trajectory (for evaluation)
         state.info['command'] = jp.where(
             jp.logical_and(self.manual_control, self.track_traj),
             state.info['trajectory'][state.info['step'].astype(int), :],
@@ -671,14 +672,12 @@ class UnitreeEnv(MjxEnv):
         state.info['step'] = jp.where(
         (state.info['step'] > self.episode_length), 0, state.info['step']
         )
-
         state.metrics.update(state.info['rewards'])
 
         # observation
         obs, privileged_obs = self._get_obs(data, state.info, state.obs, state.privileged_obs, obs_rng=obs_rng)
         state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(privileged_obs).any()
         done = jp.float32(done)
-
         
         state = state.replace(
             pipeline_state=data, obs=obs, reward=reward, done=done, privileged_obs=privileged_obs
@@ -746,7 +745,7 @@ class UnitreeEnv(MjxEnv):
         quaternion = data.qpos[3:7] 
         rpy = math.quat_to_euler(quaternion)
 
-        # Observation
+        # Observation, if anything is changed here, the noise vector must be adjusted accordingly
         obs = jp.concatenate([
             self.local_v_scale*jp.array(local_v),
             self.local_w_scale*jp.array(local_w),
@@ -797,18 +796,17 @@ class UnitreeEnv(MjxEnv):
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
         done |= jp.any(data.qpos[7:] > self.upper_limits)        
-        # New termination: If body touches the ground
+        # Termination if body touches the ground
         terminate_contacts = jp.zeros((7),dtype=int)
         terminate_contacts = terminate_contacts.at[:].set(self.get_terminate_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[terminate_contacts] < 0.0)
-        # Old termination: based on z-height
+        # Terminate if body height not high enough
         #done |= data.xpos[self._torso_idx, 2] < self.min_z
         # Termination in case of finite terrain
         done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
         done |= done_map*self.terminate_map
         # Catch em all Nans
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
-
         return done
 
     ### ------------ Reward functions---------------- ###
