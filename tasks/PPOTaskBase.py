@@ -383,7 +383,7 @@ class PPOTaskBase(nn.Module):
 
     def test_force_push_random(self, num_iterations):
         # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
-        if (self.cfg.env.force_kick_interval != 150) and (self.cfg.timesteps_per_rollout != 50 and (self.cfg.rollouts_per_experiment != 5)):
+        if (self.cfg.env.force_kick_interval != 150) or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5):
             print("Please set the force kick interval to 150, timesteps per rollout to 50 and rollouts per experiment to 5")
             return
 
@@ -426,63 +426,7 @@ class PPOTaskBase(nn.Module):
         name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
         save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta']],['success_rate', 'kick_force_magnitude', 'kick_theta'], \
                              f'force_push_results_{name}.csv')
- 
-
-
-    def test_force_push(self, num_iterations):
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
-        results = {'success_rate': []}
-
-        for it in range(num_iterations):
-            print(f"iteration: {it} ")
-            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
-            # Choose hyperparemeters like that: force_kick_duration=0.1, force_kick_interval=250, timesteps_per_rollout=50, episode_length=
-            # This way we have a kick every 5 seconds
-            if (((it+1) % (self.cfg.env.force_kick_interval / self.cfg.timesteps_per_rollout)) == 0) and it !=0 :
-                #print(f"Steps must be greater the {self.cfg.timesteps_per_rollout * it}")
-                #print(f"Steps: {eval_infos['steps']}")
-                success = eval_infos['steps'] >= (self.cfg.timesteps_per_rollout * (it))-1
-                success = torch.sum(success)/self.cfg.num_envs
-                #print(f"Success: {success}")
-                results['success_rate'].append(success)
-            # Calculate successrate: 
-            self.algo.storage.clear()
-        for key in results.keys():      
-            results[key] = torch.stack(results[key]).cpu()
-        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
-        save_tensors_to_csv([results['success_rate']],['success_rate'], f'force_push_results_{name}.csv')
-
-    def test_force_push_auto(self, num_iterations):
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
-        results = {'success_rate': []}
-        offset = 0
-        for it in range(num_iterations):
-            print(f"iteration: {it} ")
-            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
-            # Choose hyperparemeters like that: force_kick_duration=0.1, force_kick_interval=250, timesteps_per_rollout=50, episode_length=
-            # This way we have a kick every 5 seconds
-            if (((it+1-offset) % (self.cfg.env.force_kick_interval / self.cfg.timesteps_per_rollout)) == 0) and it !=0 :
-                #print(f"Steps must be greater the {self.cfg.timesteps_per_rollout * it}")
-                success = eval_infos['steps'] >= (self.cfg.timesteps_per_rollout * (it-offset))-1
-                success = torch.sum(success)/self.cfg.num_envs
-                results['success_rate'].append(success)
-                print(f"Success rate: {results['success_rate'][-1]}")
-
-            # rollouts per experiment should be (self.cfg.env.force_kick_interval / self.cfg.timesteps_per_rollout)*6
-            if it % self.cfg.rollouts_per_experiment == 0 and it >0:
-                offset = it
-                self.cfg.env.kick_force = self.cfg.env.kick_force + 50
-                self.env = self.init_env(self.cfg.scene_xml)
-                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
-
-            # Calculate successrate: 
-            self.algo.storage.clear()
-        for key in results.keys():      
-            results[key] = torch.stack(results[key]).cpu()
-        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
-        save_tensors_to_csv([results['success_rate']],['success_rate'], f'force_push_results_{name}.csv')
-
-        
+         
     def test_escape_pyramid(self, num_iterations):
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
         results = {'success_rate': []}
@@ -542,6 +486,10 @@ class PPOTaskBase(nn.Module):
             self.algo.storage.clear()
         
     def test_experiments(self, num_iterations):
+        if (self.cfg.env.manual_control.enable!=True) or (self.cfg.rollouts_per_experiment != 8) \
+            or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.num_iterations!=65):
+            print("Please set the manual control to true, rollouts per experiment to 8, timesteps per rollout to 50 and num iterations to 65")
+            return
         # eval data stores for every timestep, results are then the used metrics for overall comparison
         eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': [], 'total_dist':[], 'best_time':100.0, 'successful_envs': None, 'p_gains': []}
         results = {'power': [], 'energy': [], 'COT': [], 'local_v': [], 'top_times': [], 'success_rate':[]}

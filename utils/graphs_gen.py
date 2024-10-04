@@ -271,6 +271,42 @@ def create_power_energy_bar_chart(title, names, power, energy, filename, y_lim):
     plt.savefig(filename)
     plt.close()
 
+def create_bar_chart(title, names, values, plot_name, y_label):
+    """
+    Creates and saves a bar chart.
+    
+    Args:
+    - title (str): The title of the chart.
+    - names (list): The names or labels for the bars.
+    - values (torch.Tensor): The values for each bar (can be a PyTorch tensor).
+    - filename (str): The filename to save the figure to.
+    - y_label (str): The label for the y-axis.
+    """
+    # Convert values tensor to numpy array if it's a torch.Tensor
+    values = values.cpu().numpy()
+    # Get colormap
+    cmap = plt.get_cmap('viridis')
+    
+    # Generate colors from the colormap
+    num_bars = len(names)
+    colors = cmap(np.linspace(0, 1, num_bars))
+
+    # Create the figure and axis
+    fig = plt.figure(figsize=(10, 6))
+    plt.bar(names, values, color=colors)
+
+    # Add title and y-axis label
+    plt.title(title)
+    plt.ylabel(y_label)
+
+    # Save the plot to the provided filename
+    dir_name = os.path.join(os.getcwd(), 'outputs', 'graphs')
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    fig_path = os.path.join(dir_name, f"{plot_name}.png")
+    plt.savefig(fig_path)  # Save the xy position plot
+
+    plt.close()
 
 def plot_xy_position(tensor_xy, plot_name):
     """

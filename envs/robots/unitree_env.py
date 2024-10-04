@@ -37,9 +37,6 @@ class UnitreeEnv(MjxEnv):
             print(f"DEFAULT TERMINATION")
             self.terminate_map = False
 
-
-        if "eval" in model_path:
-            self.terminate_map = True
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
         mj_model.opt.ls_iterations = 6
@@ -49,6 +46,7 @@ class UnitreeEnv(MjxEnv):
                          physics_steps_per_control_step=cfg.physics_steps_per_control_step)
         print(self.sys.opt)
         
+        # Overall parameters
         self.control_mode = cfg.control_mode
         self.action_scale = cfg.action_scale
         self.num_history_actor = cfg.num_history_actor
@@ -57,7 +55,9 @@ class UnitreeEnv(MjxEnv):
         self.is_training = cfg.is_training
         self.push_interval = cfg.push_interval
         self.episode_length = cfg.episode_length
+        self.sample_command_interval=cfg.sample_command_interval
 
+        # Randomisation parameters
         self.randomize = cfg.domain_rand.randomisation
         self.local_v_noise = cfg.domain_rand.local_v_noise
         self.local_w_noise = cfg.domain_rand.local_w_noise
@@ -65,6 +65,18 @@ class UnitreeEnv(MjxEnv):
         self.joint_vel_noise = cfg.domain_rand.joint_vel_noise
         self.gravity_noise = cfg.domain_rand.gravity_noise
 
+
+        # Randomization ranges:
+        self.x_pos = cfg.reset_pos_x
+        self.y_pos = cfg.reset_pos_y 
+        self.theta = [0, jp.pi/8] # in rad
+        self.a_x = [-1,1]
+        self.a_y = [-1,1]
+        self.kp_range = cfg.domain_rand.kp_range
+        self.kd_range = cfg.domain_rand.kd_range
+        self.motor_strength_range = cfg.domain_rand.motor_strength_range
+
+        # Control parameters
         self.manual_control = cfg.manual_control.enable
         self.track_traj = (cfg.manual_control.task == "track trajectory")
         self.cmd_x = cfg.manual_control.cmd_x
@@ -75,29 +87,19 @@ class UnitreeEnv(MjxEnv):
         self.single_obs_size = cfg.single_obs_size # defined in _get_obs
         self.privileged_obs_size = cfg.single_obs_size_priv
 
+        # Kick parameters
         self.enable_force_kick = cfg.enable_force_kick
         self.kick_force = cfg.kick_force
         self.force_kick_duration = cfg.force_kick_duration
         self.force_kick_interval = cfg.force_kick_interval
         self.force_kick_counter = self.force_kick_duration / self.dt
-        self.force_push_directions = jp.concatenate([
-                        jp.array([-1.0, 0.0]),
-                        jp.array([-1/jp.sqrt(2), -1/jp.sqrt(2)]),
-                        jp.array([0.0, -1.0]),
-                        jp.array([1/jp.sqrt(2), -1/jp.sqrt(2)]),
-                        jp.array([1.0, 0.0]),
-                        jp.array([1/jp.sqrt(2), 1/jp.sqrt(2)]),
-                        jp.array([0.0, 1.0]),
-                        jp.array([1/jp.sqrt(2), 1/jp.sqrt(2)])
-        ])
         
-
+        # Variable impedance control parameters
         self.stiff_range = cfg.control.stiff_range  
-        # Define shapes, action shape subtracted by 2 for the kick      
         if cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size-2 + 3
-            self.single_obs_size = self.single_obs_size+2 + 3
-            self.privileged_obs_size = self.privileged_obs_size+2 +3
+            self.single_obs_size = self.single_obs_size + 3
+            self.privileged_obs_size = self.privileged_obs_size +3
         elif cfg.control_mode == "VIC_2": # for every leg
             self.action_shape = self.action_size-2 + 4
             self.single_obs_size = self.single_obs_size + 4
@@ -112,16 +114,7 @@ class UnitreeEnv(MjxEnv):
             self.privileged_obs_size = self.privileged_obs_size + 7
         else:
             self.action_shape = self.action_size-2
-        # Randomization ranges:
-        self.x_pos = cfg.reset_pos_x
-        self.y_pos = cfg.reset_pos_y 
-        self.theta = [0, jp.pi/8] # in rad
-        self.a_x = [-1,1]
-        self.a_y = [-1,1]
-        self.kp_range = cfg.domain_rand.kp_range
-        self.kd_range = cfg.domain_rand.kd_range
-        self.motor_strength_range = cfg.domain_rand.motor_strength_range
-
+        
         # Normalization ranges
         self.local_v_scale = cfg.normalization.local_v_scale
         self.local_w_scale = cfg.normalization.local_w_scale
@@ -139,14 +132,14 @@ class UnitreeEnv(MjxEnv):
         self._setup()
 
     def _setup(self):
-        self._foot_radius = 0.023
 
+        self._foot_radius = 0.023
         self._torso_idx = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
         
+        # Define body and geometry names
         feet_names = ['FR', 'FL', 'RR', 'RL'] 
         hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
         torso_bodies = ['base_mirror_0', 'base_mirror_1', 'base_mirror_2', 'base_mirror_3', 'base_mirror_4']
-
         body_geometries = [
             "base_0", "base_1", "base_2", 
             "FR_hip", "FR_thigh", "FR_calf_0", "FR_calf_1",  
@@ -154,40 +147,36 @@ class UnitreeEnv(MjxEnv):
             "RR_hip", "RR_thigh", "RR_calf_0", "RR_calf_1", 
             "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
             ]
-        
         terminate_geometries = ["base_0", "base_1", "base_2","FR_hip","FL_hip","RR_hip","RL_hip"]
-
+        foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
+        lower_leg_body=['FR_calf', 'FL_calf', 'RR_calf', 'RL_calf']
+        
+        # Convert to IDs
         feet_site_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE.value, f) for f in feet_names
         ]
         feet__geom_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, f) for f in feet_names
         ]
-        foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
-        lower_leg_body=['FR_calf', 'FL_calf', 'RR_calf', 'RL_calf']
         foot_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in foot_body
         ]
-
         body_geom_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, f) for f in body_geometries
         ]
-
         terminate_geom_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, f) for f in terminate_geometries
         ]
-
         floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM.value, 'floor')
-        #print(f"Floor ID: {floor_id}")
-        
         hip_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, i) for i in hip_body
         ]
-        
         lower_leg_body_id = [
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, l)
             for l in lower_leg_body
         ]
+
+        # Assert if Bodies and Geometries are not found
         assert not any(id_ == -1 for id_ in lower_leg_body_id), 'Body not found.'
         self._lower_leg_body_id = np.array(lower_leg_body_id)
         
@@ -203,13 +192,14 @@ class UnitreeEnv(MjxEnv):
         assert not any(id_ == -1 for id_ in feet__geom_id), 'Feet Geom not found.'
         self.feet_geom_id= jp.array(feet__geom_id)
 
-        self.floor_id = floor_id        
+              
         assert not any(id_ == -1 for id_ in hip_body), 'Hip Body not found.'
         self.hip_body_id = jp.array(hip_body_id)
 
         assert not any(id_ == -1 for id_ in foot_body), 'Foot Body not found.'
         self.foot_body_id = jp.array(foot_body_id)
-
+        
+        self.floor_id = floor_id  
         assert floor_id != -1, 'Floor not found.'
         self.floor_id = floor_id
 
@@ -316,9 +306,7 @@ class UnitreeEnv(MjxEnv):
         ang_vel_yaw = jax.random.uniform(
             key3, (1,), minval=ang_vel_yaw[0], maxval=ang_vel_yaw[1]
         )
-        #mask = jp.random.uniform(key4, (1,)) > 0.2
         new_cmd = jp.array([lin_vel_x[0], lin_vel_y[0], ang_vel_yaw[0]]) 
-
         return new_cmd
 
     def reset(self, rng: jp.ndarray, initial_xy=jp.array([0.,0.]), manual_cmd=jp.array([0.,0.,0.]), traj = jp.zeros((500, 3))) -> State:
@@ -339,21 +327,17 @@ class UnitreeEnv(MjxEnv):
         kd_factor = jax.random.uniform(kd_rng, (1,), minval=self.kd_range[0], maxval=self.kd_range[1])
         motor_strength = jax.random.uniform(motor_strength_rng, (1,), minval=self.motor_strength_range[0], maxval=self.motor_strength_range[1])
 
-        reset_pos = self.default_pos
-        
 
+        reset_pos = self.default_pos
         reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.x_pos[0], maxval=self.x_pos[1])
         reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.y_pos[0], maxval=self.y_pos[1])
-        #jax.debug.print('Reset x: {x}', x=reset_x)
-        #jax.debug.print('Reset y: {x}', x=reset_y)
-        # Get random theta and rotation vector
+
+        # Randomisation of the drop off position
         theta = self.theta # in rad
         a_x = self.a_x
         a_y = self.a_y
-
         a_x=jax.random.uniform(rng6, (1,), minval=a_x[0], maxval=a_x[1])
         a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
-
         a_x, a_y = a_x/jp.linalg.norm(jp.array([a_x, a_y])), a_y/jp.linalg.norm(jp.array([a_x, a_y]))
         
         theta = jax.random.uniform(rng5, (1,), minval=theta[0], maxval=theta[1])      
@@ -362,16 +346,16 @@ class UnitreeEnv(MjxEnv):
         q3 = a_y*jp.sin(theta/2)
         q4 = 0
 
+        # Reset position and orientation
         #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
+        # Reset position only
         reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, 1, 0, 0, 0]))        
 
-        #reset_pos = reset_pos.at[0:7].set(jp.array([0, 0, 0.27, q1[0], q2[0], q3[0], q4]))
-
+        # Get initial state
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
         command_rand = self._resample_commands(rng3)
         command = jp.where(self.manual_control, manual_cmd, command_rand)     
-        #jax.debug.print('Mjdata: {x}', x=data)
         state_info = {
             'rng': rng,
             'action_minus_2t': jp.zeros(self.action_shape), # added for smoothness
@@ -399,13 +383,12 @@ class UnitreeEnv(MjxEnv):
             'kick_theta': jp.array(0.0),
             'kick_force_magnitude': jp.array(0.0),
         }
+        # Define obs history
         obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
         privileged_obs_history = jp.zeros(self.num_history_critic*self.privileged_obs_size)
-
+        # Get initial observation
         obs, privileged_obs = self._get_obs(data, state_info, obs_history, privileged_obs_history, obs_rng=rng4)
 
-        #jax.debug.print('Initial obs: {x}', x=obs)
-        #jax.debug.print('Initial privileged obs: {x}', x=privileged_obs)
         metrics = {
             'total_dist': 0.0,
             'total_time': 0.0, 
@@ -438,84 +421,52 @@ class UnitreeEnv(MjxEnv):
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
 
-        m = (self.stiff_range[0] +self.stiff_range[1])/2
-        r= (self.stiff_range[1]-self.stiff_range[0])/2
         
 
-        if self.control_mode == "P":
+        if self.control_mode == "P" or self.control_mode == "VIC_1" or self.control_mode == "VIC_2" or self.control_mode == "VIC_3" or self.control_mode == "VIC_4":
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
-            err = target_dof_pos - dof_pos
-            torques = self.p_gains*actuator_param[0] * err - self.d_gains*actuator_param[1] * dof_vel
-
+            p_gains = self.compute_stiffness(action)
+            if self.control_mode == "VIC_1" or self.control_mode == "VIC_2" or self.control_mode == "VIC_3" or self.control_mode == "VIC_4":
+                d_gains = 0.2*jp.sqrt(p_gains)
+            else:
+                d_gains = self.d_gains
+            torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
         elif self.control_mode == "T":
             torques = unscale(self.action_scale * action[:12], lower=-self.torque_limits, upper=self.torque_limits)
-        elif self.control_mode == "VIC_1":
-            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
-                                    a_min=self.lower_limits, a_max=self.upper_limits)
-            err = target_dof_pos - dof_pos
-            action_stiff = jp.tile(action[12:12+3],4)
-            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains =0.2*jp.sqrt(p_gains) # setting it after critical damping law
-            torques = p_gains * err - d_gains * dof_vel
-        elif self.control_mode == "VIC_2":
-            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
-                                    a_min=self.lower_limits, a_max=self.upper_limits)
-            err = target_dof_pos - dof_pos
-            action_stiff = jp.repeat(action[12:12+4],3)
-            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
-            torques = p_gains * err - d_gains * dof_vel
-        elif self.control_mode == "VIC_3":
-            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
-                                    a_min=self.lower_limits, a_max=self.upper_limits)
-            err = target_dof_pos - dof_pos
-            action_stiff = action[12:12+12]
-            p_gains = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 0.2*jp.sqrt(p_gains) # setting it after critical damping law
-            torques = p_gains * err - d_gains * dof_vel
-        elif self.control_mode == "VIC_4":
-            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
-                                    a_min=self.lower_limits, a_max=self.upper_limits)
-            err = target_dof_pos - dof_pos
-            stiff_leg = jp.tile(unscale(action[12:12+4], self.stiff_range[0], self.stiff_range[1]), 3).reshape(3,4)
-            stiff_joint = unscale(action[12+4:12+4+3], self.stiff_range[0], self.stiff_range[1])
-            action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
-            p_gains = jp.clip(self.p_gains*action_stiff, a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-            d_gains = 0.2*jp.sqrt(p_gains)
-            torques = p_gains * err - d_gains * dof_vel
-        else:
-            raise RuntimeError("control model: P|T")
-        
+
         torques = jp.clip(torques*actuator_param[2], a_min=-self.torque_limits, a_max=self.torque_limits)
         
-
+        # Add the force kick to the torques
         torques = jp.concatenate([torques, action[-2:]])
-        #jax.debug.print('Torques: {x}', x=torques)
 
         return torques
 
     def compute_stiffness(self, action: jp.ndarray) -> jp.ndarray:
         """
-        :param action: in (-1, 1)
-        :return:
-        """
-        m = (self.stiff_range[0] +self.stiff_range[1])/2
-        r= (self.stiff_range[1]-self.stiff_range[0])/2
+        Compute the stiffness for each joint based on the action
 
-        if self.control_mode == "P":
+        Args:
+            action: the action to be taken
+
+        Returns:    
+            p_gains: the proportional gains (12) for each joint 
+        """
+
+        if self.control_mode == "P" or self.control_mode == "T":
             return self.p_gains
         elif self.control_mode == "VIC_1":
-            action_stiff = jp.tile(action[12:],4)
+            action_stiff = unscale(jp.tile(action[12:12+3],4), self.stiff_range[0], self.stiff_range[1])
         elif self.control_mode == "VIC_2":
-            action_stiff = jp.repeat(action[12:],3)
+            action_stiff = unscale(jp.repeat(action[12:12+4],3), self.stiff_range[0], self.stiff_range[1])
         elif self.control_mode == "VIC_3":
-            action_stiff = action[12:]
+            action_stiff = unscale(action[12:12+12], self.stiff_range[0], self.stiff_range[1])
         elif self.control_mode == "VIC_4":
             stiff_leg = jp.tile(unscale(action[12:12+4], self.stiff_range[0], self.stiff_range[1]), 3).reshape(3,4)
             stiff_joint = unscale(action[12+4:12+4+3], self.stiff_range[0], self.stiff_range[1])
             action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
-
+        else:
+            raise RuntimeError("control model: P|T")
         p_gains = jp.clip(self.p_gains*action_stiff, a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
         return p_gains
 
@@ -538,32 +489,9 @@ class UnitreeEnv(MjxEnv):
         # update state info
         state.info['kick'] = kick
         return state
-    
+       
     def force_kick_robot(self, state: State, rng: jp.ndarray):
-        if self.enable_force_kick:
-            increase_counter = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
-            # Push curriculum
-            state.info['force_direction_counter'] = jp.where(increase_counter, jp.mod(state.info['force_direction_counter']+1, 8), state.info['force_direction_counter'])
-            jax.debug.print('Force direction counter: {x}', x=state.info['force_direction_counter'])
-            push_x = self.force_push_directions[state.info['force_direction_counter'].astype(int)*2]
-            push_y = self.force_push_directions[(state.info['force_direction_counter']*2+1).astype(int)]
-            push_direction = jp.array([push_x, push_y])
-            jax.debug.print('Push direction: {x}', x=push_direction)
-            kick = push_direction * self.kick_force
-
-            #kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
-            #kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * self.kick_force
-            
-            state.info['force_kick'] = jp.where((jp.mod(state.info['step'], self.force_kick_interval) == 0), kick, state.info['force_kick'])
-            
-            state.info['kick_counter'] = jp.where(jp.mod(state.info['step'], self.force_kick_interval)==0, self.force_kick_counter, state.info['kick_counter'])
-            state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
-            state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], jp.zeros(2))
-        else:
-            state.info['force_kick'] = jp.zeros(2)
-        return state
-    
-    def force_kick_robot_random(self, state: State, rng: jp.ndarray):
+        # This is intended to be used for evaluation only
         if self.enable_force_kick:
             rng_kick, rng_theta,  = jax.random.split(rng, 2)
             # Push randomly
@@ -596,8 +524,6 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the new state of the environment
         """
-        #jax.debug.print('Step: {x}', x=state.info['step'])
-        #jax.debug.print('Command: {x}', x=state.info['trajectory'][state.info['step'].astype(int), :])
 
         # For randomization
         rng, obs_rng, kick_noise, cmd_rng = jax.random.split(state.info['rng'], 4)
@@ -605,12 +531,10 @@ class UnitreeEnv(MjxEnv):
         # kick robot
         state = self.kick_robot(state, kick_noise)
         #state = self.force_kick_robot(state, kick_noise)
-        state = self.force_kick_robot_random(state, kick_noise)
+        state = self.force_kick_robot(state, kick_noise)
 
-        #jax.debug.print('Kick: {x}', x=state.info['force_kick'])
-        #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
+        # Add the force kick to the action, if not needed it will be zero
         action_kick = jp.concatenate([action, jp.array(state.info['force_kick'])])
-        #jax.debug.print('Action: {x}', x=action_kick)
         # Get the current state of the physics
         data0 = state.pipeline_state
 
@@ -618,9 +542,8 @@ class UnitreeEnv(MjxEnv):
         actuator_param = jp.concatenate([state.info['kp_factor'], state.info['kd_factor'], state.info['motor_strength']])
 
         p_gains = self.compute_stiffness(action)
-        #jax.debug.print('P gains: {x}', x=p_gains)
         data = self.pipeline_step(data0, action_kick, actuator_param) #passed data is action as angle -> convert to torque in mjx
-        #jax.debug.print('Height: {x}', x=data.sensordata)
+        
         # ----------------- POST Physics step --------------- #
         # Here we 1.)extract the state information, 2.)check termination, 3.) calculate the reward and 4.) get observations 
         
@@ -638,11 +561,7 @@ class UnitreeEnv(MjxEnv):
         foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
         ## general contact management
         contact = foot_floor_dist< 1e-3  # a mm or less off the floor
-        contact_filt_mm = contact | state.info['last_contact']
-        #jax.debug.print('foot dist: {x}', x=foot_floor_dist)
-        #jax.debug.print('Foot contacts: {x}', x=contact_filt_mm)
-        mean_z = jp.sum(foot_pos[:, 2]*contact_filt_mm) / (jp.sum(contact_filt_mm)+ 1e-6)
-        #contact_filt_cm = (((foot_pos[:,2]-self._foot_radius-mean_z) < 1e-2) & (foot_floor_dist < 1e-2)) | state.info['last_contact']
+        contact_filt_mm = contact | state.info['last_contact']        
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         # for observations
@@ -681,9 +600,7 @@ class UnitreeEnv(MjxEnv):
             # ),
             'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
             'termination': self._reward_termination(done, state.info['step'], data=data),
-
             'action_rate': self.action_rate(action, state.info['last_act']),
-
             #'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
@@ -694,17 +611,17 @@ class UnitreeEnv(MjxEnv):
             'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
             # Feet posture
             'hip': self.rew_hip(joint_angles),
-
+            # Variable impedance control
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
             'rew_stiff_default': self._reward_stiff_default(action),
             'rew_base_height': self._reward_base_height(data.qpos[2]),
+            #self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
         }
         #Reward clipping like in unitree rl
         reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
-
 
         # state management
         state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation
@@ -737,11 +654,9 @@ class UnitreeEnv(MjxEnv):
         state.metrics['command'] = state.info['command']
         state.metrics['p_gains'] = p_gains   
 
-        #self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
-        
         # sample new command
         state.info['command'] = jp.where(
-            jp.logical_and( state.info['step'] % 100 == 0, jp.logical_not(self.manual_control)), #normally a ~ would be sufficient but it somehow converts the boolean into -2 and thus this and does not work anymore
+            jp.logical_and( state.info['step'] % self.sample_command_interval == 0, jp.logical_not(self.manual_control)), #normally a ~ would be sufficient but it somehow converts the boolean into -2 and thus this and does not work anymore
             self._resample_commands(cmd_rng),
             state.info['command'],
             )
@@ -751,7 +666,6 @@ class UnitreeEnv(MjxEnv):
             state.info['trajectory'][state.info['step'].astype(int), :],
             state.info['command'],
         )
-        #jax.debug.print('Command: {x}', x=state.info['command'])
         
         # reset the step counter when done
         state.info['step'] = jp.where(
@@ -769,9 +683,6 @@ class UnitreeEnv(MjxEnv):
         state = state.replace(
             pipeline_state=data, obs=obs, reward=reward, done=done, privileged_obs=privileged_obs
         )
-
-
-        
         return state
 
     def _get_jacobian(self, data, qpos):
@@ -835,12 +746,7 @@ class UnitreeEnv(MjxEnv):
         quaternion = data.qpos[3:7] 
         rpy = math.quat_to_euler(quaternion)
 
-        # jax.debug.print('qpos shape: {x}', x=data.qpos.shape)
-        # jax.debug.print('qvel shape: {x}', x=data.qvel.shape)
-        # jax.debug.print('Last act shape: {x}', x=state_info['last_act'].shape)
-        # jax.debug.print('Action: {x}', x=state_info['last_act'])
-        
-        # Observation space dimension: 1+6+3+12+12+12+4+3 53 #old calculation
+        # Observation
         obs = jp.concatenate([
             self.local_v_scale*jp.array(local_v),
             self.local_w_scale*jp.array(local_w),
@@ -852,24 +758,22 @@ class UnitreeEnv(MjxEnv):
         ])
 
         obs = jp.clip(obs, -100.0, 100.0)
-
+        # Privileged observation: passed to the critic
         privileged_obs = jp.concatenate([
-            # Privileged
-            # state_info['kp_factor'],
-            # state_info['kd_factor'],
-            # state_info['motor_strength'],
-            # jp.array([self.sys.geom_friction[0, 0]]),
-            # jp.array([self.sys.body_mass[1]]),
-            # state_info['kick'],
-            # state_info['contact'],
+            state_info['kp_factor'],
+            state_info['kd_factor'],
+            state_info['motor_strength'],
+            jp.array([self.sys.geom_friction[0, 0]]),
+            jp.array([self.sys.body_mass[1]]),
+            state_info['kick'],
+            state_info['contact'],
             obs
         ])
 
         assert obs.shape[0] == self.single_obs_size, f"obs.shape: {obs.shape}"
         assert privileged_obs.shape[0] == self.privileged_obs_size, f"privileged_obs.shape {privileged_obs.shape}"
 
-
-        # Add noise to the observation, this has to be altered if the observation space changes
+        # Add noise to the observation(not privileged), this has to be altered if the observation space changes
         noise_vec = jax.random.uniform(obs_rng, (self.single_obs_size,), minval=-1., maxval=1.)
         noise_vec = noise_vec.at[:3].multiply(self.local_v_noise*self.local_v_scale)
         noise_vec = noise_vec.at[3:6].multiply(self.local_w_noise*self.local_w_scale)
@@ -892,23 +796,18 @@ class UnitreeEnv(MjxEnv):
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
         done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        done |= jp.any(data.qpos[7:] > self.upper_limits)
-        # Old termination: based on z-heightfjp
-        #done |= data.xpos[self._torso_idx, 2] < self.min_z
-        
+        done |= jp.any(data.qpos[7:] > self.upper_limits)        
         # New termination: If body touches the ground
         terminate_contacts = jp.zeros((7),dtype=int)
         terminate_contacts = terminate_contacts.at[:].set(self.get_terminate_contacts(data)[:,0])
         done |= jp.any(data.contact.dist[terminate_contacts] < 0.0)
-        #jax.debug.print('Timeout: {x}', x=step > self.episode_length)
-
-        #done |= step > self.episode_length
-
+        # Old termination: based on z-height
+        #done |= data.xpos[self._torso_idx, 2] < self.min_z
+        # Termination in case of finite terrain
         done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
         done |= done_map*self.terminate_map
-
+        # Catch em all Nans
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
-        
 
         return done
 
@@ -994,7 +893,7 @@ class UnitreeEnv(MjxEnv):
         rew_air_time = jp.sum((air_time-0.1)* first_contact)
         rew_air_time *= (
                 #math.normalize(commands[:])[1] > 0.05
-                jp.any(commands > 0.05)
+                jp.any(jp.abs(commands) > 0.05)
         )  # no reward for zero command
 
         return rew_air_time
@@ -1020,7 +919,7 @@ class UnitreeEnv(MjxEnv):
         # )
     
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-            jp.all(commands < 0.05)
+            jp.all(jp.abs(commands) < 0.05)
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
