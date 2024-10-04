@@ -86,7 +86,8 @@ env:
           "hip": 0.05,
           "rew_joint_track": -0.1,
           'rew_stiff_default': 0.0,
-          'rew_base_height': -0.6
+          'rew_base_height': -0.6,
+          'rew_foot_tracking': -0.6,
   }
 
 log: True

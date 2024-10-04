@@ -623,7 +623,7 @@ class UnitreeEnv(MjxEnv):
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
             'rew_stiff_default': self._reward_stiff_default(action),
             'rew_base_height': self._reward_base_height(data.qpos[2]),
-            #self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
+            #'rew_foot_tracking': self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
         }
         rewards = {
             k: v * self.reward_scales[k] for k, v in rewards.items()
@@ -965,9 +965,9 @@ class UnitreeEnv(MjxEnv):
         ])
         foot_cycles = jp.remainder(foot_cycles, 1.0)
         phases = 1 - jp.abs(1.0 - jp.clip((foot_cycles*2.0)-1.0, 0.0,1.0) *2.0 )
-        jax.debug.print('Phases {x}', x=phases)
+        #jax.debug.print('Phases {x}', x=phases)
         target_height = 0.2*phases
-        jax.debug.print('Target height {x}', x=target_height)
+        #jax.debug.print('Target height {x}', x=target_height)
         desired_contacts = self._get_desired_contact(foot_cycles)
         #jax.debug.print('Desired contacts: {x}', x=desired_contacts)
         foot_clearance = jp.square(target_height-foot_z)*(1-desired_contacts)
