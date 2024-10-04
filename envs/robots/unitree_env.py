@@ -127,7 +127,7 @@ class UnitreeEnv(MjxEnv):
 
         self.control_range = cfg.control_range
         self.reward_scales = cfg.reward_scales
-
+        self.min_z = 0.15
         # set up robot properties
         self._setup()
 
@@ -140,12 +140,19 @@ class UnitreeEnv(MjxEnv):
         feet_names = ['FR', 'FL', 'RR', 'RL'] 
         hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
         torso_bodies = ['base_mirror_0', 'base_mirror_1', 'base_mirror_2', 'base_mirror_3', 'base_mirror_4']
+        # body_geometries = [
+        #     "base_0", "base_1", "base_2", 
+        #     "FR_hip", "FR_thigh", "FR_calf_0", "FR_calf_1",  
+        #     "FL_hip", "FL_thigh", "FL_calf_0", "FL_calf_1", 
+        #     "RR_hip", "RR_thigh", "RR_calf_0", "RR_calf_1", 
+        #     "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
+        #     ]
         body_geometries = [
             "base_0", "base_1", "base_2", 
-            "FR_hip", "FR_thigh", "FR_calf_0", "FR_calf_1",  
-            "FL_hip", "FL_thigh", "FL_calf_0", "FL_calf_1", 
-            "RR_hip", "RR_thigh", "RR_calf_0", "RR_calf_1", 
-            "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
+            "FR_hip", "FR_thigh",   
+            "FL_hip", "FL_thigh", 
+            "RR_hip", "RR_thigh", 
+            "RL_hip", "RL_thigh"
             ]
         terminate_geometries = ["base_0", "base_1", "base_2","FR_hip","FL_hip","RR_hip","RL_hip"]
         foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
@@ -247,7 +254,7 @@ class UnitreeEnv(MjxEnv):
             conn_indices: An array of connection indices representing body contacts with the ground.
         """
         # Number of collisions and arrays are set statically due to brax troubles
-        num_collisions = 19
+        num_collisions = len(self.body_geom_id)
         expected_total_cont=23 + 3*23*self.terminate_map
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
@@ -467,7 +474,7 @@ class UnitreeEnv(MjxEnv):
             action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
         else:
             raise RuntimeError("control model: P|T")
-        p_gains = jp.clip(self.p_gains*action_stiff, a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
+        p_gains = self.p_gains * action_stiff
         return p_gains
 
 
@@ -524,6 +531,7 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the new state of the environment
         """
+        #action = jp.clip(action, min=-1, max=1)
 
         # For randomization
         rng, obs_rng, kick_noise, cmd_rng = jax.random.split(state.info['rng'], 4)
@@ -861,9 +869,9 @@ class UnitreeEnv(MjxEnv):
     
     
     def _reward_collision(self, data) -> jax.Array:
-        body_contacts = jp.zeros((19),dtype=int)
+        body_contacts = jp.zeros(len(self.body_geom_id),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
-        return 1.0*jp.sum(data.contact.dist[body_contacts] < 0.0)
+        return 1.0*jp.sum(data.contact.dist[body_contacts] < 0.1)
         
     ## Related to smoothness of the actions:
     def _reward_smooth_rate( # to be continued...(why the velocities?)
@@ -887,13 +895,12 @@ class UnitreeEnv(MjxEnv):
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
     ) -> jax.Array:
-        # Reward air time.
-        rew_air_time = jp.sum((air_time-0.1)* first_contact)
+        cmd_norm = jp.linalg.norm(commands)
+        rew_air_time = jp.sum((air_time - 0.1) * first_contact)
         rew_air_time *= (
-                #math.normalize(commands[:])[1] > 0.05
-                jp.any(jp.abs(commands) > 0.05)
-        )  # no reward for zero command
-
+                # math.normalize(commands[:])[1] > 0.05
+            jp.any(jp.abs(commands) > 0.05)
+        ) #  * jp.exp(-cmd_norm)  # no reward for zero command and weighting reward by velocity
         return rew_air_time
 
     def _reward_feet_contact_time(
@@ -968,6 +975,7 @@ class UnitreeEnv(MjxEnv):
     
     def _reward_base_height(self, base_z: jax.Array) -> jax.Array:
         target_height = 0.27
+        #return jp.min(target_height-base_z, 0)
         return jp.square(base_z-target_height)
 
     def _von_mises(self, t: jax.Array)-> jax.Array:
