@@ -6,7 +6,7 @@ env:
   action_scale: 0.3
   control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
-  sample_command_interval: 100
+  sample_command_interval: 250
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
@@ -77,7 +77,7 @@ env:
           'termination': -10.0,
           'stand_still': -0.5, 
           "foot_slip": -0.1,
-          "action_rate": -0.0,
+          "action_rate": -0.002,
           'rew_pos_limits': -0.0,
           "rew_acceleration": -2.5e-7,
           "rew_collision": -10.0,
