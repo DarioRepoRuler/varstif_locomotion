@@ -198,7 +198,8 @@ class PPOTaskBase(nn.Module):
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
 
-        print(f"Rewards infos: {episode_infos}")
+        if is_training:
+            print(f"Rewards infos: {episode_infos}")
         if episode_infos['termination']>0.0:
             print(f"Episode infos: {episode_infos}")
             print(f"Termination reward: {episode_infos['termination']}")
@@ -381,30 +382,50 @@ class PPOTaskBase(nn.Module):
             self.test_escape_pyramid(num_iterations)
 
     def test_force_push_random(self, num_iterations):
+        # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
+        if (self.cfg.env.force_kick_interval != 150) and (self.cfg.timesteps_per_rollout != 50 and (self.cfg.rollouts_per_experiment != 5)):
+            print("Please set the force kick interval to 150, timesteps per rollout to 50 and rollouts per experiment to 5")
+            return
+
+        # This way the agent is pushes 
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
-        results = {'success_rate': [], 'kick_theta':[], 'kick_force_magnitude':[]}
+        results = {'success': [], 'kick_theta':[], 'kick_force_magnitude':[]}
 
         for it in range(num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
-            #print(f"Kick theta: {eval_infos['kick_theta']}")
-            #print(f"Kick force magnitude: {eval_infos['kick_force_magnitude']}")
-            results['kick_theta'].append(torch.unique(eval_infos['kick_theta'], dim=0))
-            results['kick_force_magnitude'].append(torch.unique(eval_infos['kick_force_magnitude'], dim=0))
 
-            print(f"Kick magnitudes found: {results['kick_force_magnitude'][-1]}")
-            print(f"Kick thetas found: {results['kick_theta'][-1]}")
-            
-            if it % 5 == 0:
+            # Find indices of non-zero elements, along axis=0 and extract the values
+            non_zero_indices = eval_infos['kick_theta'].nonzero(as_tuple=True)[0]
+            non_zero_kick_theta = eval_infos['kick_theta'][non_zero_indices]
+
+            # same for kick force magnitude
+            non_zero_indices = eval_infos['kick_force_magnitude'].nonzero(as_tuple=True)[0]
+            non_zero_kick_force_magnitude = eval_infos['kick_force_magnitude'][non_zero_indices]
+
+            magnitudes= torch.unique(non_zero_kick_force_magnitude, dim=0)
+            thetas = torch.unique(non_zero_kick_theta,dim=0)   
+            print(f"Magnitudes: {magnitudes}")
+            if (magnitudes.numel() != 0) and (thetas.numel() != 0):
+                results['kick_theta'].append(thetas)
+                results['kick_force_magnitude'].append(magnitudes)
+                #print(f"Kick theta: {results['kick_theta']}")
+                print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
+
+            if it % 5 == 0 and it>0:
+                print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
+                success = eval_infos['steps'] >= 5*self.cfg.timesteps_per_rollout
+                results['success'].append(success)
                 self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
-
-            # Calculate successrate: 
+             
             self.algo.storage.clear()
 
-        # for key in results.keys():      
-        #     results[key] = torch.stack(results[key]).cpu()
-        # name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
-        # save_tensors_to_csv([results['success_rate']],['success_rate'], f'force_push_results_{name}.csv')
+        for key in results.keys():      
+            results[key] = torch.stack(results[key], dim=0).cpu()
+
+        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta']],['success_rate', 'kick_force_magnitude', 'kick_theta'], \
+                             f'force_push_results_{name}.csv')
  
 
 

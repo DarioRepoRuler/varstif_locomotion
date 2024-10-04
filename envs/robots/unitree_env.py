@@ -396,7 +396,7 @@ class UnitreeEnv(MjxEnv):
             'force_kick': jp.array([0.0,0.0]),
             'kick_counter': jp.array(0.),
             'force_direction_counter': jp.array(0),
-            'kick_theta': jp.array([0.0,0.0]),
+            'kick_theta': jp.array(0.0),
             'kick_force_magnitude': jp.array(0.0),
         }
         obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
@@ -565,18 +565,22 @@ class UnitreeEnv(MjxEnv):
     
     def force_kick_robot_random(self, state: State, rng: jp.ndarray):
         if self.enable_force_kick:
+            rng_kick, rng_theta,  = jax.random.split(rng, 2)
             # Push randomly
-            kick_theta = jax.random.uniform(rng, maxval=2 * jp.pi)
-            kick_force = self.kick_force#jax.random.uniform(rng, minval=0.0, maxval=self.kick_force)
+            kick_theta = jax.random.uniform(rng_theta, maxval=2 * jp.pi)
+            kick_force = jax.random.uniform(rng_kick, minval=0.0, maxval=self.kick_force)
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
             kick_condition = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
+            # Get the random values at kick interval
             state.info['force_kick'] = jp.where(kick_condition, kick, state.info['force_kick'])
             state.info['kick_theta']=jp.where(kick_condition, kick_theta, state.info['kick_theta'])
+            state.info['kick_force_magnitude'] = jp.where(kick_condition, kick_force , 0.0)
+            # Hold the same value for a few steps
             state.info['kick_counter'] = jp.where(kick_condition, self.force_kick_counter, state.info['kick_counter'])
             state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
-            state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], jp.zeros(2))
-            state.info['kick_theta'] = jp.where(state.info['kick_counter']>0, state.info['kick_theta'], jp.zeros(2))
-            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>0,kick_force , 0.0)
+            state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], 0.0)
+            state.info['kick_theta'] = jp.where(state.info['kick_counter']>0, state.info['kick_theta'], 0.0)
+            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>0,state.info['kick_force_magnitude']  , 0.0)
         else:
             state.info['force_kick'] = jp.zeros(2)
         return state

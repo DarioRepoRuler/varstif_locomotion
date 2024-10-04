@@ -71,8 +71,40 @@ def create_graph(y_data, x_data, labels, graph_name, label_y, label_x):
 
     plt.close()  
 
+def polar_scatter_push_plot(radius, theta, success, plot_name):
+    """
+    Function to plot a polar scatter plot.
+    Successful points are plotted in green, unsuccessful points in red.
+    
+    Args:
+    - radius: A tensor containing the radius values.
+    - theta: A tensor containing the angular values in radians.
+    - success: A tensor containing binary values (1 for success, 0 for failure).
+    """
+    # Create a polar scatter plot
+    plt.figure(figsize=(6, 6))
+    ax = plt.subplot(111, projection='polar')
 
+    # Plot successful points (success == 1) in green
+    ax.scatter(theta[success == 1], radius[success == 1], color='green', label='Success')
 
+    # Plot unsuccessful points (success == 0) in red
+    ax.scatter(theta[success == 0], radius[success == 0], color='red', label='Failure')
+
+    # Add a title and legend
+    ax.set_title(plot_name, va='bottom')
+    ax.legend()
+
+    # Show the plot
+    #plt.show()
+    # Save the plot
+    dir_name = os.path.join(os.getcwd(), 'outputs', 'graphs')
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    fig_path = os.path.join(dir_name, f"{plot_name}_polar_scatter.png")
+    plt.savefig(fig_path)
+
+    plt.close()  # Close the figure
 
 
 def create_multiple_box_plots(data_arrays, labels, plot_name):
@@ -159,9 +191,12 @@ def load_tensor_from_csv(label, filename='tensor_data.csv'):
         os.makedirs(dir_name)
     filename = os.path.join(dir_name, filename)
 
+    # Read the CSV file
     df = pd.read_csv(filename)
     tensor_row = df[df['label'] == label].iloc[0]
-    tensor_data = np.fromstring(tensor_row['data'], sep=',')
+
+    # Get the tensor data, shape, and dtype
+    tensor_data_str = tensor_row['data']
     tensor_shape = eval(tensor_row['shape'])
     
     dtype_str = tensor_row['dtype']
@@ -170,10 +205,20 @@ def load_tensor_from_csv(label, filename='tensor_data.csv'):
         'torch.float64': torch.float64,
         'torch.int32': torch.int32,
         'torch.int64': torch.int64,
+        'torch.bool': torch.bool,
         # Add more dtypes as needed
     }
     tensor_dtype = dtype_map[dtype_str]
 
+    # Handle torch.bool tensor separately
+    if tensor_dtype == torch.bool:
+        # Convert the string "True,False,..." to a list of booleans
+        tensor_data = [val == 'True' for val in tensor_data_str.split(',')]
+    else:
+        # For other types, use np.fromstring
+        tensor_data = np.fromstring(tensor_data_str, sep=',')
+
+    # Convert the data to a PyTorch tensor and reshape it
     return torch.tensor(tensor_data, dtype=tensor_dtype).reshape(tensor_shape)
 
 def create_power_energy_bar_chart(title, names, power, energy, filename, y_lim):

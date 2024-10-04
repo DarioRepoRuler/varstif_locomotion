@@ -16,7 +16,7 @@ env:
   enable_force_kick: True
   force_kick_duration: 0.1
   force_kick_interval: 150
-  kick_force: 300.0
+  kick_force: 1000.0
 
   is_training: False
   episode_length: 3250
@@ -90,13 +90,13 @@ env:
   }
  
 success_threshold: 0.78125
-rollouts_per_experiment: 40
+rollouts_per_experiment: 5
 
 ckpt_path: 'best_models/rando_all1.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 result_name: 'results_vic2_bf.csv'
 timesteps_per_rollout: 50
-num_iterations: 300
-num_envs: 2
+num_iterations: 21
+num_envs: 1000
 
 viz: True
 device: 'cuda:0'
