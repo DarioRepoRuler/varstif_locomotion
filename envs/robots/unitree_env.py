@@ -991,9 +991,6 @@ class UnitreeEnv(MjxEnv):
     def _reward_stiff_default(self, action: jax.Array) -> jax.Array:
         m = (self.stiff_range[0] +self.stiff_range[1])/2
         r= (self.stiff_range[1]-self.stiff_range[0])/2
-
         action_stiff = self.compute_stiffness(action)
-
-
         stiff = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
         return jp.sum((stiff-self.p_gains)) * jp.where((self.control_mode == "VIC_1")| (self.control_mode=="VIC_2") | (self.control_mode=="VIC_3"), 1.0, 0.0)
