@@ -898,8 +898,8 @@ class UnitreeEnv(MjxEnv):
         cmd_norm = jp.linalg.norm(commands)
         rew_air_time = jp.sum((air_time - 0.1) * first_contact)
         rew_air_time *= (
-                # math.normalize(commands[:])[1] > 0.05
-            jp.any(jp.abs(commands) > 0.05)
+            math.normalize(commands[:])[1] > 0.05
+            #jp.any(jp.abs(commands) > 0.05)
         ) #  * jp.exp(-cmd_norm)  # no reward for zero command and weighting reward by velocity
         return rew_air_time
 
@@ -919,13 +919,13 @@ class UnitreeEnv(MjxEnv):
             joint_angles: jax.Array,
     ) -> jax.Array:
         
-        # return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        # math.normalize(commands[:2])[1] < 0.1
-        # )
-    
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-            jp.all(jp.abs(commands) < 0.05)
+        math.normalize(commands[:2])[1] < 0.1
         )
+    
+        # return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
+        #     jp.all(jp.abs(commands) < 0.05)
+        # )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
         foot_indices = self.foot_body_id - 1
