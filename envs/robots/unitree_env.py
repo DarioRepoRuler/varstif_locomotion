@@ -531,8 +531,6 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the new state of the environment
         """
-        #action = jp.clip(action, min=-1, max=1)
-
         # For randomization
         rng, obs_rng, kick_noise, cmd_rng = jax.random.split(state.info['rng'], 4)
         
