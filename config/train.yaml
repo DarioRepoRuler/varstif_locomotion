@@ -4,14 +4,14 @@ defaults:
 
 env:
   action_scale: 0.3
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
   kick_vel: 0.5
-  push_interval: 75
+  push_interval: 25
   is_training: True
   episode_length: 500
 
@@ -47,7 +47,7 @@ env:
     command_scale: 2.0
 
   control_range: {
-    'cmd_x': [-0.6, 1.0],
+    'cmd_x': [-0.6, 0.8],
     'cmd_y': [-0.5, 0.5],
     'cmd_ang': [-0.7, 0.7]
   }
@@ -73,7 +73,7 @@ env:
           'lin_vel_z': -2.0, 
           'ang_vel_xy': -0.05, 
           'orientation': -5.0, 
-          'feet_air_time': 0.2,
+          'feet_air_time': 0.5,
           'termination': -10.0,
           'stand_still': -0.5, 
           "foot_slip": -0.1,
@@ -94,7 +94,7 @@ log: True
 
 ckpt_path: null # 'best_models/test_vic2_bf.pt' #'outputs/2024-09-23/14-32-09/checkpoints/model_2000.pt' 
 
-log_dir: "Documents/TALocoMotion/outputs/"
+log_dir: projects/TALocomotion/outputs/
 
 
 num_envs: 2000
@@ -103,7 +103,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'TALocoMotion'
 group: ${env.control_mode}
