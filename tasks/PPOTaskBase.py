@@ -243,7 +243,7 @@ class PPOTaskBase(nn.Module):
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
                 if 'time_out' not in key:
-                    self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
+                    self.wandb_logger.log({f'rewards_train/{key}': episode_infos[key]}, step=it)
                 if 'tracking_lin_vel' in key:
                     self._rew_track_lin_vel = episode_infos[key]
 
@@ -265,7 +265,7 @@ class PPOTaskBase(nn.Module):
                                    }, step=it)
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
-                self.wandb_logger.log({f'rewards/val/{key}': episode_infos[key]}, step=it)
+                self.wandb_logger.log({f'rewards_val/{key}': episode_infos[key]}, step=it)
 
         self.algo.storage.clear()
 
@@ -383,8 +383,8 @@ class PPOTaskBase(nn.Module):
 
     def test_force_push_random(self, num_iterations):
         # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
-        if (self.cfg.env.force_kick_interval != 150) or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5):
-            print("Please set the force kick interval to 150, timesteps per rollout to 50 and rollouts per experiment to 5")
+        if (self.cfg.env.force_kick_interval != 150) or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5) or (self.cfg.env.enable_force_kick != True):
+            print("Please set the force kick interval to 150, timesteps per rollout to 50 and rollouts per experiment to 5 and enable force kick to true")
             return
 
         # This way the agent is pushes 
@@ -405,12 +405,12 @@ class PPOTaskBase(nn.Module):
 
             magnitudes= torch.unique(non_zero_kick_force_magnitude, dim=0)
             thetas = torch.unique(non_zero_kick_theta,dim=0)   
-            print(f"Magnitudes: {magnitudes}")
+            #print(f"Magnitudes: {magnitudes}")
             if (magnitudes.numel() != 0) and (thetas.numel() != 0):
                 results['kick_theta'].append(thetas)
                 results['kick_force_magnitude'].append(magnitudes)
                 #print(f"Kick theta: {results['kick_theta']}")
-                print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
+                #print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
@@ -510,6 +510,43 @@ class PPOTaskBase(nn.Module):
                           jp.array([-vel_xy, -vel_xy, 0.0]),
                           jp.array([0.0, -self.cfg.env.manual_control.cmd_x, 0.0]),
                           jp.array([vel_xy, -vel_xy, 0.0])]
+            
+
+            COT = torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) ) ))
+            
+            # Gather the eval_data data with a dictionary
+            eval_data['power'].append(torch.mean(eval_metrics['power']))
+            eval_data['energy'].append(torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1)))
+            eval_data['COT'].append(COT)
+            eval_data['local_v'].append(torch.linalg.norm(eval_metrics['local_v'],dim=2))
+            eval_data['total_dist'].append(eval_metrics['total_dist']) 
+            eval_data['p_gains'].append(eval_metrics['p_gains'])
+
+            #print(f"Eval metric tot distance: {eval_metrics['total_dist']}")
+            #print(f"Total distance: {eval_metrics['total_dist'][-1,:]}")
+
+            if torch.any(eval_data['total_dist'][-1] > success_dist):
+                indices = torch.where(eval_data['total_dist'][-1]>success_dist)
+                #print(f"Finished envs: {indices[1]}")
+                finished_env = torch.unique(indices[1])
+                #print(f"Finished envs: {finished_env}")
+                #print(f"Finished envs: {finished_env}")
+                if eval_data['successful_envs'] is None:
+                    eval_data['successful_envs'] = finished_env
+                else:
+                    missing_envs = finished_env[~torch.isin(finished_env, eval_data['successful_envs'])]
+                    eval_data['successful_envs'] = torch.cat([eval_data['successful_envs'], missing_envs])
+                
+                finish_step = torch.min(eval_metrics['total_time'][indices])
+                #print(f"Finished step: {finish_step}")
+                eval_data['best_time'] = min(eval_data['best_time'], finish_step)
+
+            eval_data['trajectory'].append(eval_metrics['glob_pos'])
+
+            # Plot foot tracking trajectories + command tracking 
+            time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
+            error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
+            time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
 
             if it % self.cfg.rollouts_per_experiment == 0 and it >0:
                 # Evaluate the results
@@ -530,7 +567,6 @@ class PPOTaskBase(nn.Module):
                 eval_data['energy'] = []
                 eval_data['COT'] = []
                 eval_data['local_v'] = []
-                
 
                 print(f"Success rate: {results['success_rate'][-1]}")
                 print(f"Finished experiment {it//self.cfg.rollouts_per_experiment} with mean power: {results['power'][-1]}, mean energy: {results['energy'][-1]}, mean COT: {results['COT'][-1]}, mean local_v: {results['local_v'][-1]}")
@@ -538,41 +574,6 @@ class PPOTaskBase(nn.Module):
                 # Change the direction of the manual command
                 if it//self.cfg.rollouts_per_experiment < self.cfg.rollouts_per_experiment:
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // self.cfg.rollouts_per_experiment])
-            
-
-            COT = torch.mean( torch.abs(eval_metrics['power']/( eval_metrics['m_total']*9.81*torch.linalg.norm(eval_metrics['local_v'], dim=2) ) ))
-            
-            # Gather the eval_data data with a dictionary
-            eval_data['power'].append(torch.mean(eval_metrics['power']))
-            eval_data['energy'].append(torch.sum(torch.mean(eval_metrics['power']*0.02, dim=1)))
-            eval_data['COT'].append(COT)
-            eval_data['local_v'].append(torch.linalg.norm(eval_metrics['local_v'],dim=2))
-            eval_data['total_dist'].append(eval_metrics['total_dist'])
-            eval_data['p_gains'].append(eval_metrics['p_gains'])
-            #print(f"Total distance: {eval_data['total_dist'][-1]}")
-            if torch.any(eval_data['total_dist'][-1] > success_dist):
-
-                indices = torch.where(eval_data['total_dist'][-1]>success_dist)
-                #print(f"Finished envs: {indices[1]}")
-                finished_env = torch.unique(indices[1])
-                #print(f"Finished envs: {finished_env}")
-                if eval_data['successful_envs'] is None:
-                    eval_data['successful_envs'] = finished_env
-                else:
-                    missing_envs = finished_env[~torch.isin(finished_env, eval_data['successful_envs'])]
-                    eval_data['successful_envs'] = torch.cat([eval_data['successful_envs'], missing_envs])
-                
-                finish_step = torch.min(eval_metrics['total_time'][indices])
-                #print(f"Finished step: {finish_step}")
-                eval_data['best_time'] = min(eval_data['best_time'], finish_step)
-
-            eval_data['trajectory'].append(eval_metrics['glob_pos'])
-
-            # Plot foot tracking trajectories + command tracking 
-            time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
-            error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
-            time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
-
 
             # Recording of foot trajectories
             save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
@@ -586,7 +587,7 @@ class PPOTaskBase(nn.Module):
         print(f"Global trajectory: {global_trajectory.shape}")
         #plot_xy_position(global_trajectory[:,0,:], "Global Position Trajectory")
 
-        COT = torch.mean(torch.stack(eval_data['COT']))
+        COT = torch.mean(torch.stack(results['COT']))
         for key in results.keys():      
             results[key] = torch.stack(results[key]).cpu()
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
