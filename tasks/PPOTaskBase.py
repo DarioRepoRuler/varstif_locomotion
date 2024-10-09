@@ -14,7 +14,6 @@ from envs.common.wrapper import _create_env
 
 # import threading
 # from pynput import keyboard as pynput_keyboard
-# from time import time
 
 
 from utils.helper_traj import create_combined_command
@@ -102,7 +101,6 @@ class PPOTaskBase(nn.Module):
         affect the environment or the learning process.
         """
         
-        #print(f"Observations: {obs_g.shape}")
         if torch.isnan(obs_g).any():
             print(f"observation shape: {obs_g.shape}")
             print("Nan in obs_g!! Coming from simulation then...")
@@ -243,7 +241,7 @@ class PPOTaskBase(nn.Module):
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
                 if 'time_out' not in key:
-                    self.wandb_logger.log({f'rewards/train/{key}': episode_infos[key]}, step=it)
+                    self.wandb_logger.log({f'rewards_train/{key}': episode_infos[key]}, step=it)
                 if 'tracking_lin_vel' in key:
                     self._rew_track_lin_vel = episode_infos[key]
 
@@ -265,7 +263,7 @@ class PPOTaskBase(nn.Module):
                                    }, step=it)
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
-                self.wandb_logger.log({f'rewards/val/{key}': episode_infos[key]}, step=it)
+                self.wandb_logger.log({f'rewards_val/{key}': episode_infos[key]}, step=it)
 
         self.algo.storage.clear()
 
