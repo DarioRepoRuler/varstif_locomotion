@@ -647,7 +647,9 @@ class UnitreeEnv(MjxEnv):
         state.info['last_qpos'] = data.qpos
         state.info['foot_pos_z'] = foot_pos[:, 2]
 
-        # log total displacement as a proxy metric
+        # # log total displacement as a proxy metric
+        # jax.debug.print('Total distance: {x}', x=jp.linalg.norm(x.pos[self._torso_idx-1][:2]))
+        # jax.debug.print('Total distance(old): {x}', x=math.normalize(x.pos[self._torso_idx - 1])[1])
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics['total_time'] = state.info['step'] * self.dt
         state.metrics['power'] = jp.sum(jp.abs(data.ctrl[:12])) * jp.abs(jp.sum(joint_vel))
@@ -675,7 +677,7 @@ class UnitreeEnv(MjxEnv):
             state.info['trajectory'][state.info['step'].astype(int), :],
             state.info['command'],
         )
-        
+        #jax.debug.print('Command: {x}', x=state.info['command'])
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.episode_length), 0, state.info['step']
@@ -871,7 +873,8 @@ class UnitreeEnv(MjxEnv):
     def _reward_collision(self, data) -> jax.Array:
         body_contacts = jp.zeros(len(self.body_geom_id),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
-        return 1.0*jp.sum(data.contact.dist[body_contacts] < 0.1)
+        #jax.debug.print('Distances: {x}', x=data.contact.dist[body_contacts])
+        return 1.0*jp.sum(data.contact.dist[body_contacts] < 0.05)
         
     ## Related to smoothness of the actions:
     def _reward_smooth_rate( # to be continued...(why the velocities?)
@@ -898,9 +901,9 @@ class UnitreeEnv(MjxEnv):
         cmd_norm = jp.linalg.norm(commands)
         rew_air_time = jp.sum((air_time - 0.1) * first_contact)
         rew_air_time *= (
-            math.normalize(commands[:])[1] > 0.05
-            #jp.any(jp.abs(commands) > 0.05)
-        ) #  * jp.exp(-cmd_norm)  # no reward for zero command and weighting reward by velocity
+            #math.normalize(commands[:])[1] > 0.05
+            jp.any(jp.abs(commands) > 0.05)
+        ) #  * jp.exp(-0.2*cmd_norm)  # no reward for zero command and weighting reward by velocity
         return rew_air_time
 
     def _reward_feet_contact_time(
@@ -919,13 +922,13 @@ class UnitreeEnv(MjxEnv):
             joint_angles: jax.Array,
     ) -> jax.Array:
         
-        return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        math.normalize(commands[:2])[1] < 0.1
-        )
-    
         # return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        #     jp.all(jp.abs(commands) < 0.05)
+        # math.normalize(commands[:2])[1] < 0.1
         # )
+    
+        return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
+            jp.all(jp.abs(commands) < 0.05)
+        )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
         foot_indices = self.foot_body_id - 1

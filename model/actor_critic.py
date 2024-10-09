@@ -70,13 +70,12 @@ class ActorCritic(nn.Module):
                           output_act=None,
                           using_norm=False)
 
-        # print(f"Encoder: {self.encoder}")
-        # print(f"Decoder: {self.decoder}")
         print(f"Actor: {self.actor}")
         print(f"Critic: {self.critic}")
         
         # Action distribution
         self.std_action = nn.Parameter(config.actor.init_std * torch.ones(num_actions))
+        #self.std_stiffness = nn.Parameter(0.1 * torch.ones(num_actions), requires_grad=False)
         self.distribution_action = None
         
         # disable args validation for speedup
@@ -96,6 +95,8 @@ class ActorCritic(nn.Module):
 
     def update_distribution(self, observations):
         mean_action = self.actor(observations)
+        # std_action = self.std_action.clone()
+        # std_action[12:]=self.std_stiffness[12:]
         self.distribution_action = Normal(mean_action, torch.abs(self.std_action))
         
 

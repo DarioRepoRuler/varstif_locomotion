@@ -140,7 +140,7 @@ def create_multiple_box_plots(data_arrays, labels, plot_name):
 
     plt.close()  # Close the figure
 
-def save_tensors_to_csv(tensors, labels, filename='tensor_data.csv'):
+def save_tensors_to_csv(tensors, labels, filename='tensor_data.csv', directory='graphs'):
     """
     Saves multiple PyTorch tensors to a CSV file with specified labels.
     
@@ -168,7 +168,7 @@ def save_tensors_to_csv(tensors, labels, filename='tensor_data.csv'):
 
     df = pd.DataFrame(tensor_dict)
 
-    dir_name = os.path.join(os.getcwd(), 'outputs', 'graphs')
+    dir_name = os.path.join(os.getcwd(), 'outputs', directory)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     filename = os.path.join(dir_name, filename)

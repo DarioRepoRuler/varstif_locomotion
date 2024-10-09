@@ -57,7 +57,8 @@ class VmapWrapper(Wrapper):
             manual_cmd = jp.expand_dims(manual_cmd, 0)
             manual_cmd = jp.repeat(manual_cmd, self.batch_size, axis=0)
 
-            traj = jp.expand_dims(traj, self.batch_size, axis=0)
+            traj = jp.expand_dims(traj, axis=0)
+            traj = jp.repeat(traj, self.batch_size, axis=0)
             
         return jax.vmap(self.env.reset)(rng, initial_xy, manual_cmd, traj)
 

@@ -372,8 +372,10 @@ class PPOTaskBase(nn.Module):
         self.algo.actor_critic.eval()
         #eval_results = []
         #single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
-        if self.cfg.env.manual_control.enable and self.cfg.env.manual_control.task == 'experiments':
-            self.test_experiments(num_iterations)
+        if self.cfg.env.manual_control.enable and self.cfg.env.manual_control.task == 'heading directions':
+            self.test_heading_directions(num_iterations)
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'xy random':
+            self.test_xy_random(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'track trajectory':
             self.test_tracking_traj(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'force push':
@@ -485,10 +487,11 @@ class PPOTaskBase(nn.Module):
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
             self.algo.storage.clear()
         
-    def test_experiments(self, num_iterations):
+    def test_heading_directions(self, num_iterations):
         if (self.cfg.env.manual_control.enable!=True) or (self.cfg.rollouts_per_experiment != 8) \
-            or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.num_iterations!=65):
-            print("Please set the manual control to true, rollouts per experiment to 8, timesteps per rollout to 50 and num iterations to 65")
+            or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.num_iterations!=65) or (self.cfg.env.enable_force_kick ==True) \
+                or (self.cfg.env.kick_vel !=0.0):
+            print("Please set the manual control to true, rollouts per experiment to 8, timesteps per rollout to 50 and num iterations to 65 and disable force/vel. kick")
             return
         # eval data stores for every timestep, results are then the used metrics for overall comparison
         eval_data = {'power': [], 'energy': [], 'COT': [], 'trajectory': [], 'local_v': [], 'total_dist':[], 'best_time':100.0, 'successful_envs': None, 'p_gains': []}
@@ -576,7 +579,7 @@ class PPOTaskBase(nn.Module):
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // self.cfg.rollouts_per_experiment])
 
             # Recording of foot trajectories
-            save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
+            #save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
             time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
                         eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
                         ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
@@ -592,9 +595,44 @@ class PPOTaskBase(nn.Module):
             results[key] = torch.stack(results[key]).cpu()
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
         save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate'], results['COT']], 
-                            [f'power', f'energy', 'local_v', 'success_rate', 'COT'], self.result_file_name)
+                            [f'power', f'energy', 'local_v', 'success_rate', 'COT'], f'heading_directions_results_{self.cfg.ckpt_path.split("/")[-1].split(".")[0]}.csv')
         
-        # create_power_energy_bar_chart(title="Power/Energy Consumption", names=["position baseline"], power=power_overall, energy=energy_overall , filename="power_energy_bar_chart", y_lim=y_lim)    
+    def test_xy_random(self, num_iterations):
+        if (self.cfg.env.manual_control.enable==True) or (self.cfg.env.control_range['cmd_ang'] !=[0.,0.]) \
+            or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.env.enable_force_kick ==True) or \
+                (self.cfg.env.sample_command_interval<self.cfg.timesteps_per_rollout*self.cfg.rollouts_per_experiment) \
+                or (self.cfg.env.kick_vel !=0.0):
+            print("Please set to manual control to false, ang. control range to 0, timesteps per rollout to 50 and disable force/vel. kick")
+            return
+
+        results ={ 'success':[], 'cmd_theta':[], 'cmd_norm':[] }
+        for it in range(num_iterations):
+            print(f"iteration: {it}")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            commands = eval_infos['cmd'][-1,:,:] # num_envs, num_
+            cmd_norm = torch.linalg.norm(commands, dim=1).unsqueeze(1)
+
+            theta = torch.atan2(commands[:,1],commands[:,0]) # in rad
+            target_x, target_y = (torch.cos(theta)*cmd_norm.T*self.cfg.rollouts_per_experiment, torch.sin(theta)*cmd_norm.T*self.cfg.rollouts_per_experiment)
+
+            distance = torch.sqrt((eval_metrics['glob_pos'][-1,:,0]-target_x)**2 + (eval_metrics['glob_pos'][-1,:,1]-target_y)**2)
+
+            if it % self.cfg.rollouts_per_experiment == 0 and it >0:
+                success = (distance < 0.2*cmd_norm.T*self.cfg.rollouts_per_experiment)
+                results['success'].append(success)
+                results['cmd_theta'].append(theta)
+                results['cmd_norm'].append(cmd_norm)# *self.cfg.rollouts_per_experiment)
+                #print(f"Finished experiment {it//self.cfg.rollouts_per_experiment} with success rate: {success.mean()}")
+                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
+
+            self.algo.storage.clear()
+        
+        for key in results.keys():
+            results[key] = torch.stack(results[key], dim=0).cpu()
+
+        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        save_tensors_to_csv([results['success'], results['cmd_norm'], results['cmd_theta']],['success', 'cmd_norm', 'cmd_theta'], \
+                             f'cmd_rando_xy_{name}.csv')  
 
 
     def save(self, path, infos=None):
