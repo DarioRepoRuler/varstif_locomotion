@@ -12,8 +12,8 @@ from envs.robots.go2_env import GO2Env
 from envs.common.wrapper import _create_env
 
 
-# import threading
-# from pynput import keyboard as pynput_keyboard
+import threading
+from pynput import keyboard as pynput_keyboard
 
 
 from utils.helper_traj import create_combined_command
@@ -370,16 +370,53 @@ class PPOTaskBase(nn.Module):
         self.algo.actor_critic.eval()
         #eval_results = []
         #single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
-        if self.cfg.env.manual_control.enable and self.cfg.env.manual_control.task == 'heading directions':
+        if self.cfg.env.manual_control.enable and self.cfg.env.manual_control.task == 'heading_directions':
             self.test_heading_directions(num_iterations)
-        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'xy random':
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'xy_random':
             self.test_xy_random(num_iterations)
-        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'track trajectory':
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'track_trajectory':
             self.test_tracking_traj(num_iterations)
-        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'force push':
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'force_push':
             self.test_force_push_random(num_iterations)
-        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'escape pyramids':
+        elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'escape_pyramids':
             self.test_escape_pyramid(num_iterations)
+        elif self.cfg.env.manual_control.task == 'auto':
+            self.test_auto(num_iterations)
+    
+    def test_auto(self, num_iterations):
+        print(f"Starting auto evaluation")
+        print(f"Starting heading directions evaluation:")
+        self.test_heading_directions(num_iterations)
+        print(f"Finihsed heading directions evaluation")
+        print(f"Starting force push evaluation")
+        # Change settings to force push 
+        self.cfg.env.manual_control.enable = True
+        self.cfg.env.manual_control.enable = True
+        self.cfg.env.manual_control.cmd_x = 0.8
+        self.cfg.timesteps_per_rollout = 50
+        self.cfg.env.enable_force_kick = True
+        self.cfg.env.kick_vel = 0.0
+        self.cfg.rollouts_per_experiment = 5
+        self.cfg.num_iterations = 21
+        self.cfg.env.sample_command_interval = 301
+        
+        self.env = self.init_env(self.cfg.scene_xml)
+        self.test_force_push_random(self.cfg.num_iterations)
+        print(f"Finished force push evaluation")
+        # Change settings to random xy
+        self.cfg.env.manual_control.enable = False
+        self.cfg.env.control_range['cmd_x'] = [-1.5, 1.5]
+        self.cfg.env.control_range['cmd_y'] = [-1.5, 1.5]
+        self.cfg.env.control_range['cmd_ang'] = [0.0, 0.0]
+        self.cfg.env.enable_force_kick = False
+        
+        self.env = self.init_env(self.cfg.scene_xml)
+        print(f"Starting random xy evaluation")
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
+        self.test_xy_random(self.cfg.num_iterations)
+
+        
+
 
     def test_force_push_random(self, num_iterations):
         # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
@@ -544,10 +581,7 @@ class PPOTaskBase(nn.Module):
 
             eval_data['trajectory'].append(eval_metrics['glob_pos'])
 
-            # Plot foot tracking trajectories + command tracking 
-            time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
-            error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
-            time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
+            
 
             if it % self.cfg.rollouts_per_experiment == 0 and it >0:
                 # Evaluate the results
@@ -576,11 +610,16 @@ class PPOTaskBase(nn.Module):
                 if it//self.cfg.rollouts_per_experiment < self.cfg.rollouts_per_experiment:
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // self.cfg.rollouts_per_experiment])
 
-            # Recording of foot trajectories
+
+            # Plot foot tracking trajectories + command tracking 
+            #time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
+            #error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
+            #time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
+            # Recording foot trajectories 
             #save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
-            time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
-                        eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
-                        ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
+            # time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
+            #             eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
+            #             ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
             self.algo.storage.clear()
         
         # Concatinating all recorded trajectories
@@ -620,7 +659,7 @@ class PPOTaskBase(nn.Module):
                 results['success'].append(success)
                 results['cmd_theta'].append(theta)
                 results['cmd_norm'].append(cmd_norm)# *self.cfg.rollouts_per_experiment)
-                #print(f"Finished experiment {it//self.cfg.rollouts_per_experiment} with success rate: {success.mean()}")
+                print(f"Finished xy experiment {it//self.cfg.rollouts_per_experiment} with success rate: {torch.sum(success)/self.cfg.num_envs}")
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
 
             self.algo.storage.clear()

@@ -1,5 +1,20 @@
 from graphs_gen import *
 
+# Get the results from the output directory
+output_dir = '/home/dario/Documents/TALocoMotion/outputs/graphs/'
+if not os.path.exists(output_dir):
+    assert False, f"Output directory does not exist: {output_dir}"
+files= os.listdir(output_dir)
+filenames = {'cmd_rando':[], 'force_push':[], 'heading_directions':[], 'pyramid':[]}
+for file in files:
+    if 'cmd_rando_xy' in file and 'csv' in file:
+        filenames['cmd_rando'].append(file)
+    if 'force_push' in file and 'csv' in file:
+        filenames['force_push'].append(file)
+    if 'heading_directions' in file and 'csv' in file:
+        filenames['heading_directions'].append(file)
+
+
 
 # ----------------------- Evaluation of experiments: Heading directions -----------------------
 # speeds_comp={
@@ -76,8 +91,8 @@ def eval_heading(filenames):
     create_polar_plot(heading_data['local_v'], heading_data['name'], 'Speed (m/s)', 'heading_speed_comparison')
     create_polar_plot(heading_data['success_rate'], heading_data['name'], 'Success Rate', 'heading_success_rate_comparison')
 
-filenames= ['heading_directions_results_model_1500.csv', 'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
-eval_heading(filenames)
+#filenames= ['heading_directions_results_model_1500.csv', 'heading_directions_results_11-32-08.csv'] #'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
+eval_heading(filenames['heading_directions'])
 
 
 # ----------------------- Evaluation of Energy -----------------------
@@ -90,8 +105,8 @@ def eval_cot_heading(filenames):
     cot_data['COT'] = torch.stack(cot_data['COT'],dim=0)
     create_bar_chart('COT comparison', cot_data['name'], cot_data['COT'], 'COT_comparison', 'Cost of Transport')
 
-filenames = ['heading_directions_results_model_1500.csv', 'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
-eval_cot_heading(filenames)
+#filenames_heading = ['heading_directions_results_model_1500.csv', 'heading_directions_results_11-32-08.csv' ]# 'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
+eval_cot_heading(filenames['heading_directions'])
 
 # cot_comp={
 #     'Baseline': load_tensor_from_csv('COT',filename='results_pos.csv'),
@@ -122,10 +137,10 @@ def eval_force_push(filenames):
         plot_name = filename.split('.')[0]
         polar_scatter_push_plot(push_data['kick_force_magnitude'], push_data['kick_theta'], push_data['success'], plot_name)
 
-filenames = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
-filenames = ['force_push_results_model_1500.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
+filenames_force = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
+filenames_force = ['force_push_results_model_1500.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
 
-eval_force_push(filenames)
+eval_force_push(filenames['force_push'])
 
 
 # -----------------------Evaluation of pyramid excape-----------------------
@@ -146,11 +161,14 @@ def eval_cmd_rando(filenames):
             'success': load_tensor_from_csv('success', filename=filename)[:,0,:],
             'cmd_theta': load_tensor_from_csv('cmd_theta', filename=filename),
         }
-        print(f"Shape of cmd_norm: {cmd_data['cmd_norm'][:,:,0].shape} and theta: {cmd_data['cmd_theta'].shape} and success: {cmd_data['success'].shape}")
-
+        #print(f"Preprocessed data: {cmd_data['cmd_norm'][:,:,0]}")
+        indices = torch.where(torch.logical_and(cmd_data['cmd_norm'][:,:,0] > 0.2, cmd_data['cmd_norm'][:,:,0] < 1.5))
+        #print(f"Indices: {indices}")
+        #print(f"Shape of cmd_norm: {cmd_data['cmd_norm'][:,:,0].shape} and theta: {cmd_data['cmd_theta'].shape} and success: {cmd_data['success'].shape}")
         plot_name = filename.split('.')[0]
-        polar_scatter_push_plot(cmd_data['cmd_norm'][:,:,0], cmd_data['cmd_theta'], cmd_data['success'], plot_name)
+        polar_scatter_push_plot(cmd_data['cmd_norm'][indices[0], indices[1],0], cmd_data['cmd_theta'][indices[0],indices[1]], cmd_data['success'][indices[0], indices[1]], plot_name)
 
-    
-filenames = ['cmd_rando_xy_test_vic2_0810_1.csv', 'cmd_rando_xy_model_1500.csv']
-eval_cmd_rando(filenames)
+
+
+#filenames = ['cmd_rando_xy_test_vic2_0810_1.csv', 'cmd_rando_xy_model_1500.csv', 'cmd_rando_xy_11-32-08.csv', 'cmd_rando_xy_13-00-31.csv','cmd_rando_xy_11-32-08_1500.csv', 'cmd_rando_xy_11-32-08.csv']
+eval_cmd_rando(filenames['cmd_rando'])

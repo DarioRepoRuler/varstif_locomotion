@@ -2,9 +2,11 @@ defaults:
   - _self_
   - policy: ppo
 
+ckpt_path: 'best_models/2024-10-09/11-32-08.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+
 env:
   action_scale: 0.3
-  control_mode: "P"
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4
   sample_command_interval: 301
 
@@ -14,7 +16,7 @@ env:
   push_interval: 75
 
   # Force kick in test
-  enable_force_kick: True
+  enable_force_kick: False
   force_kick_duration: 0.1
   force_kick_interval: 150
   kick_force: 600.0
@@ -50,14 +52,14 @@ env:
     command_scale: 2.0
   
   control_range: {
-    'cmd_x': [-1.0, 1.0],
-    'cmd_y': [-1.0, 1.0],
+    'cmd_x': [-1.5, 1.5],
+    'cmd_y': [-1.5, 1.5],
     'cmd_ang': [-0., 0.]
   }
 
   manual_control:
     enable: True
-    task: 'force push' # can be either 'force push', 'experiments' , 'escape pyramids' ,'track trajectory', 'test xy random'
+    task: 'auto' # can be either 'force push', 'experiments' , 'escape pyramids' ,'track trajectory', 'test xy random'
     cmd_x: 0.8
     cmd_y: 0.0
     cmd_ang: 0.0
@@ -94,12 +96,11 @@ env:
   }
  
 success_threshold: 0.78125
-rollouts_per_experiment: 5
+rollouts_per_experiment: 8
 
-ckpt_path:  'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 result_name: 'results_vic2_0810.csv'
 timesteps_per_rollout: 50
-num_iterations: 21
+num_iterations: 65
 num_envs: 1000
 
 viz: True
