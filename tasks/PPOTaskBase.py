@@ -457,10 +457,18 @@ class PPOTaskBase(nn.Module):
              
             self.algo.storage.clear()
 
-        for key in results.keys():      
-            results[key] = torch.stack(results[key], dim=0).cpu()
-
-        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        for key in results.keys():
+            if len(results[key]) != 0:      
+                results[key] = torch.stack(results[key], dim=0).cpu()
+            else:
+                results[key] = torch.tensor([0.0])
+        if 'checkpoints' in self.cfg.ckpt_path:
+            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
+            parent_dir_name = os.path.basename(parent_dir)
+            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
+            name = f'{grandparent_dir_name}_{parent_dir_name}'
+        else:
+            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
         save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta']],['success_rate', 'kick_force_magnitude', 'kick_theta'], \
                              f'force_push_results_{name}.csv')
          
@@ -628,11 +636,22 @@ class PPOTaskBase(nn.Module):
         #plot_xy_position(global_trajectory[:,0,:], "Global Position Trajectory")
 
         COT = torch.mean(torch.stack(results['COT']))
-        for key in results.keys():      
-            results[key] = torch.stack(results[key]).cpu()
+        for key in results.keys():
+            if len(results[key]) != 0:      
+                results[key] = torch.stack(results[key], dim=0).cpu()
+            else:
+                results[key] = torch.tensor([0.0])
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
+        
+        if 'checkpoints' in self.cfg.ckpt_path:
+            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
+            parent_dir_name = os.path.basename(parent_dir)
+            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
+            name = f'{grandparent_dir_name}_{parent_dir_name}'
+        else:
+            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
         save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate'], results['COT']], 
-                            [f'power', f'energy', 'local_v', 'success_rate', 'COT'], f'heading_directions_results_{self.cfg.ckpt_path.split("/")[-1].split(".")[0]}.csv')
+                            [f'power', f'energy', 'local_v', 'success_rate', 'COT'], f'heading_directions_results_{name}.csv')
         
     def test_xy_random(self, num_iterations):
         if (self.cfg.env.manual_control.enable==True) or (self.cfg.env.control_range['cmd_ang'] !=[0.,0.]) \
@@ -665,9 +684,18 @@ class PPOTaskBase(nn.Module):
             self.algo.storage.clear()
         
         for key in results.keys():
-            results[key] = torch.stack(results[key], dim=0).cpu()
+            if len(results[key]) != 0:      
+                results[key] = torch.stack(results[key], dim=0).cpu()
+            else:
+                results[key] = torch.tensor([0.0])
 
-        name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        if 'checkpoints' in self.cfg.ckpt_path:
+            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
+            parent_dir_name = os.path.basename(parent_dir)
+            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
+            name = f'{grandparent_dir_name}_{parent_dir_name}'
+        else:
+            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
         save_tensors_to_csv([results['success'], results['cmd_norm'], results['cmd_theta']],['success', 'cmd_norm', 'cmd_theta'], \
                              f'cmd_rando_xy_{name}.csv')  
 
