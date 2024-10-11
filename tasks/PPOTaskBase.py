@@ -12,8 +12,8 @@ from envs.robots.go2_env import GO2Env
 from envs.common.wrapper import _create_env
 
 
-# import threading
-# from pynput import keyboard as pynput_keyboard
+import threading
+from pynput import keyboard as pynput_keyboard
 
 
 from utils.helper_traj import create_combined_command
@@ -620,14 +620,14 @@ class PPOTaskBase(nn.Module):
 
             if (self.cfg.plot_details==True):
                 # Plot foot tracking trajectories + command tracking 
-                time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
+                time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"details/dof_pos_track{it}", timestep=0.02)
                 error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
-                time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
+                time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"details/error_track{it}", timestep=0.02)
                 # Recording foot trajectories 
-                save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
+                save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'details/data_run_{it}.csv')
                 time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
                             eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
-                            ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
+                            ['FR_foot','FL_foot','RR_foot','RL_foot'], f'details/Foot z position test run {it}', 0.02)
             
             self.algo.storage.clear()
         

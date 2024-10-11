@@ -777,6 +777,7 @@ class UnitreeEnv(MjxEnv):
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
             state_info['kick'],
+            
             obs
         ])
 
