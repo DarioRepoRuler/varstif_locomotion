@@ -22,7 +22,7 @@ env:
   force_kick_interval: 100
   kick_force: 600.0
 
-  single_obs_size: 48
+  single_obs_size: 52
   single_obs_size_priv: 59
 
   domain_rand:
