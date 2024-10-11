@@ -81,7 +81,11 @@ for file in files:
 def eval_heading(filenames):
     heading_data = {'name':[],'local_v':[], 'success_rate':[]}
     for filename in filenames:
-        heading_data['name'].append(filename)
+        label = filename.split('.')[0]
+        label = label.split('_')[-1]
+        label = f'model_{label}'
+
+        heading_data['name'].append(label)
         heading_data['local_v'].append(load_tensor_from_csv('local_v',filename=filename))
         heading_data['success_rate'].append(load_tensor_from_csv('success_rate',filename=filename))
 
@@ -99,7 +103,12 @@ eval_heading(filenames['heading_directions'])
 def eval_cot_heading(filenames):
     cot_data = {'name':[],'COT':[]}
     for filename in filenames:
-        cot_data['name'].append(filename)
+        
+        label = filename.split('.')[0]
+        label = label.split('_')[-1]
+        label = f'model_{label}'
+        cot_data['name'].append(label)
+        #cot_data['COT'].append(torch.mean(load_tensor_from_csv('COT',filename=filename)))
         cot_data['COT'].append(load_tensor_from_csv('COT',filename=filename)[0])
     print(f"COT: {cot_data['COT']}")
     cot_data['COT'] = torch.stack(cot_data['COT'],dim=0)

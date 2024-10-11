@@ -245,7 +245,7 @@ class PPOTaskBase(nn.Module):
                 if 'tracking_lin_vel' in key:
                     self._rew_track_lin_vel = episode_infos[key]
 
-    def agent_eval_step(self, it, save_dir, is_training=True): # this function can be called via test or train
+    def agent_eval_step(self, it, save_dir, is_training=False): # this function can be called via test or train
 
         self.algo.actor_critic.eval()
         self.save(os.path.join(save_dir, f'model_{it}.pt'))
@@ -328,7 +328,7 @@ class PPOTaskBase(nn.Module):
             
             if it % self.eval_interval == 0:
                 print(f"Evaluation at epoch: {it}")
-                self.agent_eval_step(it, save_dir,is_training=True)
+                self.agent_eval_step(it, save_dir,is_training=False)
                 
 
 
@@ -353,7 +353,7 @@ class PPOTaskBase(nn.Module):
                 print(f"System level update at epoch: {it}")
                 temp = self.cfg.env.manual_control
                 self.cfg.env.manual_control = True # walk straight
-                self.agent_eval_step(it, save_dir, is_training=True)
+                self.agent_eval_step(it, save_dir, is_training=False)
                 # Move to different terrain if successfull
                 self.update_level()
                 self.cfg.env.manual_control = temp # TODO: improve layout and yaml
@@ -618,16 +618,17 @@ class PPOTaskBase(nn.Module):
                 if it//self.cfg.rollouts_per_experiment < self.cfg.rollouts_per_experiment:
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=directions[(it-1) // self.cfg.rollouts_per_experiment])
 
-
-            # Plot foot tracking trajectories + command tracking 
-            #time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
-            #error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
-            #time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
-            # Recording foot trajectories 
-            #save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
-            # time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
-            #             eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
-            #             ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
+            if (self.cfg.plot_details==True):
+                # Plot foot tracking trajectories + command tracking 
+                time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"dof_pos_track{it}", timestep=0.02)
+                error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
+                time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"error_track{it}", timestep=0.02)
+                # Recording foot trajectories 
+                save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'data_run_{it}.csv')
+                time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
+                            eval_metrics['foot_pos_z'][:,0,2], eval_metrics['foot_pos_z'][:,0,3]], 
+                            ['FR_foot','FL_foot','RR_foot','RL_foot'], f'Foot z position test run {it}', 0.02)
+            
             self.algo.storage.clear()
         
         # Concatinating all recorded trajectories
