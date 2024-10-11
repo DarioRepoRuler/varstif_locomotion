@@ -12,8 +12,8 @@ from envs.robots.go2_env import GO2Env
 from envs.common.wrapper import _create_env
 
 
-import threading
-from pynput import keyboard as pynput_keyboard
+# import threading
+# from pynput import keyboard as pynput_keyboard
 
 
 from utils.helper_traj import create_combined_command
