@@ -22,7 +22,7 @@ env:
   force_kick_interval: 100
   kick_force: 600.0
 
-  single_obs_size: 48
+  single_obs_size: 52
   single_obs_size_priv: 59
 
   domain_rand:
@@ -64,7 +64,7 @@ env:
   reset_pos_y: [-5.0, 5.0]
 
   control:
-    stiff_range: [0.5, 1.5]
+    stiff_range: [0.8, 1.5]
     p_gain: 50.0
     d_gain: 1.0
 
