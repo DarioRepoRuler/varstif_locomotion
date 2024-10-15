@@ -4,7 +4,7 @@ defaults:
 
 env:
   action_scale: 0.3
-  action_stiff_scale: 0.3
+  action_stiff_scale: 0.5
   control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
