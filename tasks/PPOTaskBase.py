@@ -12,8 +12,8 @@ from envs.robots.go2_env import GO2Env
 from envs.common.wrapper import _create_env
 
 
-# import threading
-# from pynput import keyboard as pynput_keyboard
+import threading
+from pynput import keyboard as pynput_keyboard
 
 
 from utils.helper_traj import create_combined_command
@@ -382,7 +382,16 @@ class PPOTaskBase(nn.Module):
             self.test_escape_pyramid(num_iterations)
         elif self.cfg.env.manual_control.task == 'auto':
             self.test_auto(num_iterations)
-    
+        elif self.cfg.env.manual_control.task == 'experiments':
+            self.test_plain(num_iterations)
+
+    def test_plain(self, num_iterations):
+        for it in range(num_iterations):
+            print(f"iteration: {it} ")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            self.algo.storage.clear()
+
+
     def test_auto(self, num_iterations):
         print(f"Starting auto evaluation")
         print(f"Starting heading directions evaluation:")
@@ -433,30 +442,31 @@ class PPOTaskBase(nn.Module):
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
 
             # Find indices of non-zero elements, along axis=0 and extract the values
-            non_zero_indices = eval_infos['kick_theta'].nonzero(as_tuple=True)[0]
+            non_zero_indices = eval_infos['kick_theta'].nonzero(as_tuple=True)[0] # indices: timesteps, 
             non_zero_kick_theta = eval_infos['kick_theta'][non_zero_indices]
-
             # same for kick force magnitude
             non_zero_indices = eval_infos['kick_force_magnitude'].nonzero(as_tuple=True)[0]
             non_zero_kick_force_magnitude = eval_infos['kick_force_magnitude'][non_zero_indices]
 
             magnitudes= torch.unique(non_zero_kick_force_magnitude, dim=0)
-            thetas = torch.unique(non_zero_kick_theta,dim=0)   
-            #print(f"Magnitudes: {magnitudes}")
+            thetas = torch.unique(non_zero_kick_theta ,dim=0)
+            
             if (magnitudes.numel() != 0) and (thetas.numel() != 0):
                 results['kick_theta'].append(thetas)
                 results['kick_force_magnitude'].append(magnitudes)
-                #print(f"Kick theta: {results['kick_theta']}")
-                #print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
+                #print(f"Thetas: {thetas}")
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
                 success = eval_infos['steps'] >= 5*self.cfg.timesteps_per_rollout
+                print(f"Success rate: {success.shape}")
+                print(f"Kick theta: {results['kick_theta'][-1].shape}")
+                print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
                 results['success'].append(success)
                 self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
              
             self.algo.storage.clear()
-
+        
         for key in results.keys():
             if len(results[key]) != 0:      
                 results[key] = torch.stack(results[key], dim=0).cpu()

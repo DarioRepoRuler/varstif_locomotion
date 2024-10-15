@@ -94,6 +94,8 @@ class UnitreeEnv(MjxEnv):
         self.force_kick_duration = cfg.force_kick_duration
         self.force_kick_interval = cfg.force_kick_interval
         self.force_kick_counter = self.force_kick_duration / self.dt
+        self.force_kick_impulse = cfg.force_kick_impulse
+        self.impulse_force_kick = cfg.impulse_force_kick
         
         # Variable impedance control parameters
         self.stiff_range = cfg.control.stiff_range  
@@ -387,9 +389,11 @@ class UnitreeEnv(MjxEnv):
             'trajectory': traj,
             'force_kick': jp.array([0.0,0.0]),
             'kick_counter': jp.array(0.),
+            'kick_counter_initial': jp.array(0.),
             'force_direction_counter': jp.array(0),
             'kick_theta': jp.array(0.0),
             'kick_force_magnitude': jp.array(0.0),
+            'last_kick_force_magnitude': jp.array(0.0),
         }
         # Define obs history
         obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
@@ -510,13 +514,19 @@ class UnitreeEnv(MjxEnv):
             # Get the random values at kick interval
             state.info['force_kick'] = jp.where(kick_condition, kick, state.info['force_kick'])
             state.info['kick_theta']=jp.where(kick_condition, kick_theta, state.info['kick_theta'])
-            state.info['kick_force_magnitude'] = jp.where(kick_condition, kick_force , 0.0)
+            state.info['kick_force_magnitude'] = jp.where(kick_condition, kick_force , 0.0) #state.info['kick_force_magnitude']
+            
             # Hold the same value for a few steps
-            state.info['kick_counter'] = jp.where(kick_condition, self.force_kick_counter, state.info['kick_counter'])
+            state.info['kick_counter_initial']= jp.where(jp.logical_and(self.impulse_force_kick, kick_condition), ((self.force_kick_impulse/state.info['kick_force_magnitude']) // self.dt).astype(int) ,self.force_kick_counter )
+            #jax.debug.print('Kick counter initial: {x}', x=state.info['kick_counter_initial'])
+            state.info['kick_counter'] = jp.where(kick_condition, state.info['kick_counter_initial'], state.info['kick_counter'])
             state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
+            #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
             state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], 0.0)
             state.info['kick_theta'] = jp.where(state.info['kick_counter']>0, state.info['kick_theta'], 0.0)
-            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>0,state.info['kick_force_magnitude']  , 0.0)
+            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>0, state.info['kick_force_magnitude'],0.0)
+            #state.info['last_kick_force_magnitude'] = state.info['kick_force_magnitude']
+            #jax.debug.print('Force kick: {x}', x=state.info['kick_force_magnitude'])
         else:
             state.info['force_kick'] = jp.zeros(2)
         return state
@@ -765,7 +775,7 @@ class UnitreeEnv(MjxEnv):
             self.joint_vel_scale *data.qvel[6:],
             state_info['last_act'], 
             self.command_scale * state_info['command'],
-            state_info['contact'],            
+            state_info['contact'],
         ])
 
         obs = jp.clip(obs, -100.0, 100.0)

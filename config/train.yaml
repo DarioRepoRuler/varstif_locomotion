@@ -5,24 +5,27 @@ defaults:
 env:
   action_scale: 0.3
   action_stiff_scale: 0.3
-  control_mode: "VIC_4"
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
-  kick_vel: 0.5
+  kick_vel: 0.0
   push_interval: 25
   is_training: True
   episode_length: 500
 
   # Force kick in test
   enable_force_kick: False
+  impulse_force_kick: False
+
   force_kick_duration: 0.1
+  force_kick_impulse: 10.0
   force_kick_interval: 100
   kick_force: 600.0
 
-  single_obs_size: 52
+  single_obs_size: 48
   single_obs_size_priv: 59
 
   domain_rand:
