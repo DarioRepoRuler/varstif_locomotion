@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np 
 import pandas as pd
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
 
 def time_graph(tensor_datas, labels, graph_name, timestep=0.02):
     """
@@ -105,6 +107,73 @@ def polar_scatter_push_plot(radius, theta, success, plot_name):
     plt.savefig(fig_path)
 
     plt.close()  # Close the figure
+
+
+def plot_polar_scatter_with_boundary(radius, theta, success, ax, label=None, color=None, title=None):
+    """
+    Plots a decision boundary on a polar plot using SVM.
+
+    Args:
+        radius (torch.Tensor): Tensor of radius values.
+        theta (torch.Tensor): Tensor of angle values.
+        success (torch.Tensor): Tensor of success/failure labels.
+        ax (matplotlib.axes.Axes): Axes to plot the boundary on.
+        label (str, optional): Label for the current dataset (for legend). Defaults to None.
+        color (str, optional): Color for the boundary line. Defaults to None.
+    """
+
+    # Convert tensors to numpy arrays
+    radius = radius.numpy()
+    theta = theta.numpy()
+    success = success.numpy()
+
+    # Convert polar coordinates to Cartesian coordinates
+    x = radius * np.cos(theta)
+    y = radius * np.sin(theta)
+
+    # Create a DataFrame with Cartesian coordinates and tags
+    df = pd.DataFrame({"x": x, "y": y, "success": success})
+
+    # Separate features and labels
+    X = df[["x", "y"]]
+    y = df["success"]
+
+    # Standardize features (optional but often helpful)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Create an SVM model
+    svm = SVC(kernel="rbf", C=1.0, class_weight='balanced')  # Adjust parameters as needed
+
+    # Train the SVM model
+    svm.fit(X_scaled, y)
+
+    # Create a grid of points for decision function evaluation in Cartesian space
+    x_min, x_max = X_scaled[:, 0].min() - 1, X_scaled[:, 0].max() + 1
+    y_min, y_max = X_scaled[:, 1].min() - 1, X_scaled[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 500), np.linspace(y_min, y_max, 500))
+
+    # Predict labels for the grid points
+    Z = svm.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+
+    # Rescale the grid points back to the original scale
+    xx_original = xx * scaler.scale_[0] + scaler.mean_[0]
+    yy_original = yy * scaler.scale_[1] + scaler.mean_[1]
+
+    # Convert the rescaled Cartesian grid (xx_original, yy_original) back to polar coordinates
+    r = np.sqrt(xx_original**2 + yy_original**2)  # radius
+    theta_boundary = np.arctan2(yy_original, xx_original)  # angle
+
+    # Plot the decision boundary on polar axes
+    ax.contour(theta_boundary, r, Z, levels=[0.5], colors=[color], linewidths=2)
+    ax.set_title(title)
+        # Set up dynamic grid lines for the polar plot
+    r_max = radius.max()  # Max radius from the actual data
+
+    #ax.set_rticks(r_ticks)  # Set radial ticks to match the data range
+    ax.set_rlim(0, r_max)  # Set radial limits to cut the plot at r_max
+    ax.grid(True, linestyle='--', color='gray', alpha=0.7)  # Enable grid lines
 
 
 def create_multiple_box_plots(data_arrays, labels, plot_name):

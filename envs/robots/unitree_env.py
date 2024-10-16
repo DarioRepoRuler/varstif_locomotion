@@ -498,17 +498,18 @@ class UnitreeEnv(MjxEnv):
         qvel = state.pipeline_state.qvel  # pytype: disable=attribute-error
         qvel = qvel.at[:2].set(kick * self._kick_vel + qvel[:2])
         state = state.tree_replace({'pipeline_state.qvel': qvel})
-        # update state info
+        # update st ate info
         state.info['kick'] = kick
         return state
        
     def force_kick_robot(self, state: State, rng: jp.ndarray):
         # This is intended to be used for evaluation only
         if self.enable_force_kick:
-            rng_kick, rng_theta,  = jax.random.split(rng, 2)
+            rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 3)
             # Push randomly
-            kick_theta = jax.random.uniform(rng_theta, maxval=2 * jp.pi)
-            kick_force = jax.random.uniform(rng_kick, minval=0.0, maxval=self.kick_force)
+            kick_theta = jax.random.uniform(rng_theta, maxval= 2* jp.pi)
+            kick_force = jax.random.uniform(rng_kick, minval=50.0, maxval=self.kick_force)
+            kick_impulse = jax.random.uniform(rng_impulse, minval=10.0, maxval=self.force_kick_impulse)
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
             kick_condition = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
             # Get the random values at kick interval
@@ -517,7 +518,7 @@ class UnitreeEnv(MjxEnv):
             state.info['kick_force_magnitude'] = jp.where(kick_condition, kick_force , 0.0) #state.info['kick_force_magnitude']
             
             # Hold the same value for a few steps
-            state.info['kick_counter_initial']= jp.where(jp.logical_and(self.impulse_force_kick, kick_condition), ((self.force_kick_impulse/state.info['kick_force_magnitude']) // self.dt).astype(int) ,self.force_kick_counter )
+            state.info['kick_counter_initial']= jp.where(jp.logical_and(self.impulse_force_kick, kick_condition), ((kick_impulse/state.info['kick_force_magnitude']) // self.dt).astype(int) ,self.force_kick_counter )
             #jax.debug.print('Kick counter initial: {x}', x=state.info['kick_counter_initial'])
             state.info['kick_counter'] = jp.where(kick_condition, state.info['kick_counter_initial'], state.info['kick_counter'])
             state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
@@ -786,7 +787,7 @@ class UnitreeEnv(MjxEnv):
             state_info['motor_strength'],
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
-            state_info['kick'], 
+            state_info['kick'],
             obs
         ])
 

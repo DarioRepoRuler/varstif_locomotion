@@ -330,9 +330,7 @@ class PPOTaskBase(nn.Module):
                 print(f"Evaluation at epoch: {it}")
                 self.agent_eval_step(it, save_dir,is_training=False)
                 
-
-
-            # if (it > 500) and self._rew_track_lin_vel > 1.2:
+            # if (it % self.eval_interval == 0) and (it > 0) and (self._rew_track_lin_vel > 1.125):
             #     # Adapting the control range
             #     for key in self.cfg.env.control_range.keys():
             #         cr = self.cfg.env.control_range[key]
@@ -401,7 +399,7 @@ class PPOTaskBase(nn.Module):
         # Change settings to force push 
         self.cfg.env.manual_control.enable = True
         self.cfg.env.manual_control.enable = True
-        self.cfg.env.manual_control.cmd_x = 0.8
+        self.cfg.env.manual_control.cmd_x = 0.3
         self.cfg.timesteps_per_rollout = 50
         self.cfg.env.enable_force_kick = True
         self.cfg.env.kick_vel = 0.0
@@ -434,7 +432,7 @@ class PPOTaskBase(nn.Module):
             return
 
         # This way the agent is pushes 
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
         results = {'success': [], 'kick_theta':[], 'kick_force_magnitude':[]}
 
         for it in range(num_iterations):
@@ -444,6 +442,7 @@ class PPOTaskBase(nn.Module):
             # Find indices of non-zero elements, along axis=0 and extract the values
             non_zero_indices = eval_infos['kick_theta'].nonzero(as_tuple=True)[0] # indices: timesteps, 
             non_zero_kick_theta = eval_infos['kick_theta'][non_zero_indices]
+            #print(f"Kick theta: {non_zero_kick_theta}")
             # same for kick force magnitude
             non_zero_indices = eval_infos['kick_force_magnitude'].nonzero(as_tuple=True)[0]
             non_zero_kick_force_magnitude = eval_infos['kick_force_magnitude'][non_zero_indices]
@@ -455,15 +454,16 @@ class PPOTaskBase(nn.Module):
                 results['kick_theta'].append(thetas)
                 results['kick_force_magnitude'].append(magnitudes)
                 #print(f"Thetas: {thetas}")
+                #print(f"Magnitudes: {magnitudes}")
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
                 success = eval_infos['steps'] >= 5*self.cfg.timesteps_per_rollout
-                print(f"Success rate: {success.shape}")
-                print(f"Kick theta: {results['kick_theta'][-1].shape}")
-                print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
+                #print(f"Success rate: {success.shape}")
+                # print(f"Kick theta: {results['kick_theta'][-1].shape}")
+                # print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
                 results['success'].append(success)
-                self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+                self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
              
             self.algo.storage.clear()
         
@@ -514,7 +514,7 @@ class PPOTaskBase(nn.Module):
                     results['success_rate'].append(torch.tensor([0.0]))
                 print(f"Finished experiment {it//self.cfg.rollouts_per_experiment} with success rate: {results['success_rate'][-1]}")
                 eval_data['successful_envs'] = None
-                if level < 5:
+                if level < 4:
                     level += 1
                     self.env = self.init_env(f'unitree_go2/terrain_pyramid_l{level}.xml')
                     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
