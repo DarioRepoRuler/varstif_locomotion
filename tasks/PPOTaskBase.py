@@ -555,9 +555,7 @@ class PPOTaskBase(nn.Module):
         print(f"Success after distance: {success_dist}")
         for it in range(num_iterations):
             print(f"iteration: {it} ")
-
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
-            
             vel_xy = jp.sqrt(2)/2*self.cfg.env.manual_control.cmd_x
             directions = [jp.array([vel_xy, vel_xy, 0.0]),
                           jp.array([0.0, self.cfg.env.manual_control.cmd_x, 0.0]),

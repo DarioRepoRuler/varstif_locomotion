@@ -439,16 +439,23 @@ class UnitreeEnv(MjxEnv):
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             p_gains = self.compute_stiffness(self.action_stiff_scale * action)
+            
             if self.control_mode == "VIC_1" or self.control_mode == "VIC_2" or self.control_mode == "VIC_3" or self.control_mode == "VIC_4":
                 d_gains = 0.2*jp.sqrt(p_gains)
             else:
                 d_gains = self.d_gains
+            if self.randomize:
+                p_gains = p_gains * actuator_param[0]
+                d_gains = d_gains * actuator_param[1]
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
         elif self.control_mode == "T":
             torques = unscale(self.action_scale * action[:12], lower=-self.torque_limits, upper=self.torque_limits)
-
-        torques = jp.clip(torques*actuator_param[2], a_min=-self.torque_limits, a_max=self.torque_limits)
         
+        if self.randomize:
+            torques = jp.clip(torques*actuator_param[2], a_min=-self.torque_limits, a_max=self.torque_limits)
+        else:
+            torques = jp.clip(torques, a_min=-self.torque_limits, a_max=self.torque_limits)
+
         # Add the force kick to the torques
         torques = jp.concatenate([torques, action[-2:]])
 
@@ -776,7 +783,7 @@ class UnitreeEnv(MjxEnv):
             self.joint_vel_scale *data.qvel[6:],
             state_info['last_act'], 
             self.command_scale * state_info['command'],
-            state_info['contact'],
+            
         ])
 
         obs = jp.clip(obs, -100.0, 100.0)
@@ -788,6 +795,7 @@ class UnitreeEnv(MjxEnv):
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
             state_info['kick'],
+            state_info['contact'],
             obs
         ])
 
