@@ -5,7 +5,7 @@ defaults:
 env:
   action_scale: 0.3
   action_stiff_scale: 0.3
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
 
@@ -108,7 +108,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: False
+viz: True
 
 project: 'TALocoMotion'
 group: ${env.control_mode}

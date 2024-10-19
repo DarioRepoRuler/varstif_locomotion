@@ -783,7 +783,7 @@ class UnitreeEnv(MjxEnv):
             self.joint_vel_scale *data.qvel[6:],
             state_info['last_act'], 
             self.command_scale * state_info['command'],
-            
+            state_info['contact'],
         ])
 
         obs = jp.clip(obs, -100.0, 100.0)
@@ -795,7 +795,7 @@ class UnitreeEnv(MjxEnv):
             jp.array([self.sys.geom_friction[0, 0]]),
             jp.array([self.sys.body_mass[1]]),
             state_info['kick'],
-            state_info['contact'],
+            
             obs
         ])
 
