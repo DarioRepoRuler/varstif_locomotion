@@ -89,8 +89,7 @@ env:
           "rew_power": -2.e-5,
           "rew_power_distro": -5.e-6,
           "hip": 0.05,
-          "rew_joint_track": -0.1,
-          'rew_stiff_default': 0.0,
+          "rew_joint_track": -0.0,
           'rew_base_height': -0.6,
           #'rew_foot_tracking': -0.6,
   }
@@ -108,7 +107,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'TALocoMotion'
 group: ${env.control_mode}

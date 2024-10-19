@@ -2,7 +2,7 @@ defaults:
   - _self_
   - policy: ppo
 
-ckpt_path: 'outputs/2024-10-15/08-10-06/checkpoints/best.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+ckpt_path: 'outputs/2024-10-14/16-03-28/checkpoints/best.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 
 env:
   action_scale: 0.3
@@ -33,10 +33,10 @@ env:
  
 
   domain_rand:
-    randomisation: False
+    randomisation: True
     gravity_offset: [-0., 0.]
     friction_range: [1., 1.]
-    payload_range: [3., 3.]
+    payload_range: [10., 10.]
     hip_mass_range: [0., 0.]
     kp_range: [1., 1.]
     kd_range: [1., 1.]
@@ -71,7 +71,7 @@ env:
   reset_pos_y: [-0.0, 0.0]
 
   control:
-    stiff_range: [0.5, 2.0]
+    stiff_range: [0.5, 1.5]
     p_gain: 50.0
     d_gain: 1.0
   
@@ -94,7 +94,6 @@ env:
           "rew_power_distro": -5.e-6,
           "hip": 0.05,
           "rew_joint_track": -0.1,
-          'rew_stiff_default': 0.0,
           'rew_base_height': -0.6,
           #'rew_foot_tracking': -0.6,
   }

@@ -639,7 +639,6 @@ class UnitreeEnv(MjxEnv):
             'hip': self.rew_hip(joint_angles),
             # Variable impedance control
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
-            'rew_stiff_default': self._reward_stiff_default(action),
             'rew_base_height': self._reward_base_height(data.qpos[2]),
             
             #'rew_foot_tracking': self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
@@ -1012,12 +1011,3 @@ class UnitreeEnv(MjxEnv):
     def _get_desired_contact(self, foot_cycles: jax.Array)-> jax.Array:
         C_cmd = self._von_mises(foot_cycles)*(1- self._von_mises(foot_cycles-0.5)) + self._von_mises(foot_cycles-1)*(1-self._von_mises(foot_cycles-1.5))
         return C_cmd
-    
-    ##---------------------------------------
-
-    def _reward_stiff_default(self, action: jax.Array) -> jax.Array:
-        m = (self.stiff_range[0] +self.stiff_range[1])/2
-        r= (self.stiff_range[1]-self.stiff_range[0])/2
-        action_stiff = self.compute_stiffness(self.action_stiff_scale*action)
-        stiff = jp.clip(self.p_gains*(m + action_stiff*r), a_min=self.stiff_range[0]*self.p_gain, a_max=self.stiff_range[1]*self.p_gain)
-        return jp.sum((stiff-self.p_gains)) * jp.where((self.control_mode == "VIC_1")| (self.control_mode=="VIC_2") | (self.control_mode=="VIC_3"), 1.0, 0.0)

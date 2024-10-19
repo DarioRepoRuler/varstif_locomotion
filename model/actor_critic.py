@@ -43,7 +43,7 @@ class ActorCritic(nn.Module):
                             act=nn.ELU(),
                             output_act=nn.Tanh(),
                             using_norm=False)
-        
+            
         else:
             if config.actor.use_lstm:
                 self.actor = LSTM_actor(in_features=num_single_obs,
@@ -54,7 +54,14 @@ class ActorCritic(nn.Module):
                                         output_act=nn.Tanh(),
                                         using_norm=False)
             else:
-                self.actor = MLP(in_features=num_obs,
+                # self.actor = MLP(in_features=num_obs,
+                #             hidden_features=config.actor.hidden_dim,
+                #             out_features=num_actions,
+                #             n_layers=config.actor.n_layers,
+                #             act=nn.ELU(),
+                #             output_act=None,
+                #             using_norm=False)
+                self.actor = MLP_new(in_features=num_single_obs,
                             hidden_features=config.actor.hidden_dim,
                             out_features=num_actions,
                             n_layers=config.actor.n_layers,
@@ -62,7 +69,14 @@ class ActorCritic(nn.Module):
                             output_act=nn.Tanh(),
                             using_norm=False)
 
-        self.critic = MLP(in_features=num_priv_obs,
+        # self.critic = MLP(in_features=num_priv_obs,
+        #                   hidden_features=config.critic.hidden_dim,
+        #                   out_features=1,
+        #                   n_layers=config.critic.n_layers,
+        #                   act=nn.ELU(),
+        #                   output_act=None,
+        #                   using_norm=False)
+        self.critic = MLP_new(in_features=num_priv_obs,
                           hidden_features=config.critic.hidden_dim,
                           out_features=1,
                           n_layers=config.critic.n_layers,
