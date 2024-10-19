@@ -66,7 +66,7 @@ class ActorCritic(nn.Module):
                             out_features=num_actions,
                             n_layers=config.actor.n_layers,
                             act=nn.ELU(),
-                            output_act=nn.Tanh(),
+                            output_act=None,
                             using_norm=False)
 
         # self.critic = MLP(in_features=num_priv_obs,
