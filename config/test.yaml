@@ -5,7 +5,7 @@ defaults:
 ckpt_path: 'outputs/2024-10-19/12-01-07/checkpoints/best.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 
 env:
-  action_scale: 0.3
+  action_scale: 0.5
   action_stiff_scale: 1.0
   control_mode: "P"
   physics_steps_per_control_step: 4
@@ -72,7 +72,7 @@ env:
 
   control:
     stiff_range: [0.5, 1.5]
-    p_gain: 50.0
+    p_gain: 25.0
     d_gain: 1.0
   
   reward_scales: { 
