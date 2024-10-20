@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.3
+  action_scale: 0.5
   action_stiff_scale: 0.3
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
