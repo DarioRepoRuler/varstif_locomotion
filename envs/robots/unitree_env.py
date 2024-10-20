@@ -516,7 +516,7 @@ class UnitreeEnv(MjxEnv):
             # Push randomly
             kick_theta = jax.random.uniform(rng_theta, maxval= 2* jp.pi)
             kick_force = jax.random.uniform(rng_kick, minval=50.0, maxval=self.kick_force)
-            kick_impulse = jax.random.uniform(rng_impulse, minval=10.0, maxval=self.force_kick_impulse)
+            kick_impulse = self.force_kick_impulse#jax.random.uniform(rng_impulse, minval=10.0, maxval=self.force_kick_impulse)
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
             kick_condition = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
             # Get the random values at kick interval
@@ -525,13 +525,13 @@ class UnitreeEnv(MjxEnv):
             state.info['kick_force_magnitude'] = jp.where(kick_condition, kick_force , 0.0) #state.info['kick_force_magnitude']
             
             # Hold the same value for a few steps
-            state.info['kick_counter_initial']= jp.where(jp.logical_and(self.impulse_force_kick, kick_condition), ((kick_impulse/state.info['kick_force_magnitude']) // self.dt).astype(int) ,self.force_kick_counter )
+            state.info['kick_counter_initial']= jp.where(jp.logical_and(self.impulse_force_kick, kick_condition), ((kick_impulse/state.info['kick_force_magnitude']) / self.dt).astype(int) ,self.force_kick_counter )
             #jax.debug.print('Kick counter initial: {x}', x=state.info['kick_counter_initial'])
             state.info['kick_counter'] = jp.where(kick_condition, state.info['kick_counter_initial'], state.info['kick_counter'])
             state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
             #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
-            state.info['force_kick'] = jp.where(state.info['kick_counter']>0, state.info['force_kick'], 0.0)
-            state.info['kick_theta'] = jp.where(state.info['kick_counter']>0, state.info['kick_theta'], 0.0)
+            state.info['force_kick'] = jp.where(state.info['kick_counter']>-1, state.info['force_kick'], 0.0)
+            state.info['kick_theta'] = jp.where(state.info['kick_counter']>-1, state.info['kick_theta'], 0.0)
             state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>0, state.info['kick_force_magnitude'],0.0)
             #state.info['last_kick_force_magnitude'] = state.info['kick_force_magnitude']
             #jax.debug.print('Force kick: {x}', x=state.info['kick_force_magnitude'])
