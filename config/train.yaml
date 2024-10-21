@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.5
+  action_scale: 0.8
   action_stiff_scale: 0.3
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
@@ -68,7 +68,7 @@ env:
 
   control:
     stiff_range: [0.5, 2.0]
-    p_gain: 50.0
+    p_gain: 25.0
     d_gain: 1.0
 
   reward_scales: { 
