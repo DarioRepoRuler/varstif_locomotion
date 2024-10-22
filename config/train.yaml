@@ -107,7 +107,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'TALocoMotion'
 group: ${env.control_mode}
