@@ -21,8 +21,8 @@ env:
   impulse_force_kick: True
 
   force_kick_duration: 0.1
-  force_kick_impulse: 20.0
-  force_kick_interval: 25
+  force_kick_impulse: [8.0, 15.0]
+  force_kick_interval: 100
   kick_force: 150.0
 
   single_obs_size: 52
