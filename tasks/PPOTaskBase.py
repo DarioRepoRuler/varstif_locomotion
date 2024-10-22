@@ -10,12 +10,6 @@ import jax
 from envs.robots.go2_env import GO2Env
 from envs.common.wrapper import _create_env
 
-
-# import threading
-# from pynput import keyboard as pynput_keyboard
-# from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
-
-
 from utils.helper_traj import create_combined_command
 
 class PPOTaskBase(nn.Module):
@@ -72,7 +66,11 @@ class PPOTaskBase(nn.Module):
 
         # # Start the keyboard listener thread
         if self.cfg.viz:
-            self.keyboard_listener_thread = threading.Thread(target=self.keyboard_listener)
+            import threading
+            from pynput import keyboard as pynput_keyboard
+            self.pynput_keyboard = pynput_keyboard
+            self.threading = threading
+            self.keyboard_listener_thread = self.threading.Thread(target=self.keyboard_listener)
             self.keyboard_listener_thread.daemon = True
             self.keyboard_listener_thread.start()
 
@@ -82,17 +80,17 @@ class PPOTaskBase(nn.Module):
 
     def on_press(self, key):
         try:
-            if key == pynput_keyboard.Key.up:
+            if key == self.pynput_keyboard.Key.up:
                 print(f"Up arrow pressed Viewed env: {self.view_env_id}")
                 self.view_env_id = min(self.cfg.num_envs, self.view_env_id+1)
-            elif key == pynput_keyboard.Key.down:
+            elif key == self.pynput_keyboard.Key.down:
                 self.view_env_id = max(0, self.view_env_id-1)
                 print(f"Down arrow pressed,  Viewed env: {self.view_env_id}")
         except AttributeError:
             pass
     
     def keyboard_listener(self):
-        with pynput_keyboard.Listener(on_press=self.on_press) as listener:
+        with self.pynput_keyboard.Listener(on_press=self.on_press) as listener:
             listener.join()
 
     def step(self, obs_g, privileged_obs_g, is_training=True):
@@ -427,6 +425,7 @@ class PPOTaskBase(nn.Module):
 
 
     def test_force_push_random(self, num_iterations):
+        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
         if (self.cfg.env.force_kick_interval != 150) or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5) or (self.cfg.env.enable_force_kick != True):
             print("Please set the force kick interval to 150, timesteps per rollout to 50 and rollouts per experiment to 5 and enable force kick to true")
@@ -484,6 +483,7 @@ class PPOTaskBase(nn.Module):
                              f'force_push_results_{name}.csv')
          
     def test_escape_pyramid(self, num_iterations):
+        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
         results = {'success_rate': []}
         eval_data = {'total_dist':[], 'successful_envs': None}
@@ -527,9 +527,6 @@ class PPOTaskBase(nn.Module):
             results[key] = torch.stack(results[key]).cpu()
         save_tensors_to_csv([results['success_rate']], 
                         [f'success_rate', ], f'pyramid_results_{name}.csv')
-        
-        
-
 
     def test_tracking_traj(self, num_iterations):
         # eval data stores for every timestep, results are then the used metrics for overall comparison
@@ -542,6 +539,7 @@ class PPOTaskBase(nn.Module):
             self.algo.storage.clear()
         
     def test_heading_directions(self, num_iterations):
+        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         if (self.cfg.env.manual_control.enable!=True) or (self.cfg.rollouts_per_experiment != 8) \
             or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.num_iterations!=65) or (self.cfg.env.enable_force_kick ==True) \
                 or (self.cfg.env.kick_vel !=0.0):
@@ -664,6 +662,7 @@ class PPOTaskBase(nn.Module):
                             [f'power', f'energy', 'local_v', 'success_rate', 'COT'], f'heading_directions_results_{name}.csv')
         
     def test_xy_random(self, num_iterations):
+        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         if (self.cfg.env.manual_control.enable==True) or (self.cfg.env.control_range['cmd_ang'] !=[0.,0.]) \
             or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.env.enable_force_kick ==True) or \
                 (self.cfg.env.sample_command_interval<self.cfg.timesteps_per_rollout*self.cfg.rollouts_per_experiment) \

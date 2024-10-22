@@ -148,7 +148,10 @@ class ReplayBuffer:
         indices = torch.randperm(num_batches * batch_size, requires_grad=False, device=self.device)
         
         #print(f"Mini batch size: {batch_size}")
-        obs_g = self.observations.flatten(0, 1) 
+        obs_g = self.observations.flatten(0, 1)
+        # next_obs_g = self.observations[1:,:,:].flatten(0, 1)
+        # print(f"Observations shape: {self.observations.shape} after flatten: {obs_g.shape}")
+        # print(f"Next observations: {next_obs_g.shape}") 
         actions = self.actions.flatten(0, 1)
         values = self.values.flatten(0, 1)
         returns = self.returns.flatten(0, 1)

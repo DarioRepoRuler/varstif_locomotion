@@ -394,6 +394,9 @@ class UnitreeEnv(MjxEnv):
             'kick_theta': jp.array(0.0),
             'kick_force_magnitude': jp.array(0.0),
             'last_kick_force_magnitude': jp.array(0.0),
+            'des_foot_height': jp.zeros((4,50)),
+            'foot_pos': jp.zeros((4,3)),
+
         }
         # Define obs history
         obs_history = jp.zeros(self.num_history_actor * self.single_obs_size)  # store num_history steps of history
@@ -579,6 +582,15 @@ class UnitreeEnv(MjxEnv):
 
         # Foot contact data
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
+        #jax.debug.print('Foot pos: {x}', x=foot_pos)
+        state.info['foot_pos'] = foot_pos
+        target_foot_height = self.get_des_foot_height(state.info['gait_idx'])
+        state.info['des_foot_height']=  self.get_foot_height_traj(state.info['step'] )
+        
+        # jax.debug.print('Target foot height: {x}', x=state.info['des_foot_height'])
+        # jax.debug.print('Shape of foot height: {x}', x=state.info['des_foot_height'].shape)
+
+        #state.info['des_foot_height'] = target_foot_height
         ## Foot contacts
         foot_contacts = jp.zeros((4),dtype=int)
         foot_contacts = foot_contacts.at[0:4].set(self.get_foot_contacts(data)[0:4,0].astype(int))
@@ -640,7 +652,7 @@ class UnitreeEnv(MjxEnv):
             # Variable impedance control
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
             'rew_base_height': self._reward_base_height(data.qpos[2]),
-            
+            'rew_foot_clearance': self._reward_foot_clearance( xd , foot_pos[:, 2], 0.09),
             #'rew_foot_tracking': self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
         }
         rewards = {
@@ -928,6 +940,17 @@ class UnitreeEnv(MjxEnv):
             jp.any(jp.abs(commands) > 0.05)
         ) #  * jp.exp(-0.2*cmd_norm)  # no reward for zero command and weighting reward by velocity
         return rew_air_time
+    
+    def _reward_foot_clearance(
+            self, xd: Motion, foot_z: jax.Array, des_z = 0.09
+    ) -> jax.Array:
+        foot_indices = self.foot_body_id - 1
+        # jax.debug.print('Foot indices: {x}', x=foot_indices)
+        foot_vel = xd.take(foot_indices).vel
+        #jax.debug.print('Foot vel: {x}', x=foot_vel)
+        # jax.debug.print('Foot vel mag: {x}', x=jp.linalg.norm(foot_vel[:, :2], axis=1))
+        rew_clearance = jp.sum(jp.square(foot_z - des_z) * jp.linalg.norm(foot_vel[:, :2], axis=1 ))
+        return rew_clearance
 
     def _reward_feet_contact_time(
             self, contact_time: jax.Array, commands: jax.Array
@@ -982,7 +1005,8 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.square(joint_angles-target_dof_pos))
     
     ## Rewards for Gait behaviours ---------------
-    def _reward_foot_clearance(self, gait_cycle_idx: jax.Array, foot_z: jax.Array) ->jax.Array:
+
+    def get_des_foot_height(self, gait_cycle_idx: jax.Array) -> jax.Array:
         foot_cycles = jp.array([
             gait_cycle_idx+0.5,
             gait_cycle_idx ,
@@ -991,23 +1015,21 @@ class UnitreeEnv(MjxEnv):
         ])
         foot_cycles = jp.remainder(foot_cycles, 1.0)
         phases = 1 - jp.abs(1.0 - jp.clip((foot_cycles*2.0)-1.0, 0.0,1.0) *2.0 )
-        #jax.debug.print('Phases {x}', x=phases)
         target_height = 0.2*phases
-        #jax.debug.print('Target height {x}', x=target_height)
-        desired_contacts = self._get_desired_contact(foot_cycles)
-        #jax.debug.print('Desired contacts: {x}', x=desired_contacts)
-        foot_clearance = jp.square(target_height-foot_z)*(1-desired_contacts)
-        return jp.sum(foot_clearance)
+        return target_height
+    
+    def get_foot_height_traj(self, current_step: jax.Array) -> jax.Array:
+        steps = jp.arange(50)
+        steps = jp.remainder((steps+current_step)*self.dt, 1.0)
+        heights = self.get_des_foot_height(steps)
+        return heights
+    
+    
+
     
     def _reward_base_height(self, base_z: jax.Array) -> jax.Array:
         target_height = 0.27
         #return jp.min(target_height-base_z, 0)
         return jp.square(base_z-target_height)
 
-    def _von_mises(self, t: jax.Array)-> jax.Array:
-        kappa = 0.07
-        return 1/(kappa*jp.sqrt(2*jp.pi)) * jp.exp(-1/2*jp.square(t/kappa))
     
-    def _get_desired_contact(self, foot_cycles: jax.Array)-> jax.Array:
-        C_cmd = self._von_mises(foot_cycles)*(1- self._von_mises(foot_cycles-0.5)) + self._von_mises(foot_cycles-1)*(1-self._von_mises(foot_cycles-1.5))
-        return C_cmd
