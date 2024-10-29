@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.3
+  action_scale: 0.5
   action_stiff_scale: 1.0
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
@@ -88,7 +88,7 @@ env:
           "rew_collision": -10.0,
           "rew_power": -2.e-5,
           "rew_power_distro": -5.e-6,
-          "hip": 0.12,
+          "hip": 0.1,
           "rew_joint_track": -0.0,
           'rew_base_height': -0.6,
           'rew_foot_clearance': -0.01,
