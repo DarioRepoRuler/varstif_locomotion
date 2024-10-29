@@ -528,14 +528,14 @@ class UnitreeEnv(MjxEnv):
             state.info['kick_force_magnitude'] = jp.where(kick_condition, kick_force , 0.0) #state.info['kick_force_magnitude']
             
             # Hold the same value for a few steps
-            state.info['kick_counter_initial']= jp.where(jp.logical_and(self.impulse_force_kick, kick_condition), ((kick_impulse/state.info['kick_force_magnitude']) / self.dt).astype(int) ,self.force_kick_counter )
+            state.info['kick_counter_initial']= jp.where(jp.logical_and(self.impulse_force_kick, kick_condition), ((kick_impulse/state.info['kick_force_magnitude']) / self.dt).astype(int), self.force_kick_counter)
             #jax.debug.print('Kick counter initial: {x}', x=state.info['kick_counter_initial'])
             state.info['kick_counter'] = jp.where(kick_condition, state.info['kick_counter_initial'], state.info['kick_counter'])
             state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
             #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
             state.info['force_kick'] = jp.where(state.info['kick_counter']>-1, state.info['force_kick'], 0.0)
             state.info['kick_theta'] = jp.where(state.info['kick_counter']>-1, state.info['kick_theta'], 0.0)
-            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>0, state.info['kick_force_magnitude'],0.0)
+            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>-1, state.info['kick_force_magnitude'],0.0)
             #state.info['last_kick_force_magnitude'] = state.info['kick_force_magnitude']
             #jax.debug.print('Force kick: {x}', x=state.info['kick_force_magnitude'])
         else:
@@ -1004,6 +1004,8 @@ class UnitreeEnv(MjxEnv):
         target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
         return jp.sum(jp.square(joint_angles-target_dof_pos))
     
+
+
     ## Rewards for Gait behaviours ---------------
 
     def get_des_foot_height(self, gait_cycle_idx: jax.Array) -> jax.Array:

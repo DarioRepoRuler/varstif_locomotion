@@ -185,7 +185,7 @@ class PPOTaskBase(nn.Module):
             eval_infos['kick_theta'] = kick_metrics['kick_theta']
             eval_infos['kick_force_magnitude'] = kick_metrics['kick_force_magnitude']
             eval_infos['cmd'] = cmd 
-            eval_infos['steps'] = steps[-1,:] 
+            eval_infos['steps'] = steps#[-1,:] 
             for key in eval_metrics[0].keys():
                 combined_metrics[key] = torch.stack([metric[key] for metric in eval_metrics])
 
@@ -440,26 +440,33 @@ class PPOTaskBase(nn.Module):
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
 
             # Find indices of non-zero elements, along axis=0 and extract the values
-            non_zero_indices = eval_infos['kick_theta'].nonzero(as_tuple=True)[0] # indices: timesteps, 
-            non_zero_kick_theta = eval_infos['kick_theta'][non_zero_indices]
-            #print(f"Kick theta: {non_zero_kick_theta}")
-            # same for kick force magnitude
-            non_zero_indices = eval_infos['kick_force_magnitude'].nonzero(as_tuple=True)[0]
-            non_zero_kick_force_magnitude = eval_infos['kick_force_magnitude'][non_zero_indices]
-
-            magnitudes= torch.unique(non_zero_kick_force_magnitude, dim=0)
-            thetas = torch.unique(non_zero_kick_theta ,dim=0)
+            non_zero_indices = eval_infos['kick_force_magnitude'].nonzero(as_tuple=True)
+            non_zero_kick_force_magnitude = eval_infos['kick_force_magnitude'][non_zero_indices[0]]
+            #print(f"Non zero indices: {non_zero_indices.shape}")
             
-            if (magnitudes.numel() != 0) and (thetas.numel() != 0):
-                results['kick_theta'].append(thetas)
-                results['kick_force_magnitude'].append(magnitudes)
-                #print(f"Thetas: {thetas}")
-                #print(f"Magnitudes: {magnitudes}")
+            #non_zero_indices = eval_infos['kick_theta'].nonzero(as_tuple=True)[0] # indices: timesteps, 
+            non_zero_kick_theta = eval_infos['kick_theta'][non_zero_indices[0]]
+            #print(f"Non zero indices: {non_zero_indices.shape}")
+
+
+            magnitudes = torch.unique(non_zero_kick_force_magnitude, dim=0)
+            thetas = torch.unique(non_zero_kick_theta, dim=0)
+            
+            if (magnitudes.numel() != 0):
+                magnitudes = torch.where(magnitudes.sum(dim=0)!=0, magnitudes.sum(dim=0), torch.tensor(0.))
+                thetas = torch.where(thetas.sum(dim=0)!=0, thetas.sum(dim=0), torch.tensor(0.))
+                results['kick_theta'].append(thetas.unsqueeze(0))
+                results['kick_force_magnitude'].append(magnitudes.unsqueeze(0))
+                print(f"Thetas: {thetas.shape}")
+                print(f"Magnitudes: {magnitudes.shape}")
+                if thetas.size(0) != 1:
+                    print(f"Kick theta: {thetas}")
+                    print(f"Kick force magnitude: {magnitudes}")
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
-                success = eval_infos['steps'] >= 5*self.cfg.timesteps_per_rollout
-                #print(f"Success rate: {success.shape}")
+                success = eval_infos['steps'][-1,:] >= 5*self.cfg.timesteps_per_rollout
+                print(f"Success rate: {success.shape}")
                 # print(f"Kick theta: {results['kick_theta'][-1].shape}")
                 # print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
                 results['success'].append(success)
@@ -472,6 +479,7 @@ class PPOTaskBase(nn.Module):
                 results[key] = torch.stack(results[key], dim=0).cpu()
             else:
                 results[key] = torch.tensor([0.0])
+
         if 'checkpoints' in self.cfg.ckpt_path:
             parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
             parent_dir_name = os.path.basename(parent_dir)

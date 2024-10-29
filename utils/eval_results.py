@@ -75,7 +75,7 @@ def eval_force_push(filenames):
             'success': load_tensor_from_csv('success_rate', filename=filename),
         }
         plot_name = filename.split('.')[0]
-        #print(f"Filename: {filename}")
+        print(f"Filename: {filename}")
         polar_scatter_push_plot(push_data['kick_force_magnitude'], push_data['kick_theta'], push_data['success'], plot_name)
 
 filenames_force = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
