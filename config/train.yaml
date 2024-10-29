@@ -5,7 +5,7 @@ defaults:
 env:
   action_scale: 0.3
   action_stiff_scale: 1.0
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
 
@@ -88,7 +88,7 @@ env:
           "rew_collision": -10.0,
           "rew_power": -2.e-5,
           "rew_power_distro": -5.e-6,
-          "hip": 0.05,
+          "hip": 0.1,
           "rew_joint_track": -0.0,
           'rew_base_height': -0.6,
           'rew_foot_clearance': -0.01,
@@ -100,7 +100,6 @@ ckpt_path: null # 'best_models/test_vic2_bf.pt' #'outputs/2024-09-23/14-32-09/ch
 
 log_dir: projects/TALocomotion/outputs/
 
-
 num_envs: 4096
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
@@ -111,4 +110,4 @@ viz: False
 
 project: 'TALocoMotion'
 group: ${env.control_mode}
-scene_xml: 'unitree_go2/flat.xml' 
+scene_xml: 'unitree_go2/flat.xml'
