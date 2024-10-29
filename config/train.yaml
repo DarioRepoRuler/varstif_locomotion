@@ -104,7 +104,7 @@ log_dir: projects/TALocomotion/outputs/
 num_envs: 4096
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
-device: 'cuda:1'
+device: 'cuda:0'
 
 curriculum: False
 viz: False
