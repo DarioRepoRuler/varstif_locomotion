@@ -67,7 +67,7 @@ env:
   reset_pos_y: [-5.0, 5.0]
 
   control:
-    stiff_range: [0.5, 2.0]
+    stiff_range: [0.5, 1.5]
     p_gain: 50.0
     d_gain: 1.0
 
@@ -104,7 +104,7 @@ log_dir: projects/TALocomotion/outputs/
 num_envs: 4096
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
-device: 'cuda:0'
+device: 'cuda:1'
 
 curriculum: False
 viz: False
