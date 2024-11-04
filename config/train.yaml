@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.5
+  action_scale: 1.0
   action_stiff_scale: 1.0
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
@@ -22,8 +22,8 @@ env:
 
   force_kick_duration: 0.1
   force_kick_impulse: [8.0, 15.0]
-  force_kick_interval: 25
-  kick_force: 300.0
+  force_kick_interval: 100
+  kick_force: 150.0
 
   single_obs_size: 52
   single_obs_size_priv: 59
@@ -68,8 +68,8 @@ env:
 
   control:
     stiff_range: [0.5, 1.5]
-    p_gain: 50.0
-    d_gain: 1.0
+    p_gain: 25.0
+    d_gain: 0.6
 
   reward_scales: { 
           'tracking_lin_vel': 1.5, 
@@ -88,7 +88,7 @@ env:
           "rew_collision": -10.0,
           "rew_power": -2.e-5,
           "rew_power_distro": -5.e-6,
-          "hip": 0.15,
+          "hip": 0.05,
           "rew_joint_track": -0.0,
           'rew_base_height': -0.6,
           'rew_foot_clearance': -0.01,

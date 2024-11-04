@@ -439,6 +439,13 @@ class UnitreeEnv(MjxEnv):
         
 
         if self.control_mode == "P" or self.control_mode == "VIC_1" or self.control_mode == "VIC_2" or self.control_mode == "VIC_3" or self.control_mode == "VIC_4":
+            scaled_action = self.action_scale * action[:12]
+            # additional scaling for hip scale reduction
+            scaled_action = scaled_action.at[0].multiply(0.5)
+            scaled_action = scaled_action.at[3].multiply(0.5)
+            scaled_action = scaled_action.at[6].multiply(0.5)
+            scaled_action = scaled_action.at[9].multiply(0.5)
+
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
             p_gains = self.compute_stiffness(self.action_stiff_scale * action)
