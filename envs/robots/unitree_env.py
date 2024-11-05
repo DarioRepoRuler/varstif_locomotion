@@ -642,7 +642,7 @@ class UnitreeEnv(MjxEnv):
             #     state.info['feet_contact_time'],
             #     state.info['command'],
             # ),
-            'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
+            #'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
             'termination': self._reward_termination(done, state.info['step'], data=data),
             'action_rate': self.action_rate(action, state.info['last_act']),
             #'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
@@ -655,10 +655,10 @@ class UnitreeEnv(MjxEnv):
             'rew_power': self._reward_power(data.ctrl[:12], joint_vel),
             'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
             # Feet posture
-            'hip': self.rew_hip(joint_angles),
+            #'hip': self.rew_hip(joint_angles),
             # Variable impedance control
-            'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
-            'rew_base_height': self._reward_base_height(data.qpos[2]),
+            #'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
+            #'rew_base_height': self._reward_base_height(data.qpos[2]),
             'rew_foot_clearance': self._reward_foot_clearance( xd , foot_pos[:, 2], 0.09),
             #'rew_foot_tracking': self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
         }
@@ -903,14 +903,17 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-jp.sum(jp.abs(torque)-0.1*self.torque_limits))
     
     def _reward_pos_limits(self, pos: jax.Array) -> jax.Array:
-        out_of_bounds = -(pos - self.lower_limits).clip(max=0.)
-        out_of_bounds += (pos - self.upper_limits).clip(min=0.)
-        return jp.sum(out_of_bounds)
+        pos_out_of_bounds = -(pos - self.lower_limits).clip(max=0.)
+        pos_out_of_bounds += (pos - self.upper_limits).clip(min=0.)
+        return jp.sum(pos_out_of_bounds)
     
     def _reward_stiff_limits(self, stiff: jax.Array) -> jax.Array:
-        out_of_bounds = -(stiff - self.stiff_range[0]*self.p_gain).clip(max=0.)
-        out_of_bounds += (stiff - self.stiff_range[1]*self.p_gain).clip(min=0.)
-        return jp.sum(out_of_bounds)
+        stiff_out_of_bounds = -(stiff - self.stiff_range[0]*self.p_gain).clip(max=0.)
+        stiff_out_of_bounds += (stiff - self.stiff_range[1]*self.p_gain).clip(min=0.)
+        return jp.sum(stiff_out_of_bounds)
+    
+    def _reward_limits(self, pos: jax.Array, stiff: jax.Array) -> jax.Array:
+        return self._reward_pos_limits(pos) + self._reward_stiff_limits(stiff)
     
     def _reward_collision(self, data) -> jax.Array:
         body_contacts = jp.zeros(len(self.body_geom_id),dtype=int)

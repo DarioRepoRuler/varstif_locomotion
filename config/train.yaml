@@ -5,11 +5,11 @@ defaults:
 env:
   action_scale: 1.0
   action_stiff_scale: 1.0
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
 
-  num_history_actor: 3 # number of previous observations to stack
+  num_history_actor: 5 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
   kick_vel: 0.0
   push_interval: 25
@@ -23,7 +23,7 @@ env:
   force_kick_duration: 0.1
   force_kick_impulse: [8.0, 15.0]
   force_kick_interval: 100
-  kick_force: 300.0
+  kick_force: 150.0
 
   single_obs_size: 52
   single_obs_size_priv: 59
@@ -76,11 +76,11 @@ env:
           'tracking_ang_vel': 0.8, 
           'lin_vel_z': -2.0, 
           'ang_vel_xy': -0.05, 
-          'orientation': -5.0, 
+          'orientation': -5.0,
+          'stand_still': -0.5, 
           'feet_air_time': 0.5,
           'termination': -10.0,
-          'stand_still': -0.5, 
-          "foot_slip": -0.1,
+          #"foot_slip": -0.1,
           "action_rate": -0.002,
           'rew_pos_limits': -0.02,
           'rew_stiff_limits': -0.02,
@@ -88,9 +88,9 @@ env:
           "rew_collision": -10.0,
           "rew_power": -2.e-5,
           "rew_power_distro": -5.e-6,
-          "hip": 0.05,
-          "rew_joint_track": -0.0,
-          'rew_base_height': -0.6,
+          #"hip": 0.05,
+          #"rew_joint_track": -0.0,
+          #'rew_base_height': -0.6,
           'rew_foot_clearance': -0.01,
   }
 
