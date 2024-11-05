@@ -5,7 +5,7 @@ defaults:
 env:
   action_scale: 1.0
   action_stiff_scale: 1.0
-  control_mode: "P"
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
 
@@ -29,7 +29,7 @@ env:
   single_obs_size_priv: 59
 
   domain_rand:
-    randomisation: False
+    randomisation: True
     gravity_offset: [-1., 1.]
     friction_range: [0.3, 1.25]
     payload_range: [-1., 3.]
@@ -67,7 +67,7 @@ env:
   reset_pos_y: [-5.0, 5.0]
 
   control:
-    stiff_range: [0.5, 1.5]
+    stiff_range: [0.8, 1.2]
     p_gain: 25.0
     d_gain: 0.6
 

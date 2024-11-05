@@ -435,7 +435,7 @@ class PPOTaskBase(nn.Module):
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
         results = {'success': [], 'kick_theta':[], 'kick_force_magnitude':[]}
 
-        for it in range(num_iterations):
+        for it in range(1, num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
 
@@ -452,23 +452,21 @@ class PPOTaskBase(nn.Module):
             magnitudes = torch.unique(non_zero_kick_force_magnitude, dim=0)
             thetas = torch.unique(non_zero_kick_theta, dim=0)
             
-            if (magnitudes.numel() != 0):
+            if (magnitudes.numel() != 0) and ((it+1) % 5 == 0):
                 magnitudes = torch.where(magnitudes.sum(dim=0)!=0, magnitudes.sum(dim=0), torch.tensor(0.))
                 thetas = torch.where(thetas.sum(dim=0)!=0, thetas.sum(dim=0), torch.tensor(0.))
                 results['kick_theta'].append(thetas.unsqueeze(0))
                 results['kick_force_magnitude'].append(magnitudes.unsqueeze(0))
                 print(f"Thetas: {thetas.shape}")
                 print(f"Magnitudes: {magnitudes.shape}")
-                if thetas.size(0) != 1:
-                    print(f"Kick theta: {thetas}")
-                    print(f"Kick force magnitude: {magnitudes}")
+                # if thetas.size(0) != 1:
+                #     print(f"Kick theta: {thetas}")
+                #     print(f"Kick force magnitude: {magnitudes}")
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
                 success = eval_infos['steps'][-1,:] >= 5*self.cfg.timesteps_per_rollout
                 print(f"Success rate: {success.shape}")
-                # print(f"Kick theta: {results['kick_theta'][-1].shape}")
-                # print(f"Kick force magnitude: {results['kick_force_magnitude'][-1].shape}")
                 results['success'].append(success)
                 self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
              
