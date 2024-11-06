@@ -3,10 +3,10 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 0.5
+  action_scale: 1.0
   action_stiff_scale: 1.0
-  hip_scale: 0.8
-  control_mode: "VIC_2"
+  hip_scale: 1.0
+  control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
 
@@ -23,10 +23,10 @@ env:
 
   force_kick_duration: 0.1
   force_kick_impulse: [8.0, 15.0]
-  force_kick_interval: 100
+  force_kick_interval: 25
   kick_force: 150.0
 
-  single_obs_size: 52
+  single_obs_size: 48
   single_obs_size_priv: 59
 
   domain_rand:
@@ -88,10 +88,10 @@ env:
           'rew_acceleration': -2.5e-7,
           'rew_collision': -10.0,
           'rew_power': -2.e-5,
-          'rew_power_distro': -5.e-6,
-          #"hip": 0.05,
-          'rew_joint_track': -0.1,
+          "hip": 0.05,
+          #'rew_joint_track': -0.1,
           'rew_foot_clearance': -0.01,
+          'rew_com': -0.5,
   }
 
 log: True

@@ -262,7 +262,7 @@ class PPOTaskBase(nn.Module):
             # ---------------- logging reward ------------------------------#
             for key in episode_infos.keys():
                 self.wandb_logger.log({f'rewards_val/{key}': episode_infos[key]}, step=it)
-
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
         self.algo.storage.clear()
 
     def update_level(self):
@@ -311,9 +311,6 @@ class PPOTaskBase(nn.Module):
 
         if self.cfg.curriculum:
             self.initial_xy = jp.array([-2., -2.5])
-        
-
-        
 
         num_total_iteration = num_learning_iterations + self.current_learning_iteration
         for it in range(self.current_learning_iteration, num_total_iteration):
@@ -324,9 +321,9 @@ class PPOTaskBase(nn.Module):
             
             self.current_learning_iteration += 1
             
-            if it % self.eval_interval == 0:
-                print(f"Evaluation at epoch: {it}")
-                self.agent_eval_step(it, save_dir,is_training=False)
+            # if it % self.eval_interval == 0:
+            #     print(f"Evaluation at epoch: {it}")
+            #     self.agent_eval_step(it, save_dir,is_training=False)
                 
             # if (it % self.eval_interval == 0) and (it > 0) and (self._rew_track_lin_vel > 1.125):
             #     # Adapting the control range
@@ -344,15 +341,6 @@ class PPOTaskBase(nn.Module):
             #     self.env = self.init_env('unitree_go2/terrain_gaussian.xml')
             #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
 
-            if self.curriculum and it % (self.eval_interval+1) ==0:
-                # Update level according to paper(Learn to walk in minutes)
-                print(f"System level update at epoch: {it}")
-                temp = self.cfg.env.manual_control
-                self.cfg.env.manual_control = True # walk straight
-                self.agent_eval_step(it, save_dir, is_training=False)
-                # Move to different terrain if successfull
-                self.update_level()
-                self.cfg.env.manual_control = temp # TODO: improve layout and yaml
         self.current_learning_iteration = num_total_iteration
         self.save(os.path.join(save_dir, f'last.pt'))
 
@@ -468,7 +456,7 @@ class PPOTaskBase(nn.Module):
                 success = eval_infos['steps'][-1,:] >= 5*self.cfg.timesteps_per_rollout
                 print(f"Success rate: {success.shape}")
                 results['success'].append(success)
-                self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
+                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
              
             self.algo.storage.clear()
         
