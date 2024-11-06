@@ -3,8 +3,9 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 1.0
+  action_scale: 0.5
   action_stiff_scale: 1.0
+  hip_scale: 0.8
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
@@ -80,7 +81,7 @@ env:
           'stand_still': -0.5, 
           'feet_air_time': 0.5,
           'termination': -10.0,
-          #"foot_slip": -0.1,
+          "foot_slip": -0.1,
           "action_rate": -0.002,
           'rew_pos_limits': -0.02,
           'rew_stiff_limits': -0.02,
@@ -90,7 +91,6 @@ env:
           "rew_power_distro": -5.e-6,
           #"hip": 0.05,
           #"rew_joint_track": -0.0,
-          #'rew_base_height': -0.6,
           'rew_foot_clearance': -0.01,
   }
 
@@ -106,7 +106,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: False
+viz: True
 
 project: 'TALocoMotion'
 group: ${env.control_mode}

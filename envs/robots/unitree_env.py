@@ -50,6 +50,7 @@ class UnitreeEnv(MjxEnv):
         self.control_mode = cfg.control_mode
         self.action_scale = cfg.action_scale
         self.action_stiff_scale = cfg.action_stiff_scale
+        self.hip_scale = cfg.hip_scale
         self.num_history_actor = cfg.num_history_actor
         self.num_history_critic = cfg.num_history_critic
         self._kick_vel = cfg.kick_vel
@@ -441,10 +442,10 @@ class UnitreeEnv(MjxEnv):
         if self.control_mode == "P" or self.control_mode == "VIC_1" or self.control_mode == "VIC_2" or self.control_mode == "VIC_3" or self.control_mode == "VIC_4":
             scaled_action = self.action_scale * action[:12]
             # additional scaling for hip scale reduction
-            scaled_action = scaled_action.at[0].multiply(0.5)
-            scaled_action = scaled_action.at[3].multiply(0.5)
-            scaled_action = scaled_action.at[6].multiply(0.5)
-            scaled_action = scaled_action.at[9].multiply(0.5)
+            scaled_action = scaled_action.at[0].multiply(self.hip_scale)
+            scaled_action = scaled_action.at[3].multiply(self.hip_scale)
+            scaled_action = scaled_action.at[6].multiply(self.hip_scale)
+            scaled_action = scaled_action.at[9].multiply(self.hip_scale)
 
             target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
                                     a_min=self.lower_limits, a_max=self.upper_limits)
@@ -642,7 +643,7 @@ class UnitreeEnv(MjxEnv):
             #     state.info['feet_contact_time'],
             #     state.info['command'],
             # ),
-            #'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
+            'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
             'termination': self._reward_termination(done, state.info['step'], data=data),
             'action_rate': self.action_rate(action, state.info['last_act']),
             #'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
