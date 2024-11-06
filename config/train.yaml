@@ -52,9 +52,9 @@ env:
     command_scale: 2.0
 
   control_range: {
-    'cmd_x': [-0.5, 0.5],
+    'cmd_x': [-0.5, 1.0],
     'cmd_y': [-0.5, 0.5],
-    'cmd_ang': [-0.5, 0.5]
+    'cmd_ang': [-0.7, 0.7]
   }
 
   manual_control:
@@ -68,7 +68,7 @@ env:
   reset_pos_y: [-5.0, 5.0]
 
   control:
-    stiff_range: [0.8, 1.2]
+    stiff_range: [0.5, 1.5]
     p_gain: 25.0
     d_gain: 0.6
 
@@ -90,7 +90,7 @@ env:
           "rew_power": -2.e-5,
           "rew_power_distro": -5.e-6,
           #"hip": 0.05,
-          #"rew_joint_track": -0.0,
+          #"rew_joint_track": -0.1,
           'rew_foot_clearance': -0.01,
   }
 
@@ -106,7 +106,7 @@ num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'TALocoMotion'
 group: ${env.control_mode}
