@@ -658,7 +658,7 @@ class UnitreeEnv(MjxEnv):
             # Feet posture
             #'hip': self.rew_hip(joint_angles),
             # Variable impedance control
-            #'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
+            'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
             #'rew_base_height': self._reward_base_height(data.qpos[2]),
             'rew_foot_clearance': self._reward_foot_clearance( xd , foot_pos[:, 2], 0.09),
             #'rew_foot_tracking': self._reward_foot_clearance(state.info['gait_idx'], foot_z=foot_pos[:, 2])
