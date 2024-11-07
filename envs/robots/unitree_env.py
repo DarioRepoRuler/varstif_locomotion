@@ -360,7 +360,7 @@ class UnitreeEnv(MjxEnv):
         # Reset position and orientation
         #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
         # Reset position only
-        reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, 1, 0, 0, 0]))        
+        reset_pos = reset_pos.at[0:2].set(jp.array([reset_x[0], reset_y[0]]))        
 
         # Get initial state
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))

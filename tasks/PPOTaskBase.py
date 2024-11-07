@@ -313,7 +313,6 @@ class PPOTaskBase(nn.Module):
 
         num_total_iteration = num_learning_iterations + self.current_learning_iteration
         for it in range(self.current_learning_iteration, num_total_iteration):
-            #print(f"Current position: {self.initial_xy}")
             print(f"Epoch: {it}")
             self.agent_train_step(it)
             print(f"Tracking lin vel: {self._rew_track_lin_vel}")
