@@ -3,7 +3,7 @@ defaults:
   - policy: ppo
 
 env:
-  action_scale: 1.0
+  action_scale: 0.5
   action_stiff_scale: 1.0
   hip_scale: 1.0
   control_mode: "P"
