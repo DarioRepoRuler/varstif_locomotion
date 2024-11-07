@@ -23,7 +23,7 @@ env:
 
   force_kick_duration: 0.1
   force_kick_impulse: [8.0, 15.0]
-  force_kick_interval: 100
+  force_kick_interval: 25
   kick_force: 150.0
 
   single_obs_size: 48
