@@ -246,7 +246,6 @@ class PPOTaskBase(nn.Module):
     def agent_eval_step(self, it, save_dir, is_training=False): # this function can be called via test or train
 
         self.algo.actor_critic.eval()
-        self.save(os.path.join(save_dir, f'model_{it}.pt'))
         
         stat, episode_infos, _,_ = self.simulate(it,is_training=is_training)
         if stat["avg_reward"] > self.high_score_avg_reward:
@@ -321,7 +320,8 @@ class PPOTaskBase(nn.Module):
             
             self.current_learning_iteration += 1
             
-            # if it % self.eval_interval == 0:
+            if it % self.eval_interval == 0:
+                self.save(os.path.join(save_dir, f'model_{it}.pt'))
             #     print(f"Evaluation at epoch: {it}")
             #     self.agent_eval_step(it, save_dir,is_training=False)
                 

@@ -2,13 +2,13 @@ defaults:
   - _self_
   - policy: ppo
 
-ckpt_path: 'outputs/2024-11-06/09-40-06/checkpoints/best.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+ckpt_path:  null #'outputs/2024-11-07/10-49-13/checkpoints/model_900.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 
 env:
-  action_scale: 0.5
+  action_scale: 0.3
   action_stiff_scale: 1.0
-  hip_scale: 1.0
-  control_mode: "VIC_2"
+  hip_scale: 0.5
+  control_mode: "P"
   physics_steps_per_control_step: 4
   sample_command_interval: 301
 
@@ -29,7 +29,7 @@ env:
   is_training: False
   episode_length: 3250
 
-  single_obs_size: 52
+  single_obs_size: 48
   single_obs_size_priv: 59
  
 
@@ -64,7 +64,7 @@ env:
   manual_control:
     enable: True
     task: 'auto' # can be either 'auto', 'force_push', 'heading_directions','test_xy_random' , 'escape pyramids' ,'track trajectory', 
-    cmd_x: 0.8
+    cmd_x: 0.3
     cmd_y: 0.0
     cmd_ang: 0.0
 

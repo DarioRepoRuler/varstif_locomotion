@@ -1,12 +1,12 @@
 
 actor:
   use_lstm: False
-  hidden_dim: 256
+  hidden_dim: [512,256,128]
   n_layers: 6
   init_std: 1.0
 
 critic:
-  hidden_dim: 256
+  hidden_dim: [512,256,128]
   n_layers: 6
 
 stiff_network:

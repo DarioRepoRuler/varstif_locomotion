@@ -590,13 +590,6 @@ class UnitreeEnv(MjxEnv):
 
         # Foot contact data
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
-        #jax.debug.print('Foot pos: {x}', x=foot_pos)
-        state.info['foot_pos'] = foot_pos
-        target_foot_height = self.get_des_foot_height(state.info['gait_idx'])
-        state.info['des_foot_height']=  self.get_foot_height_traj(state.info['step'] )
-        
-        # jax.debug.print('Target foot height: {x}', x=state.info['des_foot_height'])
-        # jax.debug.print('Shape of foot height: {x}', x=state.info['des_foot_height'].shape)
 
         #state.info['des_foot_height'] = target_foot_height
         ## Foot contacts
@@ -810,7 +803,6 @@ class UnitreeEnv(MjxEnv):
             self.joint_vel_scale *data.qvel[6:],
             state_info['last_act'], 
             self.command_scale * state_info['command'],
-            
         ])
 
         obs = jp.clip(obs, -100.0, 100.0)
@@ -928,7 +920,6 @@ class UnitreeEnv(MjxEnv):
     def _reward_collision(self, data) -> jax.Array:
         body_contacts = jp.zeros(len(self.body_geom_id),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_body_contacts(data)[:,0])
-        #jax.debug.print('Distances: {x}', x=data.contact.dist[body_contacts])
         return 1.0*jp.sum(data.contact.dist[body_contacts] < 0.05)
         
     ## Related to smoothness of the actions:
@@ -958,17 +949,14 @@ class UnitreeEnv(MjxEnv):
         rew_air_time *= (
             #math.normalize(commands[:])[1] > 0.05
             jp.any(jp.abs(commands) > 0.05)
-        ) #  * jp.exp(-0.2*cmd_norm)  # no reward for zero command and weighting reward by velocity
+        )
         return rew_air_time
     
     def _reward_foot_clearance(
             self, xd: Motion, foot_z: jax.Array, des_z = 0.09
     ) -> jax.Array:
         foot_indices = self.foot_body_id - 1
-        # jax.debug.print('Foot indices: {x}', x=foot_indices)
         foot_vel = xd.take(foot_indices).vel
-        #jax.debug.print('Foot vel: {x}', x=foot_vel)
-        # jax.debug.print('Foot vel mag: {x}', x=jp.linalg.norm(foot_vel[:, :2], axis=1))
         rew_clearance = jp.sum(jp.square(foot_z - des_z) * jp.linalg.norm(foot_vel[:, :2], axis=1 ))
         return rew_clearance
 
@@ -987,10 +975,6 @@ class UnitreeEnv(MjxEnv):
             commands: jax.Array,
             joint_angles: jax.Array,
     ) -> jax.Array:
-        
-        # return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-        # math.normalize(commands[:2])[1] < 0.1
-        # )
     
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
             jp.all(jp.abs(commands) < 0.05)
@@ -999,7 +983,6 @@ class UnitreeEnv(MjxEnv):
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
         foot_indices = self.foot_body_id - 1
         foot_vel = xd.take(foot_indices).vel
-
         # Penalize large feet velocity for feet that are in contact with the ground.
         return jp.sum(jp.square(foot_vel[:, :2]) * contact_filt.reshape((-1, 1)))
 
@@ -1013,7 +996,7 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.abs(torques)*jp.abs(qvel))
 
     def _reward_power_distro(self, torques: jax.Array, qvel: jax.Array) -> jax.Array:
-        power = jp.abs(torques * qvel)
+        power = jp.abs(torques) * jp.abs(qvel)
 
         leg_power = jp.array([jp.sum(power[:3]), jp.sum(power[3:6]) , \
                               jp.sum(power[6:9]), jp.sum(power[9:12])])
@@ -1022,40 +1005,12 @@ class UnitreeEnv(MjxEnv):
     
     def _reward_joint_track(self, joint_angles: jax.Array, action: jax.Array) -> jax.Array:
         target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
-        return jp.sum(jp.square(joint_angles-target_dof_pos))
-    
-
-
-    ## Rewards for Gait behaviours ---------------
-
-    def get_des_foot_height(self, gait_cycle_idx: jax.Array) -> jax.Array:
-        foot_cycles = jp.array([
-            gait_cycle_idx+0.5,
-            gait_cycle_idx ,
-            gait_cycle_idx,
-            gait_cycle_idx +0.5,
-        ])
-        foot_cycles = jp.remainder(foot_cycles, 1.0)
-        phases = 1 - jp.abs(1.0 - jp.clip((foot_cycles*2.0)-1.0, 0.0,1.0) *2.0 )
-        target_height = 0.2*phases
-        return target_height
-    
-    def get_foot_height_traj(self, current_step: jax.Array) -> jax.Array:
-        steps = jp.arange(50)
-        steps = jp.remainder((steps+current_step)*self.dt, 1.0)
-        heights = self.get_des_foot_height(steps)
-        return heights
-    
-    
-
+        return jp.sum(jp.square(joint_angles-target_dof_pos))   
     
     def _reward_base_height(self, base_z: jax.Array) -> jax.Array:
         target_height = 0.27
-        #return jp.min(target_height-base_z, 0)
         return jp.square(base_z-target_height)
 
     def _reward_com(self, com: jax.Array, foot_pos: jax.Array) -> jax.Array:
         des_com = foot_pos[:,:2].mean(axis=0)
-        # jax.debug.print('Desired COM: {x}', x=des_com)
-        # jax.debug.print('COM {x}', x=com)
         return jp.sum(jp.square(com[:2]-des_com))

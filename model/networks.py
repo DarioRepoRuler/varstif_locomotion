@@ -19,7 +19,6 @@ class Dense(nn.Module):
 
         if self.activation is not None:
             x = self.activation(x)
-
         return x
 
 

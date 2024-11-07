@@ -2,7 +2,7 @@ from model.replay_buffer import ReplayBuffer
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from model.actor_critic import ActorCritic
+from model.actor_critic_gym import ActorCritic
 
 
 class PPO(nn.Module):
@@ -24,7 +24,8 @@ class PPO(nn.Module):
         self.episode_length = episode_length
         
         self.use_encoder_decoder = cfg.use_encoder_decoder
-
+        #print(f"Num observations: {num_single_obs}, {num_env_obs}, {num_priv_obs}")
+        
         # PPO compoments
         self.actor_critic = ActorCritic(self.cfg,
                                         num_single_obs=num_single_obs,
