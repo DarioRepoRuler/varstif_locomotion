@@ -25,10 +25,10 @@ class GO2Env(UnitreeEnv):
 
         self.default_pos = jp.array(
             [0, 0, 0.35, 1, 0, 0, 0, # base coord + quat, former height 0.27
-             -0.1, 0.9, -1.8, #FR
-             0.1, 0.9, -1.8,  #FL
-             -0.1, 0.9, -1.8, #RR
-             0.1, 0.9, -1.8]  #RL
+             -0.1, 0.8, -1.5, #FR
+             0.1, 0.8, -1.5,  #FL
+             -0.1, 1.0, -1.5, #RR
+             0.1, 1.0, -1.5]  #RL
         )
         # self.default_pos = jp.array(
         #     [0, 0, 0.35, 1, 0, 0, 0, # base coord + quat, former height 0.27
