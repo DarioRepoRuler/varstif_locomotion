@@ -96,7 +96,7 @@ env:
   #         #'rew_com': -0.1,
   # }
 
-    reward_scales: { 
+  reward_scales: { 
           'tracking_lin_vel': 1.5, 
           'tracking_ang_vel': 0.8, 
           'lin_vel_z': -2.0, 
