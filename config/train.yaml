@@ -5,7 +5,7 @@ defaults:
 env:
   action_scale: 0.5
   action_stiff_scale: 1.0
-  hip_scale: 0.7
+  hip_scale: 0.6
   control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 250
@@ -72,7 +72,31 @@ env:
     p_gain: 25.0
     d_gain: 0.6
 
-  reward_scales: { 
+  # reward_scales: { 
+  #         'tracking_lin_vel': 1.5, 
+  #         'tracking_ang_vel': 0.8, 
+  #         'lin_vel_z': -2.0, 
+  #         'ang_vel_xy': -0.05, 
+  #         'orientation': -5.0,
+  #         #'torques': -0.0002,
+  #         'stand_still': -0.5, 
+  #         'feet_air_time': 0.5, #0.2
+  #         'termination': -10.0,
+  #         'foot_slip': -0.1,
+  #         'action_rate': -0.002, #0.01
+  #         #'rew_pos_limits': -0.02,
+  #         #'rew_stiff_limits': -0.02,
+  #         'rew_limits': -0.02,
+  #         'rew_acceleration': -2.5e-7,
+  #         'rew_collision': -10.0,
+  #         'rew_power': -2.e-5,
+  #         #"hip": 0.05,
+  #         #'rew_joint_track': -0.1,
+  #         #'rew_foot_clearance': -0.01,
+  #         #'rew_com': -0.1,
+  # }
+
+    reward_scales: { 
           'tracking_lin_vel': 1.5, 
           'tracking_ang_vel': 0.8, 
           'lin_vel_z': -2.0, 
@@ -83,15 +107,12 @@ env:
           'termination': -10.0,
           'foot_slip': -0.1,
           'action_rate': -0.002,
-          'rew_pos_limits': -0.02,
-          'rew_stiff_limits': -0.02,
+          'rew_limits': -0.02,
           'rew_acceleration': -2.5e-7,
           'rew_collision': -10.0,
           'rew_power': -2.e-5,
           "hip": 0.05,
-          #'rew_joint_track': -0.1,
           'rew_foot_clearance': -0.01,
-          #'rew_com': -0.1,
   }
 
 log: True

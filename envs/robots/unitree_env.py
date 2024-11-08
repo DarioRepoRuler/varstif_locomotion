@@ -642,6 +642,7 @@ class UnitreeEnv(MjxEnv):
             
             'rew_pos_limits': self._reward_pos_limits(joint_angles),
             'rew_stiff_limits': self._reward_stiff_limits(p_gains),
+            'rew_limits': self._reward_limits(joint_angles, p_gains),
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel'][6:]),
             'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
