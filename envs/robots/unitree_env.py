@@ -939,7 +939,7 @@ class UnitreeEnv(MjxEnv):
     def rew_hip(
             self, joint_angles: jax.Array
     ):
-        return jp.exp(-0.4*jp.sum(jp.square(joint_angles[::3])))
+        return jp.exp(-4*jp.sum(jp.square(joint_angles[::3])))
     
 
     def _reward_feet_air_time(
