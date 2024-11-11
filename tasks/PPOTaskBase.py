@@ -9,6 +9,7 @@ import jax.numpy as jp
 import jax
 from envs.robots.go2_env import GO2Env
 from envs.common.wrapper import _create_env
+import matplotlib.pyplot as plt
 
 from utils.helper_traj import create_combined_command
 
@@ -369,11 +370,82 @@ class PPOTaskBase(nn.Module):
         elif self.cfg.env.manual_control.task == 'experiments':
             self.test_plain(num_iterations)
 
-    def test_plain(self, num_iterations):
+    def test_default(self, num_iterations):
         for it in range(num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
             self.algo.storage.clear()
+    
+    def test_plain(self, num_iterations):
+        import numpy as np
+        # Enable interactive mode for live plotting
+        plt.ion()
+        
+        # Set up the interactive plot
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+        ax1.set_title("P Gains over Time")
+        ax1.set_xlabel("Iteration")
+        ax1.set_ylabel("P Gains")
+        ax2.set_title("Position Errors over Time")
+        ax2.set_xlabel("Iteration")
+        ax2.set_ylabel("Position Error")
+        
+        # Lists to accumulate values for plotting each of the 3 p_gains and position errors
+        p_gains_values = []
+        position_errors = []
+        
+        for it in range(num_iterations):
+            print(f"Iteration: {it}")
+            
+            # Run the simulation step and gather data
+            next_obs_g, next_priv_obs_g, dones, info, metrics = self.step(self.obs, self.obs_priv, is_training=False)
+            
+            #print(f"Episode info: {metrics}")
+            
+            start_idx = 6
+            end_idx = 9
+            # Assuming `eval_metrics` contains `p_gains` and `dof_pos` for position errors
+            if 'p_gains' in metrics and 'dof_pos' in metrics and 'target_dof_pos' in metrics:
+                #print(f"Eval metrics: {metrics['p_gains'].shape}")
+                
+                # Extract the p_gain and error values for the selected indices
+                current_p_gain = metrics['p_gains'][0, start_idx:end_idx].cpu().numpy()
+                current_error = (metrics['dof_pos'][0, start_idx:end_idx] - metrics['target_dof_pos'][0, start_idx:end_idx]).cpu().numpy()
+                
+                # Append values for each of the p_gain components and errors
+                p_gains_values.append(current_p_gain)
+                position_errors.append(current_error)
+                
+                # Convert lists to numpy arrays for easier slicing and plotting
+                p_gains_array = np.array(p_gains_values)  # Shape (num_iterations, batch_size, 3)
+                position_errors_array = np.array(position_errors)  # Shape (num_iterations, batch_size, 3)
+                
+                # Clear and update the plots
+                
+                ax1.clear()
+                print(f"Shape of p_gains_array: {p_gains_array[:,0].shape}")
+                ax1.plot(p_gains_array[: , 0].flatten(), label="P Gain 1", color="blue")
+                ax1.plot(p_gains_array[:, 1].flatten(), label="P Gain 2", color="green")
+                ax1.plot(p_gains_array[:, 2].flatten(), label="P Gain 3", color="red")
+                ax1.legend(loc="upper right")
+                
+                ax2.clear()
+                ax2.plot(position_errors_array[:,0].flatten(), label="Position Error 1", color="blue")
+                ax2.plot(position_errors_array[:,1].flatten(), label="Position Error 2", color="green")
+                ax2.plot(position_errors_array[:,2].flatten(), label="Position Error 3", color="red")
+                ax2.legend(loc="upper right")
+                
+                # Add a small pause to update the plots
+                plt.pause(0.0001)
+                # update observation
+                self.obs = next_obs_g
+                self.priv_obs = next_priv_obs_g
+                self.algo.storage.clear() # we don't need to store the data for training
+            
+        
+        # Turn off interactive mode and show the final plot
+        plt.ioff()
+        plt.show()
 
 
     def test_auto(self, num_iterations):
@@ -622,7 +694,7 @@ class PPOTaskBase(nn.Module):
                 # Plot foot tracking trajectories + command tracking 
                 time_graph([eval_metrics['dof_pos'][:,0,2], eval_metrics['target_dof_pos'][:,0,2]], ['DOF pos', 'Target DOF pos'], f"details/dof_pos_track{it}", timestep=0.02)
                 error = eval_metrics['dof_pos'][:,0,2] - eval_metrics['target_dof_pos'][:,0,2]
-                time_graph([error, eval_metrics['p_gains'][:,0,2]/50.0], ['Error', 'P gains'], f"details/error_track{it}", timestep=0.02)
+                time_graph([error, eval_metrics['p_gains'][:,0,2]], ['Error', 'P gains'], f"details/error_track{it}", timestep=0.02)
                 # Recording foot trajectories 
                 save_tensors_to_csv([eval_metrics['foot_pos_z'].cpu(), COT.cpu()], [f'foot trajectories {it}', f'Cost of Transport {it}'], f'details/data_run_{it}.csv')
                 time_graph([eval_metrics['foot_pos_z'][:,0,0], eval_metrics['foot_pos_z'][:,0,1], 
