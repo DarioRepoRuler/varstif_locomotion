@@ -409,9 +409,9 @@ class PPOTaskBase(nn.Module):
                 #print(f"Eval metrics: {metrics['p_gains'].shape}")
                 
                 # Extract the p_gain and error values for the selected indices
-                current_p_gain = metrics['p_gains'][0, start_idx:end_idx].cpu().numpy()
-                current_error = (metrics['dof_pos'][0, start_idx:end_idx] - metrics['target_dof_pos'][0, start_idx:end_idx]).cpu().numpy()
-                
+                current_p_gain = metrics['p_gains'][0, :].cpu().numpy()
+                current_error = (metrics['dof_pos'][0, :] - metrics['target_dof_pos'][0, :]).cpu().numpy()
+
                 # Append values for each of the p_gain components and errors
                 p_gains_values.append(current_p_gain)
                 position_errors.append(current_error)
@@ -424,19 +424,19 @@ class PPOTaskBase(nn.Module):
                 
                 ax1.clear()
                 print(f"Shape of p_gains_array: {p_gains_array[:,0].shape}")
-                ax1.plot(p_gains_array[: , 0].flatten(), label="P Gain 1", color="blue")
-                ax1.plot(p_gains_array[:, 1].flatten(), label="P Gain 2", color="green")
-                ax1.plot(p_gains_array[:, 2].flatten(), label="P Gain 3", color="red")
+                ax1.plot(p_gains_array[: , 6].flatten(), label="P Gain 1", color="blue")
+                #ax1.plot(p_gains_array[:, 1].flatten(), label="P Gain 2", color="green")
+                #ax1.plot(p_gains_array[:, 2].flatten(), label="P Gain 3", color="red")
                 ax1.legend(loc="upper right")
                 
                 ax2.clear()
-                ax2.plot(position_errors_array[:,0].flatten(), label="Position Error 1", color="blue")
-                ax2.plot(position_errors_array[:,1].flatten(), label="Position Error 2", color="green")
-                ax2.plot(position_errors_array[:,2].flatten(), label="Position Error 3", color="red")
+                ax2.plot(position_errors_array[:,6].flatten(), label="Position Error 1", color="blue")
+                ax2.plot(position_errors_array[:,7].flatten(), label="Position Error 2", color="green")
+                ax2.plot(position_errors_array[:,8].flatten(), label="Position Error 3", color="red")
                 ax2.legend(loc="upper right")
                 
                 # Add a small pause to update the plots
-                plt.pause(0.0001)
+                plt.pause(0.01)
                 # update observation
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g

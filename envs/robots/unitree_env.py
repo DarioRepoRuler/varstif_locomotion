@@ -440,15 +440,9 @@ class UnitreeEnv(MjxEnv):
         
 
         if self.control_mode == "P" or self.control_mode == "VIC_1" or self.control_mode == "VIC_2" or self.control_mode == "VIC_3" or self.control_mode == "VIC_4":
-            scaled_action = self.action_scale * action[:12]
-            # additional scaling for hip scale reduction
-            scaled_action = scaled_action.at[0].multiply(self.hip_scale)
-            scaled_action = scaled_action.at[3].multiply(self.hip_scale)
-            scaled_action = scaled_action.at[6].multiply(self.hip_scale)
-            scaled_action = scaled_action.at[9].multiply(self.hip_scale)
-
-            target_dof_pos = jp.clip(self.action_scale * action[:12] + self.default_pos[7:],
-                                    a_min=self.lower_limits, a_max=self.upper_limits)
+            target_dof_pos = jp.clip(self.compute_target_dof(action),
+                                a_min=self.lower_limits, a_max=self.upper_limits)
+            
             p_gains = self.compute_stiffness(self.action_stiff_scale * action)
             
             if self.control_mode == "VIC_1" or self.control_mode == "VIC_2" or self.control_mode == "VIC_3" or self.control_mode == "VIC_4":
@@ -471,6 +465,17 @@ class UnitreeEnv(MjxEnv):
         torques = jp.concatenate([torques, action[-2:]])
 
         return torques
+    
+    def compute_target_dof(self, action: jp.ndarray) -> jp.ndarray:
+        scaled_action = self.action_scale * action[:12]
+        # additional scaling for hip scale reduction
+        scaled_action = scaled_action.at[0].multiply(self.hip_scale)
+        scaled_action = scaled_action.at[3].multiply(self.hip_scale)
+        scaled_action = scaled_action.at[6].multiply(self.hip_scale)
+        scaled_action = scaled_action.at[9].multiply(self.hip_scale)
+
+        target_dof_pos = scaled_action + self.default_pos[7:]
+        return target_dof_pos
 
     def compute_stiffness(self, action: jp.ndarray) -> jp.ndarray:
         """
@@ -485,6 +490,7 @@ class UnitreeEnv(MjxEnv):
 
         if self.control_mode == "P" or self.control_mode == "T":
             return self.p_gains
+        
         elif self.control_mode == "VIC_1":
             action_stiff = unscale(jp.tile(action[12:12+3],4), self.stiff_range[0], self.stiff_range[1])
         elif self.control_mode == "VIC_2":
@@ -497,6 +503,7 @@ class UnitreeEnv(MjxEnv):
             action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
         else:
             raise RuntimeError("control model: P|T")
+        
         p_gains = self.p_gains * action_stiff
         return p_gains
 
@@ -526,7 +533,7 @@ class UnitreeEnv(MjxEnv):
             rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 3)
             # Push randomly
             kick_theta = jax.random.uniform(rng_theta, maxval= 2* jp.pi)
-            kick_force = jax.random.uniform(rng_kick, minval=50.0, maxval=self.kick_force)
+            kick_force = jax.random.uniform(rng_kick, minval=[0], maxval=self.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.force_kick_impulse[0], maxval=self.force_kick_impulse[1])
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
             kick_condition = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
@@ -578,6 +585,7 @@ class UnitreeEnv(MjxEnv):
         actuator_param = jp.concatenate([state.info['kp_factor'], state.info['kd_factor'], state.info['motor_strength']])
 
         p_gains = self.compute_stiffness(self.action_stiff_scale*action)
+        target_dof = self.compute_target_dof(action)
         data = self.pipeline_step(data0, action_kick, actuator_param) #passed data is action as angle -> convert to torque in mjx
         
         # ----------------- POST Physics step --------------- #
@@ -622,7 +630,7 @@ class UnitreeEnv(MjxEnv):
             'lin_vel_z': self._reward_lin_vel_z(xd),
             'ang_vel_xy': self._reward_ang_vel_xy(xd),
             'orientation': self._reward_orientation(x), 
-            'torques': self._reward_torques(data.qfrc_actuator), 
+            #'torques': self._reward_torques(data.qfrc_actuator), 
             'stand_still': self._reward_stand_still( 
                 state.info['command'], joint_angles,
             ),
@@ -631,30 +639,30 @@ class UnitreeEnv(MjxEnv):
                 first_contact,
                 state.info['command'],
             ),
-            'feet_contact_time': self._reward_feet_contact_time(
-                state.info['feet_contact_time'],
-                state.info['command'],
-            ),
+            # 'feet_contact_time': self._reward_feet_contact_time(
+            #     state.info['feet_contact_time'],
+            #     state.info['command'],
+            # ),
             'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
             'termination': self._reward_termination(done, state.info['step'], data=data),
             'action_rate': self.action_rate(action, state.info['last_act']),
-            'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
+            #'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
             
-            'rew_pos_limits': self._reward_pos_limits(joint_angles),
-            'rew_stiff_limits': self._reward_stiff_limits(p_gains),
-            'rew_limits': self._reward_limits(joint_angles, p_gains),
+            #'rew_pos_limits': self._reward_pos_limits(joint_angles),
+            #'rew_stiff_limits': self._reward_stiff_limits(p_gains),
+            'rew_limits': self._reward_limits(target_dof, p_gains), 
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel'][6:]),
-            'rew_velocity': self._reward_velocity(joint_vel),
+            #'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
             'rew_power': self._reward_power(data.ctrl[:12], joint_vel),
-            'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
+            #'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
             # Feet posture
             'hip': self.rew_hip(joint_angles),
             # Variable impedance control
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
-            'rew_base_height': self._reward_base_height(data.qpos[2]),
+            #'rew_base_height': self._reward_base_height(data.qpos[2]),
             'rew_foot_clearance': self._reward_foot_clearance( xd , foot_pos[:, 2], 0.09),
-            'rew_com': self._reward_com(com, foot_pos=foot_pos),
+            #'rew_com': self._reward_com(com, foot_pos=foot_pos),
         }
         rewards = {
             k: rewards[k] * v for k, v in self.reward_scales.items()
@@ -698,7 +706,7 @@ class UnitreeEnv(MjxEnv):
         state.metrics['local_v'] = local_vel
         state.metrics['foot_pos_z'] = foot_pos[:, 2]
 
-        state.metrics['target_dof_pos'] = jp.clip(self.action_scale * action[:12] + self.default_pos[7:], a_min=self.lower_limits, a_max=self.upper_limits)
+        state.metrics['target_dof_pos'] = jp.clip(target_dof, a_min=self.lower_limits, a_max=self.upper_limits)
         state.metrics['dof_pos'] = data.qpos[7:]
         state.metrics['glob_pos'] = data.qpos[:2]
         state.metrics['command'] = state.info['command']
@@ -916,6 +924,7 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(stiff_out_of_bounds)
     
     def _reward_limits(self, pos: jax.Array, stiff: jax.Array) -> jax.Array:
+        # position and stiffness is passed unclipped
         return self._reward_pos_limits(pos) + self._reward_stiff_limits(stiff)
     
     def _reward_collision(self, data) -> jax.Array:
@@ -958,7 +967,8 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
         foot_indices = self.foot_body_id - 1
         foot_vel = xd.take(foot_indices).vel
-        rew_clearance = jp.sum(jp.square(foot_z - des_z) * jp.linalg.norm(foot_vel[:, :2], axis=1 ))
+        #rew_clearance = jp.sum(jp.square(foot_z - des_z) * jp.sqrt(jp.linalg.norm(foot_vel[:, :2], axis=1 )))
+        rew_clearance = jp.sum(jp.min(foot_z - des_z, 0) * jp.linalg.norm(foot_vel[:, :2], axis=1 ))
         return rew_clearance
 
     def _reward_feet_contact_time(
@@ -1005,7 +1015,10 @@ class UnitreeEnv(MjxEnv):
         return var
     
     def _reward_joint_track(self, joint_angles: jax.Array, action: jax.Array) -> jax.Array:
-        target_dof_pos = jp.clip(self.action_scale * action + self.default_pos[7:],a_min=self.lower_limits, a_max=self.upper_limits)
+        
+        target_dof_pos = jp.clip(self.compute_target_dof(action),
+                                a_min=self.lower_limits, a_max=self.upper_limits)
+        
         return jp.sum(jp.square(joint_angles-target_dof_pos))   
     
     def _reward_base_height(self, base_z: jax.Array) -> jax.Array:
