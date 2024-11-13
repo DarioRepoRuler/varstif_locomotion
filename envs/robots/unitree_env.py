@@ -533,7 +533,7 @@ class UnitreeEnv(MjxEnv):
             rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 3)
             # Push randomly
             kick_theta = jax.random.uniform(rng_theta, maxval= 2* jp.pi)
-            kick_force = jax.random.uniform(rng_kick, minval=[0], maxval=self.kick_force[1])
+            kick_force = jax.random.uniform(rng_kick, minval=self.kick_force[0], maxval=self.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.force_kick_impulse[0], maxval=self.force_kick_impulse[1])
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
             kick_condition = jp.logical_and(jp.mod(state.info['step'], self.force_kick_interval)==0, state.info['step']>1 )
