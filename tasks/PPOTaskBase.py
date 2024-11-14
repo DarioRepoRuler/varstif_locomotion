@@ -394,7 +394,7 @@ class PPOTaskBase(nn.Module):
         p_gains_values = []
         position_errors = []
         
-        for it in range(num_iterations):
+        for it in range(num_iterations*50):
             print(f"Iteration: {it}")
             
             # Run the simulation step and gather data
@@ -410,6 +410,8 @@ class PPOTaskBase(nn.Module):
                 
                 # Extract the p_gain and error values for the selected indices
                 current_p_gain = metrics['p_gains'][0, :].cpu().numpy()
+                #print(f"DOF pos: {metrics['dof_pos'][0, :]}")
+                #print(f"Target DOF pos: {metrics['target_dof_pos'][0, :]}")
                 current_error = (metrics['dof_pos'][0, :] - metrics['target_dof_pos'][0, :]).cpu().numpy()
 
                 # Append values for each of the p_gain components and errors
@@ -420,19 +422,22 @@ class PPOTaskBase(nn.Module):
                 p_gains_array = np.array(p_gains_values)  # Shape (num_iterations, batch_size, 3)
                 position_errors_array = np.array(position_errors)  # Shape (num_iterations, batch_size, 3)
                 
+                
                 # Clear and update the plots
                 
                 ax1.clear()
-                print(f"Shape of p_gains_array: {p_gains_array[:,0].shape}")
-                ax1.plot(p_gains_array[: , 6].flatten(), label="P Gain 1", color="blue")
-                #ax1.plot(p_gains_array[:, 1].flatten(), label="P Gain 2", color="green")
-                #ax1.plot(p_gains_array[:, 2].flatten(), label="P Gain 3", color="red")
+                #print(f"Shape of p_gains_array: {p_gains_array[:,0].shape}")
+                ax1.plot(p_gains_array[-50: , 0].flatten(), label="P Gain FR", color="blue")
+                ax1.plot(p_gains_array[-50:, 3].flatten(), label="P Gain FL", color="green")
+                ax1.plot(p_gains_array[-50:, 6].flatten(), label="P Gain RR", color="red")
+                ax1.plot(p_gains_array[-50:, 9].flatten(), label="P Gain RL", color="purple")
                 ax1.legend(loc="upper right")
                 
                 ax2.clear()
-                ax2.plot(position_errors_array[:,6].flatten(), label="Position Error 1", color="blue")
-                ax2.plot(position_errors_array[:,7].flatten(), label="Position Error 2", color="green")
-                ax2.plot(position_errors_array[:,8].flatten(), label="Position Error 3", color="red")
+                ax2.plot(np.abs(position_errors_array[-50:,0:3]).mean(axis=1).flatten(), label="Position Error FR", color="blue")
+                ax2.plot(np.abs(position_errors_array[-50:,3:6]).mean(axis=1).flatten(), label="Position Error FL", color="green")
+                ax2.plot(np.abs(position_errors_array[-50:,6:9]).mean(axis=1).flatten(), label="Position Error RR", color="red")
+                ax2.plot(np.abs(position_errors_array[-50:,9:12]).mean(axis=1).flatten(), label="Position Error RL", color="purple")
                 ax2.legend(loc="upper right")
                 
                 # Add a small pause to update the plots

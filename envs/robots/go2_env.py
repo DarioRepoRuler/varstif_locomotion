@@ -30,14 +30,6 @@ class GO2Env(UnitreeEnv):
              -0.1, 1.0, -1.5, #RR
              0.1, 1.0, -1.5]  #RL
         )
-        # self.default_pos = jp.array(
-        #     [0, 0, 0.35, 1, 0, 0, 0, # base coord + quat, former height 0.27
-        #      0.0, 0.6, -1.2, #FR
-        #      0.0, 0.6, -1.2,  #FL
-        #      0.0, 0.6, -1.2, #RR
-        #      0.0, 0.6, -1.2]  #RL
-        # )
-
 
         # Specify Gains for PD controller for each joint
         self.p_gains = jp.ones(12) * self.p_gain
