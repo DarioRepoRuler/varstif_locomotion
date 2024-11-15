@@ -17,6 +17,9 @@ env:
   is_training: True
   episode_length: 500
 
+  terminate_geoms: ["base_0", "base_1", "base_2", "FR_hip","FL_hip","RR_hip","RL_hip"]
+  body_penalty_geom: ["base_0", "base_1", "base_2", "FR_hip", "FR_thigh", "FL_hip", "FL_thigh", "RR_hip", "RR_thigh", "RL_hip", "RL_thigh"]
+
   # Force kick in test
   enable_force_kick: True
   impulse_force_kick: True
@@ -52,9 +55,9 @@ env:
     command_scale: 2.0
 
   control_range: {
-    'cmd_x': [-0.5, 1.0],
-    'cmd_y': [-0.5, 0.5],
-    'cmd_ang': [-0.7, 0.7]
+    'cmd_x': [-1.0, 1.0],
+    'cmd_y': [-1.0, 1.0],
+    'cmd_ang': [-1.0, 1.0]
   }
 
   manual_control:
@@ -75,6 +78,9 @@ env:
     p_gain: 25.0
     d_gain: 0.6
 
+  contacts:
+    total: 23
+
   reward_scales: { 
           'tracking_lin_vel': 1.5, 
           'tracking_ang_vel': 0.8, 
@@ -92,7 +98,7 @@ env:
           'rew_power': -2.e-6,
           "hip": 0.05,
           #'rew_foot_clearance': -0.01,
-          'rew_joint_track': -0.1,
+          'rew_joint_track': -0.05,
   }
 
 log: True

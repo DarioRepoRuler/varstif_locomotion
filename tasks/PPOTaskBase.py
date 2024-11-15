@@ -201,7 +201,7 @@ class PPOTaskBase(nn.Module):
             print(f"Episode infos: {episode_infos}")
             print(f"Termination reward: {episode_infos['termination']}")
         
-        episode_infos['time_outs'] = time_out
+        #episode_infos['time_outs'] = time_out
         return self.obs, self.obs_priv, dones, episode_infos, eval_infos, combined_metrics
 
     def simulate(self,it, is_training=True): # Simulates through one episode
@@ -369,11 +369,15 @@ class PPOTaskBase(nn.Module):
             self.test_auto(num_iterations)
         elif self.cfg.env.manual_control.task == 'experiments':
             self.test_plain(num_iterations)
+        elif self.cfg.env.manual_control.task == 'default':
+            self.test_default(num_iterations)
 
     def test_default(self, num_iterations):
         for it in range(num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            print(f"Episode info: {episode_info}")
+            
             self.algo.storage.clear()
     
     def test_plain(self, num_iterations):

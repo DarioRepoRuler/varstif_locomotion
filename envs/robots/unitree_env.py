@@ -46,7 +46,7 @@ class UnitreeEnv(MjxEnv):
         print(self.sys.opt)
         
         self.cfg = cfg
-        
+        self.force_kick_counter = self.cfg.force_kick_duration / self.dt
         # Control parameters
         self.track_traj = (cfg.manual_control.task == "track trajectory")
         self.soft_limits = soft_limits
@@ -87,26 +87,15 @@ class UnitreeEnv(MjxEnv):
         self._torso_idx = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
         
         # Define body and geometry names
-        feet_names = ['FR', 'FL', 'RR', 'RL'] 
-        hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
-        torso_bodies = ['base_mirror_0', 'base_mirror_1', 'base_mirror_2', 'base_mirror_3', 'base_mirror_4']
-        # body_geometries = [
-        #     "base_0", "base_1", "base_2", 
-        #     "FR_hip", "FR_thigh", "FR_calf_0", "FR_calf_1",  
-        #     "FL_hip", "FL_thigh", "FL_calf_0", "FL_calf_1", 
-        #     "RR_hip", "RR_thigh", "RR_calf_0", "RR_calf_1", 
-        #     "RL_hip", "RL_thigh", "RL_calf_0", "RL_calf_1"
-        #     ]
-        body_geometries = [
-            "base_0", "base_1", "base_2", 
-            "FR_hip", "FR_thigh",   
-            "FL_hip", "FL_thigh", 
-            "RR_hip", "RR_thigh", 
-            "RL_hip", "RL_thigh"
-            ]
-        terminate_geometries = ["base_0", "base_1", "FR_hip","FL_hip","RR_hip","RL_hip"]
+        feet_names = ['FR', 'FL', 'RR', 'RL'] #
         foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
         lower_leg_body=['FR_calf', 'FL_calf', 'RR_calf', 'RL_calf']
+        hip_body = ['FR_hip', 'FL_hip', 'RR_hip', 'RL_hip']
+        torso_bodies = ['base_mirror_0', 'base_mirror_1', 'base_mirror_2', 'base_mirror_3', 'base_mirror_4']
+        
+        # Define body and termination geometries
+        body_geometries = self.cfg.body_penalty_geom
+        terminate_geometries = self.cfg.terminate_geoms 
         
         # Convert to IDs
         feet_site_id = [
@@ -148,7 +137,6 @@ class UnitreeEnv(MjxEnv):
 
         assert not any(id_ == -1 for id_ in feet__geom_id), 'Feet Geom not found.'
         self.feet_geom_id= jp.array(feet__geom_id)
-
               
         assert not any(id_ == -1 for id_ in hip_body), 'Hip Body not found.'
         self.hip_body_id = jp.array(hip_body_id)
@@ -161,7 +149,7 @@ class UnitreeEnv(MjxEnv):
         self.floor_id = floor_id
     
     def get_contacts(self, data, num_collisions, geom_indices)->jax.Array:
-        # Number of collisions and arrays are set statically due to brax troubles
+        
         expected_total_cont=self.cfg.contacts.total + 3*self.cfg.contacts.total*self.terminate_map
         geom_temp = jp.zeros((expected_total_cont,2))
         conn_indices = jp.zeros((num_collisions,1), dtype=int)
@@ -446,6 +434,7 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the new state of the environment
         """
+        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
         # For randomization
         rng, obs_rng, kick_noise, cmd_rng = jax.random.split(state.info['rng'], 4)
         

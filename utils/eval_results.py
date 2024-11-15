@@ -81,7 +81,7 @@ def eval_force_push(filenames):
 filenames_force = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
 filenames_force = ['force_push_results_model_1500.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
 
-eval_force_push(filenames['force_push'])
+#eval_force_push(filenames['force_push'])
 
 # -----------------------Evaluation of pyramid excape-----------------------
 pyramid_success = {
@@ -201,5 +201,5 @@ def eval_cmd_rando_boundary(filenames, labels=None):
 
 
 # Example call
-eval_force_push_boundary(['force_push_results_2024-10-09_13-00-31.csv', 'force_push_results_2024-10-11_13-54-32.csv'], labels = ['Baseline', 'VIC2'])
+#eval_force_push_boundary(['force_push_results_2024-10-09_13-00-31.csv', 'force_push_results_2024-10-11_13-54-32.csv'], labels = ['Baseline', 'VIC2'])
 #eval_cmd_rando_boundary(['cmd_rando_xy_13-00-31.csv', 'cmd_rando_xy_2024-10-11_13-54-32.csv'], labels = ['Baseline', 'VIC2'])

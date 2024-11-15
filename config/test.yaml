@@ -2,7 +2,7 @@ defaults:
   - _self_
   - policy: ppo
 
-ckpt_path: 'outputs/2024-11-13/16-36-26/checkpoints/last.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+ckpt_path: 'outputs/2024-11-14/13-09-01/checkpoints/last.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
 
 env:
   action_scale: 0.5
@@ -16,6 +16,9 @@ env:
   num_history_critic: 1
   kick_vel: 0.0
   push_interval: 25
+
+  terminate_geoms: ["base_0", "base_1", "base_2", "FR_hip","FL_hip","RR_hip","RL_hip"]
+  body_penalty_geom: ["base_0", "base_1", "base_2", "FR_hip", "FR_thigh", "FL_hip", "FL_thigh", "RR_hip", "RR_thigh", "RL_hip", "RL_thigh"]
 
   # Force kick in test
   enable_force_kick: False
@@ -34,7 +37,7 @@ env:
  
 
   domain_rand:
-    randomisation: True
+    randomisation: False
     gravity_offset: [-1., 1.]
     friction_range: [0.3, 1.25]
     payload_range: [-1., 3.]
@@ -64,8 +67,8 @@ env:
   manual_control:
     enable: True
     task: 'experiments' # can be either 'auto', 'force_push', 'heading_directions','test_xy_random' , 'escape pyramids' ,'track trajectory', 
-    cmd_x: 0.
-    cmd_y: 0.5
+    cmd_x: 0.3
+    cmd_y: 0.
     cmd_ang: 0.0
 
   reset_pos_x: [-0.0, 0.0]
@@ -75,7 +78,7 @@ env:
   reset_a_y: [-1,1]
 
   control:
-    stiff_range: [0.5, 1.5]
+    stiff_range: [0.5, 2.0]
     p_gain: 25.0
     d_gain: 0.6
   
