@@ -103,7 +103,7 @@ env:
 
 log: True
 
-ckpt_path: null
+ckpt_path: outputs/2024-11-15/08-27-56/checkpoints/model_950.pt
 
 log_dir: projects/TALocomotion/outputs/
 

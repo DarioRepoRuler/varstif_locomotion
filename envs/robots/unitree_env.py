@@ -51,6 +51,13 @@ class UnitreeEnv(MjxEnv):
         self.track_traj = (cfg.manual_control.task == "track trajectory")
         self.soft_limits = soft_limits
         
+        max_cmd = jp.array([0.,0.,0.])
+        for i,key in enumerate(self.cfg.control_range):
+            max_cmd = max_cmd.at[i].set( jp.max(jp.abs(jp.array(self.cfg.control_range[key]))) )
+
+        self.max_cmd_mag = jp.linalg.norm(max_cmd)
+        print(f"Max command magnitude: {self.max_cmd_mag}")
+
         # Variable impedance control parameters
         if self.cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size-2 + 3
@@ -736,8 +743,12 @@ class UnitreeEnv(MjxEnv):
         # Tracking of linear velocity commands (xy axes)
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         lin_vel_error = jp.sum(jp.square(commands[:2] - local_vel[:2]))
+        lin_vel_error_new = jp.abs(1-local_vel[:2]/(commands[:2] +1.e-6))
+        #jax.debug.print('portion: {x}', x=local_vel[:2]/(commands[:2] +1.e-6))
+        #jax.debug.print('Lin vel error: {x}', x=lin_vel_error_new)
         lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
-        return lin_vel_reward
+        lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
+        return lin_vel_reward_new # lin_vel_reward
 
     def _reward_tracking_ang_vel(
             self, commands: jax.Array, x: Transform, xd: Motion

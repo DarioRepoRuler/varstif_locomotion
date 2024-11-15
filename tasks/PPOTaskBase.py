@@ -64,7 +64,6 @@ class PPOTaskBase(nn.Module):
 
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd = self.manual_cmd)
 
-
         # # Start the keyboard listener thread
         if self.cfg.viz:
             import threading
