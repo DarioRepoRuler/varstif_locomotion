@@ -15,7 +15,7 @@ from pathlib import Path
 import os
 import numpy as np
 
-
+# For debugging set this:
 # config.update("jax_debug_nans", True)
 # config.update('jax_default_matmul_precision', jax.lax.Precision.HIGH)
 
@@ -50,34 +50,24 @@ class UnitreeEnv(MjxEnv):
         # Control parameters
         self.track_traj = (cfg.manual_control.task == "track trajectory")
         self.soft_limits = soft_limits
-        
-        max_cmd = jp.array([0.,0.,0.])
-        for i,key in enumerate(self.cfg.control_range):
-            max_cmd = max_cmd.at[i].set( jp.max(jp.abs(jp.array(self.cfg.control_range[key]))) )
 
-        self.max_cmd_mag = jp.linalg.norm(max_cmd)
-        print(f"Max command magnitude: {self.max_cmd_mag}")
+        # Set obs sizes(size is adapted in PPOTaskBase) 
+        self.single_obs_size = self.cfg.single_obs_size
+        self.privileged_obs_size = self.cfg.single_obs_size_priv
 
         # Variable impedance control parameters
         if self.cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size-2 + 3
-            self.single_obs_size = self.cfg.single_obs_size + 3
-            self.privileged_obs_size = self.cfg.single_obs_size_priv +3
+            
         elif self.cfg.control_mode == "VIC_2": # for every leg
             self.action_shape = self.action_size-2 + 4
-            self.single_obs_size = self.cfg.single_obs_size + 4
-            self.privileged_obs_size = self.cfg.single_obs_size_priv + 4 
+            
         elif self.cfg.control_mode == "VIC_3": # for every leg
             self.action_shape = self.action_size-2 + 12
-            self.single_obs_size = self.cfg.single_obs_size + 12
-            self.privileged_obs_size = self.cfg.single_obs_size_priv + 12
+            
         elif self.cfg.control_mode == "VIC_4":
             self.action_shape = self.action_size-2 + 7
-            self.single_obs_size = self.cfg.single_obs_size + 7
-            self.privileged_obs_size = self.cfg.single_obs_size_priv + 7
         else:
-            self.single_obs_size = self.cfg.single_obs_size
-            self.privileged_obs_size = self.cfg.single_obs_size_priv
             self.action_shape = self.action_size-2
         
         # Specify Gains for PD controller for each joint
@@ -213,7 +203,6 @@ class UnitreeEnv(MjxEnv):
         kd_factor = jax.random.uniform(kd_rng, (1,), minval=self.cfg.domain_rand.kd_range[0], maxval=self.cfg.domain_rand.kd_range[1])
         motor_strength = jax.random.uniform(motor_strength_rng, (1,), minval=self.cfg.domain_rand.motor_strength_range[0], maxval=self.cfg.domain_rand.motor_strength_range[1])
 
-
         reset_pos = self.default_pos
         reset_x= initial_xy[0]+jax.random.uniform(rng1, (1,), minval=self.cfg.reset_pos_x[0], maxval=self.cfg.reset_pos_x[1])
         reset_y= initial_xy[1]+jax.random.uniform(rng2, (1,), minval=self.cfg.reset_pos_y[0], maxval=self.cfg.reset_pos_y[1])
@@ -226,17 +215,17 @@ class UnitreeEnv(MjxEnv):
         a_y=jax.random.uniform(rng7, (1,), minval=a_y[0], maxval=a_y[1])
         a_x, a_y = a_x/jp.linalg.norm(jp.array([a_x, a_y])), a_y/jp.linalg.norm(jp.array([a_x, a_y]))
         
+        # Randomise the initial orientation
         theta = jax.random.uniform(rng5, (1,), minval=theta[0], maxval=theta[1])      
         q1 = jp.cos(theta/2)
         q2 = a_x*jp.sin(theta/2)
         q3 = a_y*jp.sin(theta/2)
         q4 = 0
 
-        # Reset position and orientation
-        #reset_pos = reset_pos.at[0:7].set(jp.array([reset_x[0], reset_y[0], 0.27, q1[0], q2[0], q3[0], q4]))
         # Reset position only
         reset_pos = reset_pos.at[0:2].set(jp.array([reset_x[0], reset_y[0]]))        
-
+        #reset_pos = reset_pos.at[4:7].set(jp.array([q1[0], q2[0], q3[0], q4]))
+        
         # Get initial state
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
         reward, done, zero = jp.zeros(3)
@@ -272,8 +261,8 @@ class UnitreeEnv(MjxEnv):
             'last_kick_force_magnitude': jp.array(0.0),
             'des_foot_height': jp.zeros((4,50)),
             'foot_pos': jp.zeros((4,3)),
-
         }
+        
         # Define obs history
         obs_history = jp.zeros(self.cfg.num_history_actor * self.single_obs_size)  # store num_history steps of history
         privileged_obs_history = jp.zeros(self.cfg.num_history_critic*self.privileged_obs_size)
@@ -316,13 +305,13 @@ class UnitreeEnv(MjxEnv):
             target_dof_pos = jp.clip(self.compute_target_dof(action),
                                 a_min=self.lower_limits, a_max=self.upper_limits)
             
-            p_gains = self.compute_stiffness(self.cfg.action_stiff_scale * action)
+            p_gains = self.compute_stiffness(action)
             
             if self.cfg.control_mode == "VIC_1" or self.cfg.control_mode == "VIC_2" or self.cfg.control_mode == "VIC_3" or self.cfg.control_mode == "VIC_4":
                 d_gains = 0.2*jp.sqrt(p_gains)
             else:
                 d_gains = self.d_gains
-            if self.cfg.domain_rand.randomisation:
+            if self.cfg.domain_rand.randomisation: # and self.cfg.control_mode =="P":
                 p_gains = p_gains * actuator_param[0]
                 d_gains = d_gains * actuator_param[1]
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
@@ -360,7 +349,7 @@ class UnitreeEnv(MjxEnv):
         Returns:    
             p_gains: the proportional gains (12) for each joint 
         """
-
+        action = self.cfg.action_stiff_scale * action
         if self.cfg.control_mode == "P" or self.cfg.control_mode == "T":
             return self.p_gains
         
@@ -482,7 +471,7 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('Foot floor distance: {x}', x=foot_floor_dist)
         
         ## general contact management
-        contact = foot_floor_dist< 1e-3  # a mm or less off the floor
+        contact = foot_floor_dist < 1e-3  # a mm or less off the floor
         contact_filt_mm = contact | state.info['last_contact']        
         contact_filt_cm = (foot_floor_dist < 1e-2) | state.info['last_contact']
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
@@ -494,8 +483,9 @@ class UnitreeEnv(MjxEnv):
         # 2.) Check termination
         done = self._check_terminate(data, x, state.info['step'])
 
-        com = data.subtree_com[self._torso_idx]
-        # 3.) Caluclate reward
+        #com = data.subtree_com[self._torso_idx]
+        
+        # 3.) Calculate reward
         rewards = {
             'tracking_lin_vel': (
                 self._reward_tracking_lin_vel(state.info['command'], x, xd)
@@ -540,6 +530,7 @@ class UnitreeEnv(MjxEnv):
         rewards = {
             k: rewards[k] * v for k, v in self.cfg.reward_scales.items()
         }
+        
         #Reward clipping like in unitree rl
         reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
 
@@ -598,16 +589,16 @@ class UnitreeEnv(MjxEnv):
             state.info['trajectory'][state.info['step'].astype(int), :],
             state.info['command'],
         )
-        #jax.debug.print('Command: {x}', x=state.info['command'])
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.cfg.episode_length), 0, state.info['step']
         )
+        
         state.metrics.update(state.info['rewards'])
 
         # observation
         obs, privileged_obs = self._get_obs(data, state.info, state.obs, state.privileged_obs, obs_rng=obs_rng)
-        state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(privileged_obs).any()
+        state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(privileged_obs).any() | jp.isnan(reward).any() | jp.isnan(done).any()
         done = jp.float32(done)
         
         state = state.replace(
@@ -747,8 +738,10 @@ class UnitreeEnv(MjxEnv):
         #jax.debug.print('portion: {x}', x=local_vel[:2]/(commands[:2] +1.e-6))
         #jax.debug.print('Lin vel error: {x}', x=lin_vel_error_new)
         lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
-        lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
-        return lin_vel_reward_new # lin_vel_reward
+        #lin_vel_reward_low = jp.exp(-16 * lin_vel_error) # change to sigma
+        #lin_vel_final = jp.where(jp.linalg.norm(commands[:2])<0.4, lin_vel_reward_low, lin_vel_reward)
+        #lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
+        return lin_vel_reward
 
     def _reward_tracking_ang_vel(
             self, commands: jax.Array, x: Transform, xd: Motion

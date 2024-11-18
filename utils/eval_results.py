@@ -201,5 +201,8 @@ def eval_cmd_rando_boundary(filenames, labels=None):
 
 
 # Example call
+
+
+
 #eval_force_push_boundary(['force_push_results_2024-10-09_13-00-31.csv', 'force_push_results_2024-10-11_13-54-32.csv'], labels = ['Baseline', 'VIC2'])
 #eval_cmd_rando_boundary(['cmd_rando_xy_13-00-31.csv', 'cmd_rando_xy_2024-10-11_13-54-32.csv'], labels = ['Baseline', 'VIC2'])

@@ -95,7 +95,7 @@ env:
           'rew_limits': -0.02,
           'rew_acceleration': -2.5e-7,
           'rew_collision': -10.0,
-          'rew_power': -2.e-6,
+          'rew_power': -2.e-5,
           "hip": 0.05,
           #'rew_foot_clearance': -0.01,
           'rew_joint_track': -0.05,
@@ -103,11 +103,11 @@ env:
 
 log: True
 
-ckpt_path: outputs/2024-11-15/08-27-56/checkpoints/model_950.pt
+ckpt_path: null #outputs/2024-11-15/08-27-56/checkpoints/model_950.pt
 
 log_dir: projects/TALocomotion/outputs/
 
-num_envs: 4096
+num_envs: 10
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
 device: 'cuda:0'

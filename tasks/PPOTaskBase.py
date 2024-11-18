@@ -16,7 +16,6 @@ from utils.helper_traj import create_combined_command
 class PPOTaskBase(nn.Module):
     def __init__(self,
                  cfg,
-                 #env,
                  eval_interval=50,
                  save_interval=50,
                  test_interval=100,
@@ -26,43 +25,49 @@ class PPOTaskBase(nn.Module):
         self.control_mode = cfg.env.control_mode
         self.device = cfg.device
         self.eval_interval = eval_interval
-        self.save_interval = save_interval
-        self.test_interval = test_interval
-        self.initial_xy = jp.array([0, 0]) #starting in the first quadrant
+        self.save_interval = save_interval # not used
+        self.test_interval = test_interval # not used
+        
+        self.initial_xy = jp.array([0, 0])
         self.manual_cmd = jp.array([cfg.env.manual_control.cmd_x, cfg.env.manual_control.cmd_y, cfg.env.manual_control.cmd_ang])
         self.high_score_avg_reward =0.0
-        self.env = self.init_env(self.cfg.scene_xml)
         self.wandb_logger = wandb_logger
         self.curriculum = cfg.curriculum
         
-        if not cfg.env.is_training:
-            self.result_file_name = cfg.result_name
+        # Initialize control paradigm
         self.view_env_id = 0
         if self.control_mode == 'P' or self.control_mode == 'T':
             num_actions = 12
+            offset =0
         elif self.control_mode == 'VIC_1':
             num_actions= 15
+            offset =  3
         elif self.control_mode == 'VIC_2':
             num_actions= 16
+            offset = 4
         elif self.control_mode == 'VIC_3':
             num_actions= 24
+            offset = 12
         elif self.control_mode == 'VIC_4':
             num_actions= 12+7
+            offset = 7
+        
+        self.cfg.env.single_obs_size = self.cfg.env.single_obs_size + offset
+        self.cfg.env.single_obs_size_priv = self.cfg.env.single_obs_size_priv + offset
 
+        # Initialize the algorithm
         self.algo = PPO(cfg=self.cfg.policy,
                         num_envs=self.cfg.num_envs,
                         num_actions=num_actions,
                         episode_length=self.cfg.timesteps_per_rollout,
-                        num_single_obs = self.env.observation_size // self.cfg.env.num_history_actor,
-                        num_env_obs=self.env.observation_size,
-                        num_priv_obs=self.env.privileged_observation_size*self.cfg.env.num_history_critic,
+                        num_single_obs = self.cfg.env.single_obs_size,
+                        num_env_obs=self.cfg.env.single_obs_size*self.cfg.env.num_history_actor,
+                        num_priv_obs=self.cfg.env.single_obs_size_priv*self.cfg.env.num_history_critic,
                         control_mode=self.control_mode,
                         device=self.device)
 
         self.current_learning_iteration = 0
         self.level = 0
-
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd = self.manual_cmd)
 
         # # Start the keyboard listener thread
         if self.cfg.viz:
@@ -79,6 +84,9 @@ class PPOTaskBase(nn.Module):
         return env
 
     def on_press(self, key):
+        '''
+        Function to handle the key press events -> Changing the viewed environment
+        '''
         try:
             if key == self.pynput_keyboard.Key.up:
                 print(f"Up arrow pressed Viewed env: {self.view_env_id}")
@@ -90,6 +98,9 @@ class PPOTaskBase(nn.Module):
             pass
     
     def keyboard_listener(self):
+        '''
+        Function to start the keyboard listener -> switching between the viewed environments
+        '''
         with self.pynput_keyboard.Listener(on_press=self.on_press) as listener:
             listener.join()
 
@@ -106,7 +117,6 @@ class PPOTaskBase(nn.Module):
             print(f"Last action: {self.algo.storage.actions[-1][torch.where(torch.isnan(obs_g))[0]]}")
             print(f"Action before: {self.algo.storage.actions[-2][torch.where(torch.isnan(obs_g))[0]]}")
             print(f"Observation: {obs_g[torch.where(torch.isnan(obs_g))]}")
-
         
         if is_training:
             actions = self.algo.act(obs_g, privileged_obs_g)
@@ -115,22 +125,16 @@ class PPOTaskBase(nn.Module):
         if torch.isnan(actions).any():
             print(f"Action: {actions}")
         
-        #time_start = time()
-        # if self.cfg.enable_force_kick:
-        #     action = torch.concat([actions, self.cfg.env.kick_force*torch.ones(self.cfg.num_envs, device=self.device, dtype=torch.float32)], dim=1)
-
         if self.cfg.viz:
             next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions, env_id=self.view_env_id)
         else:
             next_obs_g, next_priv_obs_g,rewards, dones, infos, metrics = self.env.step(actions)
-        #time_end = time()
-        #time_diff = time_end - time_start
-        #print(f"Time for step: {time_diff}")
+        
         self.algo.process_env_step(obs_g, privileged_obs_g,rewards, dones, infos)
 
         return next_obs_g, next_priv_obs_g, dones, infos, metrics
 
-    def rollout(self,it, is_training=True):
+    def rollout(self, is_training=True):
         """
         Steps through the environment for one episode and returns the final observation and statistics.
         Episode infos represent the average reward
@@ -150,12 +154,9 @@ class PPOTaskBase(nn.Module):
 
             for i in range(self.cfg.timesteps_per_rollout):
                 next_obs_g, next_priv_obs_g, dones, info, metrics = self.step(self.obs, self.obs_priv, is_training)
-                #print(f"Last x: {info['last_qpos'][0,0]}")
                 rew_info= info['rewards']
-                #print(f"Rewards: {rew_info}")
                 pos_x[i] = info['last_qpos'][0,0]
                 time_out |= info['time_out'] > 0
-                #print(f"time out : {info['time_out']}")
                 for key in rew_info.keys():
                     if key not in episode_infos.keys():
                         episode_infos[key] = torch.mean(rew_info[key]) #mean over all envs
@@ -163,7 +164,6 @@ class PPOTaskBase(nn.Module):
                         episode_infos[key] += torch.mean(rew_info[key])
                 steps[i,:] = info['step']
                 
-                #print(f"Foot pos z: {info['foot_pos_z']}")                
                 if not is_training:
                     cmd.append(info['command'])
                     eval_metrics.append(metrics)
@@ -173,9 +173,6 @@ class PPOTaskBase(nn.Module):
                 # update observation
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
-        
-        
-        
 
         combined_metrics = {}
         if not is_training: 
@@ -185,11 +182,9 @@ class PPOTaskBase(nn.Module):
             eval_infos['kick_theta'] = kick_metrics['kick_theta']
             eval_infos['kick_force_magnitude'] = kick_metrics['kick_force_magnitude']
             eval_infos['cmd'] = cmd 
-            eval_infos['steps'] = steps#[-1,:] 
+            eval_infos['steps'] = steps 
             for key in eval_metrics[0].keys():
                 combined_metrics[key] = torch.stack([metric[key] for metric in eval_metrics])
-
-        self.pos_x = pos_x
 
         for key in episode_infos.keys():
             episode_infos[key] = episode_infos[key] / self.cfg.timesteps_per_rollout
@@ -200,7 +195,6 @@ class PPOTaskBase(nn.Module):
             print(f"Episode infos: {episode_infos}")
             print(f"Termination reward: {episode_infos['termination']}")
         
-        #episode_infos['time_outs'] = time_out
         return self.obs, self.obs_priv, dones, episode_infos, eval_infos, combined_metrics
 
     def simulate(self,it, is_training=True): # Simulates through one episode
@@ -208,7 +202,7 @@ class PPOTaskBase(nn.Module):
         Simulate through one episode and store the statistics.
         """
         # Simulate through one episode
-        next_obs_g, next_priv_obs_g, dones, episode_infos, eval_infos, eval_metrics = self.rollout(it,is_training=is_training)
+        next_obs_g, next_priv_obs_g, dones, episode_infos, eval_infos, eval_metrics = self.rollout(is_training=is_training)
         # get goal conditioned state
         self.algo.compute_returns(next_priv_obs_g, dones)
         # Show statistics
@@ -264,25 +258,6 @@ class PPOTaskBase(nn.Module):
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
         self.algo.storage.clear()
 
-    def update_level(self):
-        """
-        Check the level of the agent. 
-        """
-        max_distance =max(self.pos_x[:] - self.pos_x[0])
-        print(f"Max distance: {max_distance}")
-        if max_distance>0.7:
-            self.level += 1
-        print(f"Level: {self.level}")
-        if self.level==0:
-            self.initial_xy = jp.array([-2, -2.5])
-        elif self.level==1:
-            self.initial_xy = jp.array([2, -2.5])
-        elif self.level==2:
-            self.initial_xy = jp.array([2, 2.5])
-        elif self.level==3:
-            self.initial_xy = jp.array([-2, 2.5])
-        print(f"Set next position to: {self.initial_xy}")
-
     def create_sinusoidal_command(self, amplitude, frequency, episode_length, sampling_rate):
         """
         Creates a sinusoidal command with the given amplitude, frequency, episode length, and sampling rate.
@@ -302,12 +277,13 @@ class PPOTaskBase(nn.Module):
         sinusoidal_values = amplitude * jp.sin(2 * jp.pi * frequency * time_values)
         return jp.stack([time_values, sinusoidal_values], axis=1)
 
-
     def train_loop(self, num_learning_iterations, save_dir, ckpt_path=None):
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=True)
         os.makedirs(save_dir, exist_ok=False)
 
+        self.env = self.init_env(self.cfg.scene_xml)
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         if self.cfg.curriculum:
             self.initial_xy = jp.array([-2., -2.5])
 
@@ -336,13 +312,13 @@ class PPOTaskBase(nn.Module):
             #     self.env = self.init_env(self.cfg.scene_xml)
             #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
 
+            # Change terrain
             # if (it == 6000):
             #     self.env = self.init_env('unitree_go2/terrain_gaussian.xml')
             #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
 
         self.current_learning_iteration = num_total_iteration
         self.save(os.path.join(save_dir, f'last.pt'))
-
 
     def test_agent(self, num_iterations, ckpt_path=None):
         """
@@ -352,8 +328,9 @@ class PPOTaskBase(nn.Module):
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=False)
         self.algo.actor_critic.eval()
-        #eval_results = []
-        #single_obs_size = self.env.observation_size // self.cfg.env.num_history_actor
+        
+        self.env = self.init_env(self.cfg.scene_xml)
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         if self.cfg.env.manual_control.enable and self.cfg.env.manual_control.task == 'heading_directions':
             self.test_heading_directions(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'xy_random':
@@ -366,20 +343,62 @@ class PPOTaskBase(nn.Module):
             self.test_escape_pyramid(num_iterations)
         elif self.cfg.env.manual_control.task == 'auto':
             self.test_auto(num_iterations)
-        elif self.cfg.env.manual_control.task == 'experiments':
-            self.test_plain(num_iterations)
+        elif self.cfg.env.manual_control.task == 'stiffness':
+            self.test_stiffness(num_iterations)
         elif self.cfg.env.manual_control.task == 'default':
             self.test_default(num_iterations)
 
+    def test_auto(self, num_iterations):
+        print(f"Starting auto evaluation")
+        print(f"Starting heading directions evaluation:")
+        self.test_heading_directions(num_iterations)
+        print(f"Finihsed heading directions evaluation")
+        print(f"Starting force push evaluation")
+        # Change settings to force push 
+        self.cfg.env.manual_control.enable = True
+        self.cfg.env.manual_control.enable = True
+        self.cfg.env.manual_control.cmd_x = 0.3
+        self.cfg.timesteps_per_rollout = 50
+        self.cfg.env.enable_force_kick = True
+        self.cfg.env.kick_vel = 0.0
+        self.cfg.rollouts_per_experiment = 5
+        self.cfg.num_iterations = 21
+        self.cfg.env.sample_command_interval = 301
+        self.env = self.init_env(self.cfg.scene_xml)
+        self.test_force_push_random(self.cfg.num_iterations)
+        print(f"Finished force push evaluation")
+        # Change settings to random xy
+        self.cfg.env.manual_control.enable = False
+        self.cfg.env.control_range['cmd_x'] = [-1.5, 1.5]
+        self.cfg.env.control_range['cmd_y'] = [-1.5, 1.5]
+        self.cfg.env.control_range['cmd_ang'] = [0.0, 0.0]
+        self.cfg.env.enable_force_kick = False
+        
+        self.env = self.init_env(self.cfg.scene_xml)
+        print(f"Starting random xy evaluation")
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
+        self.test_xy_random(self.cfg.num_iterations)
+
     def test_default(self, num_iterations):
+        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
+
         for it in range(num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            
             print(f"Episode info: {episode_info}")
             
+            commands = eval_infos['cmd'][-1,:,:]
+            cmd_norm = torch.linalg.norm(commands, dim=1).unsqueeze(1).cpu()
+            theta = torch.atan2(commands[:,1],commands[:,0]).cpu() # in rad
+            # Some testing
+            # if it == 1:
+            #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
+            # save_tensors_to_csv([cmd_norm, theta],['cmd_norm', 'cmd_theta'], \
+            #                  f'command_sampling.csv')
             self.algo.storage.clear()
     
-    def test_plain(self, num_iterations):
+    def test_stiffness(self, num_iterations):
         import numpy as np
         # Enable interactive mode for live plotting
         plt.ion()
@@ -454,42 +473,6 @@ class PPOTaskBase(nn.Module):
         # Turn off interactive mode and show the final plot
         plt.ioff()
         plt.show()
-
-
-    def test_auto(self, num_iterations):
-        print(f"Starting auto evaluation")
-        print(f"Starting heading directions evaluation:")
-        self.test_heading_directions(num_iterations)
-        print(f"Finihsed heading directions evaluation")
-        print(f"Starting force push evaluation")
-        # Change settings to force push 
-        self.cfg.env.manual_control.enable = True
-        self.cfg.env.manual_control.enable = True
-        self.cfg.env.manual_control.cmd_x = 0.3
-        self.cfg.timesteps_per_rollout = 50
-        self.cfg.env.enable_force_kick = True
-        self.cfg.env.kick_vel = 0.0
-        self.cfg.rollouts_per_experiment = 5
-        self.cfg.num_iterations = 21
-        self.cfg.env.sample_command_interval = 301
-        
-        self.env = self.init_env(self.cfg.scene_xml)
-        self.test_force_push_random(self.cfg.num_iterations)
-        print(f"Finished force push evaluation")
-        # Change settings to random xy
-        self.cfg.env.manual_control.enable = False
-        self.cfg.env.control_range['cmd_x'] = [-1.5, 1.5]
-        self.cfg.env.control_range['cmd_y'] = [-1.5, 1.5]
-        self.cfg.env.control_range['cmd_ang'] = [0.0, 0.0]
-        self.cfg.env.enable_force_kick = False
-        
-        self.env = self.init_env(self.cfg.scene_xml)
-        print(f"Starting random xy evaluation")
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
-        self.test_xy_random(self.cfg.num_iterations)
-
-        
-
 
     def test_force_push_random(self, num_iterations):
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
