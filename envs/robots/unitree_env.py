@@ -482,7 +482,6 @@ class UnitreeEnv(MjxEnv):
 
         # 2.) Check termination
         done = self._check_terminate(data, x, state.info['step'])
-
         #com = data.subtree_com[self._torso_idx]
         
         # 3.) Calculate reward
@@ -530,6 +529,10 @@ class UnitreeEnv(MjxEnv):
         rewards = {
             k: rewards[k] * v for k, v in self.cfg.reward_scales.items()
         }
+        
+        # jax.debug.print('Step: {x}', x=state.info['step'])
+        # jax.debug.print('Done: {x}', x=done)
+        # jax.debug.print('Termination reward: {x}', x=rewards['termination'])
         
         #Reward clipping like in unitree rl
         reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
@@ -590,9 +593,10 @@ class UnitreeEnv(MjxEnv):
             state.info['command'],
         )
         # reset the step counter when done
-        state.info['step'] = jp.where(
-        (state.info['step'] > self.cfg.episode_length), 0, state.info['step']
-        )
+        # state.info['step'] = jp.where(
+        # (state.info['step'] > self.cfg.episode_length), 0, state.info['step']
+        # )
+        
         
         state.metrics.update(state.info['rewards'])
 
@@ -712,8 +716,8 @@ class UnitreeEnv(MjxEnv):
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
-        done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        done |= jp.any(data.qpos[7:] > self.upper_limits)        
+        # done |= jp.any(data.qpos[7:] < self.lower_limits) 
+        # done |= jp.any(data.qpos[7:] > self.upper_limits)        
         # Termination if body touches the ground
         terminate_contacts = jp.zeros((len(self.terminate_geom_id)),dtype=int)
         terminate_contacts = terminate_contacts.at[:].set(self.get_contacts(data, len(self.terminate_geom_id), geom_indices= self.terminate_geom_id)[:,0])
@@ -723,6 +727,7 @@ class UnitreeEnv(MjxEnv):
         # Termination in case of finite terrain
         done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
         done |= done_map*self.terminate_map
+        done |= step > self.cfg.episode_length
         # Catch em all Nans
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         return done

@@ -10,7 +10,7 @@ env:
   hip_scale: 0.6
   control_mode: "VIC_2"
   physics_steps_per_control_step: 4
-  sample_command_interval: 301
+  sample_command_interval: 500
 
   num_history_actor: 1
   num_history_critic: 1
@@ -30,7 +30,7 @@ env:
   kick_force: [50.0, 600.0]
 
   is_training: False
-  episode_length: 3250
+  episode_length: 1000
 
   single_obs_size: 48
   single_obs_size_priv: 59
@@ -65,7 +65,7 @@ env:
   }
 
   manual_control:
-    enable: True
+    enable: False
     task: 'default' # can be either 'auto', 'force_push', 'heading_directions','test_xy_random' , 'escape pyramids' ,'track trajectory', 
     cmd_x: 0.3
     cmd_y: 0.
@@ -115,7 +115,7 @@ plot_details: True
 result_name: 'results_vic2_0810.csv'
 timesteps_per_rollout: 50
 num_iterations: 65
-num_envs: 8000
+num_envs: 100
 
 viz: True
 device: 'cuda:0'

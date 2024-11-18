@@ -8,16 +8,16 @@ env:
   hip_scale: 0.6
   control_mode: "VIC_2"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
-  sample_command_interval: 250
+  sample_command_interval: 500 # 500 steps = 10 seconds
 
   num_history_actor: 1 # number of previous observations to stack
   num_history_critic: 1 # number of previous observations to stack
   kick_vel: 0.0
   push_interval: 100
   is_training: True
-  episode_length: 500
+  episode_length: 1000 # 1000 = 20 seconds
 
-  terminate_geoms: ["base_0", "base_1", "base_2", "FR_hip","FL_hip","RR_hip","RL_hip"]
+  terminate_geoms: ["base_0", "base_1", "FR_hip","FL_hip","RR_hip","RL_hip"]
   body_penalty_geom: ["base_0", "base_1", "base_2", "FR_hip", "FR_thigh", "FL_hip", "FL_thigh", "RR_hip", "RR_thigh", "RL_hip", "RL_thigh"]
 
   # Force kick in test
@@ -107,7 +107,7 @@ ckpt_path: null #outputs/2024-11-15/08-27-56/checkpoints/model_950.pt
 
 log_dir: projects/TALocomotion/outputs/
 
-num_envs: 10
+num_envs: 4000
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
 device: 'cuda:0'
