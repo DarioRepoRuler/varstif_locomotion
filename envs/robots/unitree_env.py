@@ -519,7 +519,7 @@ class UnitreeEnv(MjxEnv):
             'rew_power': self._reward_power(data.ctrl[:12], joint_vel),
             #'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
             # Feet posture
-            'hip': self.rew_hip(joint_angles),
+            'hip': self.rew_hip(joint_angles, state.info['command']),
             # Variable impedance control
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
             #'rew_base_height': self._reward_base_height(data.qpos[2]),
@@ -716,8 +716,8 @@ class UnitreeEnv(MjxEnv):
         # check if robot is falling, dot product of rotated upward direction and actual up. Less than 0 means falling.
         done = jp.dot(math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # Check if compliant with limits
-        # done |= jp.any(data.qpos[7:] < self.lower_limits) 
-        # done |= jp.any(data.qpos[7:] > self.upper_limits)        
+        done |= jp.any(data.qpos[7:] < self.lower_limits) 
+        done |= jp.any(data.qpos[7:] > self.upper_limits)        
         # Termination if body touches the ground
         terminate_contacts = jp.zeros((len(self.terminate_geom_id)),dtype=int)
         terminate_contacts = terminate_contacts.at[:].set(self.get_contacts(data, len(self.terminate_geom_id), geom_indices= self.terminate_geom_id)[:,0])
@@ -742,11 +742,11 @@ class UnitreeEnv(MjxEnv):
         lin_vel_error_new = jp.abs(1-local_vel[:2]/(commands[:2] +1.e-6))
         #jax.debug.print('portion: {x}', x=local_vel[:2]/(commands[:2] +1.e-6))
         #jax.debug.print('Lin vel error: {x}', x=lin_vel_error_new)
-        lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
+        #lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
         #lin_vel_reward_low = jp.exp(-16 * lin_vel_error) # change to sigma
         #lin_vel_final = jp.where(jp.linalg.norm(commands[:2])<0.4, lin_vel_reward_low, lin_vel_reward)
-        #lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
-        return lin_vel_reward
+        lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
+        return lin_vel_reward_new
 
     def _reward_tracking_ang_vel(
             self, commands: jax.Array, x: Transform, xd: Motion
@@ -754,7 +754,11 @@ class UnitreeEnv(MjxEnv):
         # Tracking of angular velocity commands (yaw)
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         ang_vel_error = jp.square(commands[2] - base_ang_vel[2])
-        return jp.exp(-4 * ang_vel_error) #change to sigma
+        ang_vel_error_new = jp.abs(1-base_ang_vel[2]/(commands[2] +1.e-6))
+        
+        ang_vel_rew = jp.exp(-4 * ang_vel_error) #change to sigma
+        ang_vel_rew_new = jp.sum(jp.exp(-4 * ang_vel_error_new))
+        return ang_vel_rew_new #change to sigma
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array: 
         # Penalize z axis base linear velocity
@@ -812,9 +816,11 @@ class UnitreeEnv(MjxEnv):
         return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
     
     def rew_hip(
-            self, joint_angles: jax.Array
+            self, joint_angles: jax.Array, commands: jax.Array
     ):
-        return jp.exp(-4*jp.sum(jp.square(joint_angles[::3])))
+        reward_hip = jp.exp(-4*jp.sum(jp.square(joint_angles[::3])))
+        reward_hip *=(jp.any(jp.abs(commands) > 0.05))
+        return reward_hip
     
 
     def _reward_feet_air_time(
