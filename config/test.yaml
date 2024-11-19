@@ -2,13 +2,13 @@ defaults:
   - _self_
   - policy: ppo
 
-ckpt_path: 'best_models/rando_all1.pt' #'best_models/checkpoints/model_1500.pt' #'best_models/test_vic2_0810_1.pt' #'outputs/2024-10-04/16-03-35/checkpoints/model_1400.pt'  #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/rando_all1.pt' #'best_models/test_vic2_jt_harder.pt' #'best_models/test_vic3_jt.pt' # 'best_models/test_vic2_bf.pt' # #'best_models/test_vic_2_20_1.pt' #'outputs/2024-09-19/16-56-36/checkpoints/model_2000.pt' #'best_models/test_vic1.pt' #'best_models/test_vic_2_oldpose.pt' #'best_models/test_pos_priv.pt' # # #'best_models/test_p_oldpose.pt' # #  # #'outputs/2024-09-16/18-45-14/checkpoints/model_2000.pt' # ## #'best_models/test_vic1.pt' #
+ckpt_path: 'outputs/2024-11-19/14-56-45/checkpoints/model_1000.pt'
 
 env:
   action_scale: 0.5
   action_stiff_scale: 1.0
   hip_scale: 0.6
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4
   sample_command_interval: 500
 
@@ -33,7 +33,7 @@ env:
   episode_length: 1000
 
   single_obs_size: 48
-  single_obs_size_priv: 48
+  single_obs_size_priv: 59
  
 
   domain_rand:
@@ -67,15 +67,15 @@ env:
   manual_control:
     enable: False
     task: 'xy_random' # can be either 'auto', 'force_push', 'heading_directions','xy_random' , 'escape pyramids' ,'track trajectory', 
-    cmd_x: 0.3
+    cmd_x: 0.8
     cmd_y: 0.
     cmd_ang: 0.0
 
   reset_pos_x: [-0.0, 0.0]
   reset_pos_y: [-0.0, 0.0]
   reset_theta: [0, 0.3926990]
-  reset_a_x: [-1,1]
-  reset_a_y: [-1,1]
+  reset_a_x: [-0.,0.]
+  reset_a_y: [-0.,0.]
 
   control:
     stiff_range: [0.5, 2.0]
@@ -96,16 +96,13 @@ env:
           'termination': -10.0,
           'foot_slip': -0.1,
           'action_rate': -0.002,
-          #'rew_pos_limits': -0.02,
-          #'rew_stiff_limits': -0.02,
+
           'rew_limits': -0.02,
           'rew_acceleration': -2.5e-7,
           'rew_collision': -10.0,
           'rew_power': -2.e-6,
-          #'rew_power_distro': -5.e-6,
           "hip": 0.05,
           'rew_joint_track': -0.1,
-          #'rew_foot_clearance': -0.01,
   }
  
 success_threshold: 0.78125
@@ -115,7 +112,7 @@ plot_details: True
 result_name: 'results_vic2_0810.csv'
 timesteps_per_rollout: 50
 num_iterations: 21
-num_envs: 1000
+num_envs: 100
 
 viz: True
 device: 'cuda:0'

@@ -740,13 +740,14 @@ class UnitreeEnv(MjxEnv):
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         lin_vel_error = jp.sum(jp.square(commands[:2] - local_vel[:2]))
         lin_vel_error_new = jp.abs(1-local_vel[:2]/(commands[:2] +1.e-6))
+        
         #jax.debug.print('portion: {x}', x=local_vel[:2]/(commands[:2] +1.e-6))
         #jax.debug.print('Lin vel error: {x}', x=lin_vel_error_new)
         lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
         #lin_vel_reward_low = jp.exp(-16 * lin_vel_error) # change to sigma
         #lin_vel_final = jp.where(jp.linalg.norm(commands[:2])<0.4, lin_vel_reward_low, lin_vel_reward)
         lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
-        return lin_vel_reward
+        return lin_vel_reward_new
 
     def _reward_tracking_ang_vel(
             self, commands: jax.Array, x: Transform, xd: Motion
@@ -755,9 +756,10 @@ class UnitreeEnv(MjxEnv):
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         ang_vel_error = jp.square(commands[2] - base_ang_vel[2])
         ang_vel_error_new = jp.abs(1-base_ang_vel[2]/(commands[2] +1.e-6))
+        
         ang_vel_rew = jp.exp(-4 * ang_vel_error) #change to sigma
-        ang_vel_rew_new = jp.sum(jp.exp(-4 * ang_vel_error_new))
-        return ang_vel_rew #change to sigma
+        ang_vel_rew_new = jp.exp(-2 * ang_vel_error_new)
+        return ang_vel_rew_new #change to sigma
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array: 
         # Penalize z axis base linear velocity
