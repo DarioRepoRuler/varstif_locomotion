@@ -69,19 +69,24 @@ eval_cot_heading(filenames_heading, labels)
 
 def eval_force_push(filenames):
     for filename in filenames:
+        print(f"Eval force push: {filename}")
         push_data={
-            'kick_force_magnitude': load_tensor_from_csv('kick_force_magnitude', filename=filename)[:,0,:],
-            'kick_theta': load_tensor_from_csv('kick_theta', filename=filename)[:,0,:],
+            'kick_force_magnitude': load_tensor_from_csv('kick_force_magnitude', filename=filename),
+            'kick_theta': load_tensor_from_csv('kick_theta', filename=filename),
             'success': load_tensor_from_csv('success_rate', filename=filename),
         }
-        plot_name = filename.split('.')[0]
-        print(f"Filename: {filename}")
-        polar_scatter_push_plot(push_data['kick_force_magnitude'], push_data['kick_theta'], push_data['success'], plot_name)
 
+        if len(push_data['kick_force_magnitude'].shape) == 3:
+            push_data['kick_force_magnitude'] = push_data['kick_force_magnitude'][:,0,:]
+            push_data['kick_theta'] = push_data['kick_theta'][:,0,:]
+            plot_name = filename.split('.')[0]
+            polar_scatter_push_plot(push_data['kick_force_magnitude'], push_data['kick_theta'], push_data['success'], plot_name)
+        else: 
+            print(f"Skipping {filename} experiment failed!")
 filenames_force = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
 filenames_force = ['force_push_results_model_1500.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
 
-#eval_force_push(filenames['force_push'])
+eval_force_push(filenames['force_push'])
 
 # -----------------------Evaluation of pyramid excape-----------------------
 pyramid_success = {
@@ -96,6 +101,7 @@ create_graph(success_rates_t_pyramid, staircase_heights,[key for key in pyramid_
 # -----------------------Evaluation for rando cmd -----------------------
 def eval_cmd_rando(filenames):
     for filename in filenames:
+        print(f"Eval cmd rando: {filename}")
         cmd_data={
             'cmd_norm': load_tensor_from_csv('cmd_norm', filename=filename),
             'success': load_tensor_from_csv('success', filename=filename)[:,0,:],
@@ -129,7 +135,7 @@ def eval_force_push_boundary(filenames, labels=None):
         patches.append(mpatches.Patch(color=colors[i], label=label))
 
     for i, filename in enumerate(filenames):
-        print(f"Filename: {filename}")
+        print(f"Eval force push(with boundary): {filename}")
         push_data = {
             'kick_force_magnitude': load_tensor_from_csv('kick_force_magnitude', filename=filename)[:, 0, :],
             'kick_theta': load_tensor_from_csv('kick_theta', filename=filename)[:, 0, :],
@@ -170,7 +176,7 @@ def eval_cmd_rando_boundary(filenames, labels=None):
         patches.append(mpatches.Patch(color=colors[i], label=label))
 
     for i, filename in enumerate(filenames):
-        print(f"Filename: {filename}")
+        print(f"Eval cmd rando(with boundary): {filename}")
         cmd_data={
             'cmd_norm': load_tensor_from_csv('cmd_norm', filename=filename),
             'success': load_tensor_from_csv('success', filename=filename)[:,0,:],

@@ -6,7 +6,7 @@ env:
   action_scale: 0.5
   action_stiff_scale: 1.0
   hip_scale: 0.6
-  control_mode: "VIC_2"
+  control_mode: "P"
   physics_steps_per_control_step: 4 # corresponds to 50Hz
   sample_command_interval: 500 # 500 steps = 10 seconds
 
@@ -17,8 +17,9 @@ env:
   is_training: True
   episode_length: 1000 # 1000 = 20 seconds
 
-  terminate_geoms: ["base_0", "base_1", "FR_hip","FL_hip","RR_hip","RL_hip"]
+  terminate_geoms: ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"]
   body_penalty_geom: ["base_0", "base_1", "base_2", "FR_hip", "FR_thigh", "FL_hip", "FL_thigh", "RR_hip", "RR_thigh", "RL_hip", "RL_thigh"]
+  default_pos: [0, 0, 0.32, 1, 0, 0, 0, -0.1, 0.8, -1.5, 0.1, 0.8, -1.5, -0.1, 1.0, -1.5, 0.1, 1.0, -1.5]
 
   # Force kick in test
   enable_force_kick: True
@@ -70,8 +71,8 @@ env:
   reset_pos_x: [-5.0, 5.0]
   reset_pos_y: [-5.0, 5.0]
   reset_theta: [0, 0.3926990]
-  reset_a_x: [-1,1]
-  reset_a_y: [-1,1]
+  reset_a_x: [-0.,0.]
+  reset_a_y: [-0.,0.]
 
   control:
     stiff_range: [0.5, 2.0]
@@ -82,23 +83,19 @@ env:
     total: 23
 
   reward_scales: { 
-          'tracking_lin_vel': 1.5, 
-          'tracking_ang_vel': 0.8, 
-          'lin_vel_z': -2.0, 
-          'ang_vel_xy': -0.05, 
-          'orientation': -5.0,
-          'stand_still': -0.5, 
-          'feet_air_time': 0.5,
-          'termination': -10.0,
-          'foot_slip': -0.1,
-          'action_rate': -0.002,
-          'rew_limits': -0.02,
-          'rew_acceleration': -2.5e-7,
-          'rew_collision': -10.0,
-          'rew_power': -2.e-5,
-          "hip": 0.05,
-          #'rew_foot_clearance': -0.01,
-          'rew_joint_track': -0.05,
+            'tracking_lin_vel': 1.5, 
+            'tracking_ang_vel': 0.8, 
+            "lin_vel_z": -2.0, 
+            "ang_vel_xy": -0.05, 
+            "orientation": -5.0, 
+            "torques": -0.0002, 
+            'feet_air_time': 0.2,
+            'termination': -10.0,
+            'stand_still': -0.5, 
+            "foot_slip": -0.1,
+            "action_rate": -0.01,
+            "rew_acceleration": -2.5e-7,
+            "rew_collision": -10.0,
   }
 
 log: True
@@ -107,13 +104,13 @@ ckpt_path: null #outputs/2024-11-15/08-27-56/checkpoints/model_950.pt
 
 log_dir: projects/TALocomotion/outputs/
 
-num_envs: 4000
+num_envs: 4096
 timesteps_per_rollout: 48
 num_learning_iterations: 2001
 device: 'cuda:0'
 
 curriculum: False
-viz: True
+viz: False
 
 project: 'TALocoMotion'
 group: ${env.control_mode}

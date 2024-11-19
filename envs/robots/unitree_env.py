@@ -82,7 +82,6 @@ class UnitreeEnv(MjxEnv):
 
         self._foot_radius = 0.023
         self._torso_idx = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY.value, 'trunk')
-        
         # Define body and geometry names
         feet_names = ['FR', 'FL', 'RR', 'RL'] #
         foot_body = ['FR_foot', 'FL_foot', 'RR_foot', 'RL_foot']
@@ -281,6 +280,7 @@ class UnitreeEnv(MjxEnv):
             'dof_pos': jp.zeros(12),
             'glob_pos': jp.zeros(2),
             'command': jp.zeros(3),
+            'local_w': jp.zeros(3),
             }
         for k in state_info['rewards']:
             metrics[k] = state_info['rewards'][k]
@@ -482,7 +482,7 @@ class UnitreeEnv(MjxEnv):
 
         # 2.) Check termination
         done = self._check_terminate(data, x, state.info['step'])
-        #com = data.subtree_com[self._torso_idx]
+        com = data.subtree_com[self._torso_idx]
         
         # 3.) Calculate reward
         rewards = {
@@ -495,7 +495,7 @@ class UnitreeEnv(MjxEnv):
             'lin_vel_z': self._reward_lin_vel_z(xd),
             'ang_vel_xy': self._reward_ang_vel_xy(xd),
             'orientation': self._reward_orientation(x), 
-            #'torques': self._reward_torques(data.qfrc_actuator), 
+            'torques': self._reward_torques(data.qfrc_actuator), 
             'stand_still': self._reward_stand_still( 
                 state.info['command'], joint_angles,
             ),
@@ -504,27 +504,25 @@ class UnitreeEnv(MjxEnv):
                 first_contact,
                 state.info['command'],
             ),
-            
             'foot_slip': self._reward_foot_slip(data, xd, contact_filt_cm),
             'termination': self._reward_termination(done, state.info['step'], data=data),
             'action_rate': self.action_rate(action, state.info['last_act']),
-            #'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
-            
-            #'rew_pos_limits': self._reward_pos_limits(joint_angles),
-            #'rew_stiff_limits': self._reward_stiff_limits(p_gains),
+            'action_smoothnes': self.action_rate2(action, state.info['last_act'], state.info['action_minus_2t']),
+            'rew_pos_limits': self._reward_pos_limits(joint_angles),
+            'rew_stiff_limits': self._reward_stiff_limits(p_gains),
             'rew_limits': self._reward_limits(target_dof, p_gains), 
             'rew_acceleration': self._reward_acceleration(joint_vel, state.info['last_vel'][6:]),
-            #'rew_velocity': self._reward_velocity(joint_vel),
+            'rew_velocity': self._reward_velocity(joint_vel),
             'rew_collision': self._reward_collision(data),
             'rew_power': self._reward_power(data.ctrl[:12], joint_vel),
-            #'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
+            'rew_power_distro': self._reward_power_distro(data.ctrl[:12], joint_vel),
             # Feet posture
             'hip': self.rew_hip(joint_angles, state.info['command']),
             # Variable impedance control
             'rew_joint_track': self._reward_joint_track(joint_angles, action[:12]),
-            #'rew_base_height': self._reward_base_height(data.qpos[2]),
+            'rew_base_height': self._reward_base_height(data.qpos[2]),
             'rew_foot_clearance': self._reward_foot_clearance( xd , foot_pos[:, 2], 0.09),
-            #'rew_com': self._reward_com(com, foot_pos=foot_pos),
+            'rew_com': self._reward_com(com, foot_pos=foot_pos),
         }
         rewards = {
             k: rewards[k] * v for k, v in self.cfg.reward_scales.items()
@@ -561,7 +559,10 @@ class UnitreeEnv(MjxEnv):
         state.info['last_vel'] = data.qvel
         state.info['last_qpos'] = data.qpos
         state.info['foot_pos_z'] = foot_pos[:, 2]
-
+        local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
+        local_w = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
+        state.metrics['local_w'] = local_w
+        # jax.debug.print('Command track: {x}', x=state.info['local_w'])
         # # log total displacement as a proxy metric
         # jax.debug.print('Total distance: {x}', x=jp.linalg.norm(x.pos[self._torso_idx-1][:2]))
         # jax.debug.print('Total distance(old): {x}', x=math.normalize(x.pos[self._torso_idx - 1])[1])
@@ -569,7 +570,6 @@ class UnitreeEnv(MjxEnv):
         state.metrics['total_time'] = state.info['step'] * self.dt
         state.metrics['power'] = jp.sum(jp.abs(data.ctrl[:12])) * jp.abs(jp.sum(joint_vel))
         
-        local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         state.metrics['local_v'] = local_vel
         state.metrics['foot_pos_z'] = foot_pos[:, 2]
 
@@ -742,11 +742,11 @@ class UnitreeEnv(MjxEnv):
         lin_vel_error_new = jp.abs(1-local_vel[:2]/(commands[:2] +1.e-6))
         #jax.debug.print('portion: {x}', x=local_vel[:2]/(commands[:2] +1.e-6))
         #jax.debug.print('Lin vel error: {x}', x=lin_vel_error_new)
-        #lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
+        lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
         #lin_vel_reward_low = jp.exp(-16 * lin_vel_error) # change to sigma
         #lin_vel_final = jp.where(jp.linalg.norm(commands[:2])<0.4, lin_vel_reward_low, lin_vel_reward)
         lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
-        return lin_vel_reward_new
+        return lin_vel_reward
 
     def _reward_tracking_ang_vel(
             self, commands: jax.Array, x: Transform, xd: Motion
@@ -755,10 +755,9 @@ class UnitreeEnv(MjxEnv):
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         ang_vel_error = jp.square(commands[2] - base_ang_vel[2])
         ang_vel_error_new = jp.abs(1-base_ang_vel[2]/(commands[2] +1.e-6))
-        
         ang_vel_rew = jp.exp(-4 * ang_vel_error) #change to sigma
         ang_vel_rew_new = jp.sum(jp.exp(-4 * ang_vel_error_new))
-        return ang_vel_rew_new #change to sigma
+        return ang_vel_rew #change to sigma
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array: 
         # Penalize z axis base linear velocity
@@ -806,7 +805,7 @@ class UnitreeEnv(MjxEnv):
         body_contacts = jp.zeros(len(self.body_geom_id),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_contacts(data, len(self.body_geom_id), geom_indices= self.body_geom_id)[:,0])
         #jax.debug.print('Body distance: {x}', x=data.contact.dist[body_contacts])
-        return 1.0*jp.sum(data.contact.dist[body_contacts] < 0.05)
+        return jp.sum(data.contact.dist[body_contacts] < 0.05)
         
     ## Related to smoothness of the actions:
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
@@ -829,8 +828,8 @@ class UnitreeEnv(MjxEnv):
         cmd_norm = jp.linalg.norm(commands)
         rew_air_time = jp.sum((air_time - 0.1) * first_contact)
         rew_air_time *= (
-            #math.normalize(commands[:])[1] > 0.05
-            jp.any(jp.abs(commands) > 0.05)
+            math.normalize(commands[:])[1] > 0.05
+            #jp.any(jp.abs(commands) > 0.05)
         )
         return rew_air_time
     
@@ -850,7 +849,8 @@ class UnitreeEnv(MjxEnv):
     ) -> jax.Array:
     
         return jp.sum(jp.abs(joint_angles - self.default_pos[7:])) * (
-            jp.all(jp.abs(commands) < 0.05)
+            #jp.all(jp.abs(commands) < 0.05)
+            math.normalize(commands[:])[1] < 0.1
         )
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:

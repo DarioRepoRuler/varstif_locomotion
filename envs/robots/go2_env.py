@@ -4,9 +4,12 @@ from envs.robots.unitree_env import UnitreeEnv
 
 class GO2Env(UnitreeEnv):
     def __init__(self, cfg, scene_xml='unitree_go2/scene.xml'):
+        
+        self.default_pos = jp.array(cfg.default_pos)
+        
         super().__init__(cfg, model_path=scene_xml)
         # set up robot properties
-
+        
         self._setup()
 
 
@@ -22,14 +25,13 @@ class GO2Env(UnitreeEnv):
         
 
         self.torque_limits = jp.array([23.7, 23.7, 35.55] * 4)
-
-        self.default_pos = jp.array(
-            [0, 0, 0.4, 1, 0, 0, 0, # base coord + quat, former height 0.27
-             -0.1, 0.8, -1.5, #FR
-             0.1, 0.8, -1.5,  #FL
-             -0.1, 1.0, -1.5, #RR
-             0.1, 1.0, -1.5]  #RL
-        )
+        # self.default_pos = jp.array(
+        #     [0, 0, 0.4, 1, 0, 0, 0, # base coord + quat, former height 0.27
+        #      -0.1, 0.8, -1.5, #FR
+        #      0.1, 0.8, -1.5,  #FL
+        #      -0.1, 1.0, -1.5, #RR
+        #      0.1, 1.0, -1.5]  #RL
+        # )
 
         # Specify Gains for PD controller for each joint
         self.p_gains = jp.ones(12) * self.p_gain

@@ -509,9 +509,6 @@ class PPOTaskBase(nn.Module):
                 results['kick_force_magnitude'].append(magnitudes.unsqueeze(0))
                 print(f"Thetas: {thetas.shape}")
                 print(f"Magnitudes: {magnitudes.shape}")
-                # if thetas.size(0) != 1:
-                #     print(f"Kick theta: {thetas}")
-                #     print(f"Kick force magnitude: {magnitudes}")
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
@@ -535,6 +532,7 @@ class PPOTaskBase(nn.Module):
             name = f'{grandparent_dir_name}_{parent_dir_name}'
         else:
             name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        print(f"Storing results in: force_push_results_{name}.csv")
         save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta']],['success_rate', 'kick_force_magnitude', 'kick_theta'], \
                              f'force_push_results_{name}.csv')
          
@@ -726,26 +724,37 @@ class PPOTaskBase(nn.Module):
             print("Please set to manual control to false, ang. control range to 0, timesteps per rollout to 50 and disable force/vel. kick")
             return
 
-        results ={ 'success':[], 'cmd_theta':[], 'cmd_norm':[] }
-        for it in range(num_iterations):
+        results ={ 'success':[], 'cmd_theta':[], 'cmd_norm':[], 'cmd': [], 'local_v':[] }
+        mean_error = []
+        
+        for it in range(1,num_iterations):
             print(f"iteration: {it}")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
-            commands = eval_infos['cmd'][-1,:,:] # num_envs, num_
+            
+            commands = eval_infos['cmd'][1,:,:2] # num_timesteps, num_envs, num_cmds
             cmd_norm = torch.linalg.norm(commands, dim=1).unsqueeze(1)
-
+            
+            #cmd_track = torch.concat((eval_metrics['local_v'][:,:,:2], eval_metrics['local_w'][:,:,2].unsqueeze(2)), 2)
+            #mean_error = torch.mean(torch.linalg.norm(eval_infos['cmd']- cmd_track, dim = 2), dim = 0)
+            # Do only use the first two indices of the command and count the error according to the command
+            track_error = torch.mean(torch.linalg.norm(eval_metrics['local_v'][:,:,:2] - eval_infos['cmd'][:,:,:2], dim=2), dim=0)
+            results['cmd'].append(eval_infos['cmd'][:,:,:2])
+            results['local_v'].append(eval_metrics['local_v'][:,:,:2])
+            mean_error.append(track_error)
             theta = torch.atan2(commands[:,1],commands[:,0]) # in rad
             target_x, target_y = (torch.cos(theta)*cmd_norm.T*self.cfg.rollouts_per_experiment, torch.sin(theta)*cmd_norm.T*self.cfg.rollouts_per_experiment)
-
             distance = torch.sqrt((eval_metrics['glob_pos'][-1,:,0]-target_x)**2 + (eval_metrics['glob_pos'][-1,:,1]-target_y)**2)
 
             if it % self.cfg.rollouts_per_experiment == 0 and it >0:
-                success = (distance < 0.2*cmd_norm.T*self.cfg.rollouts_per_experiment)
+                mean_error = torch.mean(torch.stack(mean_error[-4:], dim=0),dim=0)
+                #success = (distance < 0.2*cmd_norm.T*self.cfg.rollouts_per_experiment)
+                success = (mean_error /(cmd_norm[:,0]+1.e-8) < 0.1).cpu().unsqueeze(0)
                 results['success'].append(success)
                 results['cmd_theta'].append(theta)
                 results['cmd_norm'].append(cmd_norm)# *self.cfg.rollouts_per_experiment)
                 print(f"Finished xy experiment {it//self.cfg.rollouts_per_experiment} with success rate: {torch.sum(success)/self.cfg.num_envs}")
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
-
+                mean_error = []
             self.algo.storage.clear()
         
         for key in results.keys():
@@ -761,7 +770,7 @@ class PPOTaskBase(nn.Module):
             name = f'{grandparent_dir_name}_{parent_dir_name}'
         else:
             name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
-        save_tensors_to_csv([results['success'], results['cmd_norm'], results['cmd_theta']],['success', 'cmd_norm', 'cmd_theta'], \
+        save_tensors_to_csv([results['success'], results['cmd_norm'], results['cmd_theta'], results['cmd'], results['local_v']],['success', 'cmd_norm', 'cmd_theta', 'cmd', 'local_v'], \
                              f'cmd_rando_xy_{name}.csv')  
 
 
