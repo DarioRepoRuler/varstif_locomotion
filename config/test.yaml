@@ -2,7 +2,7 @@ defaults:
   - _self_
   - policy: ppo
 
-ckpt_path: 'outputs/2024-11-18/10-39-55/checkpoints/last.pt'
+ckpt_path: 'outputs/2024-11-20/10-17-31/checkpoints/model_1000.pt'
 
 env:
   action_scale: 0.5
@@ -65,9 +65,9 @@ env:
   }
 
   manual_control:
-    enable: False
-    task: 'xy_random' # can be either 'auto', 'force_push', 'heading_directions','xy_random' , 'escape pyramids' ,'track trajectory', 
-    cmd_x: 0.8
+    enable: True
+    task: 'default' # can be either 'auto', 'force_push', 'heading_directions','xy_random' , 'escape pyramids' ,'track trajectory', 
+    cmd_x: 0.3
     cmd_y: 0.
     cmd_ang: 0.0
 
@@ -112,7 +112,7 @@ plot_details: True
 result_name: 'results_vic2_0810.csv'
 timesteps_per_rollout: 50
 num_iterations: 21
-num_envs: 1000
+num_envs: 100
 
 viz: True
 device: 'cuda:0'

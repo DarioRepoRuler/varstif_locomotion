@@ -578,6 +578,7 @@ class UnitreeEnv(MjxEnv):
         state.metrics['glob_pos'] = data.qpos[:2]
         state.metrics['command'] = state.info['command']
         state.metrics['p_gains'] = p_gains   
+        
 
         # sample new command
         state.info['command'] = jp.where(
@@ -747,7 +748,7 @@ class UnitreeEnv(MjxEnv):
         #lin_vel_reward_low = jp.exp(-16 * lin_vel_error) # change to sigma
         #lin_vel_final = jp.where(jp.linalg.norm(commands[:2])<0.4, lin_vel_reward_low, lin_vel_reward)
         lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
-        return lin_vel_reward_new
+        return lin_vel_reward
 
     def _reward_tracking_ang_vel(
             self, commands: jax.Array, x: Transform, xd: Motion
@@ -759,7 +760,7 @@ class UnitreeEnv(MjxEnv):
         
         ang_vel_rew = jp.exp(-4 * ang_vel_error) #change to sigma
         ang_vel_rew_new = jp.exp(-2 * ang_vel_error_new)
-        return ang_vel_rew_new #change to sigma
+        return ang_vel_rew #change to sigma
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array: 
         # Penalize z axis base linear velocity
@@ -879,16 +880,19 @@ class UnitreeEnv(MjxEnv):
         return var
     
     def _reward_joint_track(self, joint_angles: jax.Array, action: jax.Array) -> jax.Array:
-        
         target_dof_pos = jp.clip(self.compute_target_dof(action),
                                 a_min=self.lower_limits, a_max=self.upper_limits)
-        
-        return jp.sum(jp.square(joint_angles-target_dof_pos))   
+        joint_track = jp.sum(jp.square(joint_angles-target_dof_pos))
+        return joint_track
     
     def _reward_base_height(self, base_z: jax.Array) -> jax.Array:
-        target_height = 0.27
+        target_height = 0.3
         return jp.square(base_z-target_height)
 
     def _reward_com(self, com: jax.Array, foot_pos: jax.Array) -> jax.Array:
         des_com = foot_pos[:,:2].mean(axis=0)
-        return jp.sum(jp.square(com[:2]-des_com))
+        com_rew = jp.sum(jp.linalg.norm(com[:2]-des_com))
+        #jax.debug.print('COM reward: {x}', x=com_rew)
+        com_rew_old = jp.sum(jp.square(com[:2]-des_com))
+        #jax.debug.print('COM reward(old): {x}', x=com_rew_old)
+        return com_rew

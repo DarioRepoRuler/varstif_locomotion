@@ -91,13 +91,15 @@ env:
             "rew_power": -2.e-5, 
             'feet_air_time': 0.5,
             'termination': -10.0,
-            'stand_still': -0.5, 
+            #'stand_still': -0.5, 
+            'rew_base_height': -1.0,
             "foot_slip": -0.1,
             "action_rate": -0.002,
             "rew_acceleration": -2.5e-7,
             "rew_collision": -10.0,
             'rew_limits': -0.02,
-            'rew_joint_track': 0.05,
+            'rew_joint_track': -0.1,
+            'rew_com': -1.0,
   }
 
 log: True
