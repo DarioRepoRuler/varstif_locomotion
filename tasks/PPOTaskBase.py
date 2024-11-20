@@ -748,7 +748,7 @@ class PPOTaskBase(nn.Module):
             if it % self.cfg.rollouts_per_experiment == 0 and it >0:
                 mean_error = torch.mean(torch.stack(mean_error[-4:], dim=0),dim=0)
                 #success = (distance < 0.2*cmd_norm.T*self.cfg.rollouts_per_experiment)
-                success = (mean_error /(cmd_norm[:,0]+1.e-8) < 0.1).cpu().unsqueeze(0)
+                success = (mean_error /(cmd_norm[:,0]+1.e-8) < 0.2).cpu().unsqueeze(0)
                 results['success'].append(success)
                 results['cmd_theta'].append(theta)
                 results['cmd_norm'].append(cmd_norm)# *self.cfg.rollouts_per_experiment)

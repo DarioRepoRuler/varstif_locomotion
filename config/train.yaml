@@ -93,7 +93,7 @@ env:
             'termination': -10.0,
             'stand_still': -0.5, 
             "foot_slip": -0.1,
-            "action_rate": -0.005,
+            "action_rate": -0.002,
             "rew_acceleration": -2.5e-7,
             "rew_collision": -10.0,
             'rew_limits': -0.02,
