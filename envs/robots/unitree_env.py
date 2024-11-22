@@ -311,7 +311,7 @@ class UnitreeEnv(MjxEnv):
                 d_gains = 0.2*jp.sqrt(p_gains)
             else:
                 d_gains = self.d_gains
-            if self.cfg.domain_rand.randomisation: # and self.cfg.control_mode =="P":
+            if self.cfg.domain_rand.randomisation:
                 p_gains = p_gains * actuator_param[0]
                 d_gains = d_gains * actuator_param[1]
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
@@ -594,9 +594,9 @@ class UnitreeEnv(MjxEnv):
             state.info['command'],
         )
         # reset the step counter when done
-        # state.info['step'] = jp.where(
-        # (state.info['step'] > self.cfg.episode_length), 0, state.info['step']
-        # )
+        state.info['step'] = jp.where(
+        (state.info['step'] > self.cfg.episode_length), 0, state.info['step']
+        )
         
         
         state.metrics.update(state.info['rewards'])
@@ -728,7 +728,6 @@ class UnitreeEnv(MjxEnv):
         # Termination in case of finite terrain
         done_map = (jp.abs(data.qpos[0]) > 10.0) | (jp.abs(data.qpos[1]) > 10.0) | (jp.abs(data.qpos[2]) < -3.0)
         done |= done_map*self.terminate_map
-        done |= step > self.cfg.episode_length
         # Catch em all Nans
         done |= jp.isnan(data.qpos).any() | jp.isnan(data.qvel).any()
         return done
@@ -820,7 +819,7 @@ class UnitreeEnv(MjxEnv):
     def rew_hip(
             self, joint_angles: jax.Array, commands: jax.Array
     ):
-        reward_hip = jp.exp(-4*jp.sum(jp.square(joint_angles[::3])))
+        reward_hip = jp.exp(-0.4*jp.sum(jp.square(joint_angles[::3])))
         reward_hip *=(jp.any(jp.abs(commands) > 0.05))
         return reward_hip
     

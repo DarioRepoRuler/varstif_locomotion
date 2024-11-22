@@ -260,7 +260,6 @@ class AutoResetWrapper(Wrapper):
         state.info['feet_contact_time'] = where_nan_done(jp.zeros_like(state.info['feet_contact_time']), state.info['feet_contact_time'])
         state.info['last_contact'] = where_nan_done(jp.zeros_like(state.info['last_contact']), state.info['last_contact'])
         state.info['time_out']= where_nan_done(jp.zeros_like(state.info['time_out']), state.info['time_out'])
-        state.info['rng'] =where_nan_done(jp.zeros_like(state.info['rng']), state.info['rng'])
         state.info['action_minus_2t'] = where_nan_done(jp.zeros_like(state.info['action_minus_2t']), state.info['action_minus_2t'])
         
         return state.replace(pipeline_state=pipeline_state, obs = obs, reward=reward, privileged_obs=privileged_obs)

@@ -297,8 +297,8 @@ class PPOTaskBase(nn.Module):
             
             if it % self.eval_interval == 0:
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
-            #     print(f"Evaluation at epoch: {it}")
-            #     self.agent_eval_step(it, save_dir,is_training=False)
+                # print(f"Evaluation at epoch: {it}")
+                # self.agent_eval_step(it, save_dir,is_training=False)
                 
             # if (it % self.eval_interval == 0) and (it > 0) and (self._rew_track_lin_vel > 1.125):
             #     # Adapting the control range
