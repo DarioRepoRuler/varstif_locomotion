@@ -235,7 +235,6 @@ class UnitreeEnv(MjxEnv):
             'action_minus_2t': jp.zeros(self.action_shape), # added for smoothness
             'last_act': jp.zeros(self.action_shape),
             'last_vel': jp.zeros(18),
-            'foot_acc': jp.zeros(12),
             'command': command,
             'contact': jp.zeros(4, dtype=bool), 
             'last_contact': jp.zeros(4, dtype=bool),
@@ -260,6 +259,7 @@ class UnitreeEnv(MjxEnv):
             'last_kick_force_magnitude': jp.array(0.0),
             'des_foot_height': jp.zeros((4,50)),
             'foot_pos': jp.zeros((4,3)),
+            'last_action_kick': jp.zeros(18),
         }
         
         # Define obs history
@@ -311,7 +311,7 @@ class UnitreeEnv(MjxEnv):
                 d_gains = 0.2*jp.sqrt(p_gains)
             else:
                 d_gains = self.d_gains
-            if self.cfg.domain_rand.randomisation:
+            if self.cfg.domain_rand.randomisation and self.cfg.control_mode == "P":
                 p_gains = p_gains * actuator_param[0]
                 d_gains = d_gains * actuator_param[1]
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
@@ -432,7 +432,7 @@ class UnitreeEnv(MjxEnv):
         """
         #action = jp.clip(action, a_min=-1.0, a_max=1.0)
         # For randomization
-        rng, obs_rng, kick_noise, cmd_rng = jax.random.split(state.info['rng'], 4)
+        rng, obs_rng, kick_noise, cmd_rng, delay_rng = jax.random.split(state.info['rng'], 5)
         
         # kick robot
         state = self.kick_robot(state, kick_noise)
@@ -449,15 +449,17 @@ class UnitreeEnv(MjxEnv):
 
         p_gains = self.compute_stiffness(self.cfg.action_stiff_scale*action)
         target_dof = self.compute_target_dof(action)
-        data = self.pipeline_step(data0, action_kick, actuator_param) #passed data is action as angle -> convert to torque in mjx
-              
+        random_delay = jp.where(self.cfg.domain_rand.randomisation ,jax.random.randint(delay_rng, shape=(), minval=1, maxval=self._physics_steps_per_control_step-1), jax.numpy.array(0, dtype=jax.numpy.int32))
+        data = self.pipeline_step(data0, action_kick, state.info['last_action_kick'], actuator_param, random_delay.astype(int)) #passed data is action as angle -> convert to torque in mjx
+        state.info['last_action_kick'] = action_kick
+        
         # ----------------- POST Physics step --------------- #
         # Here we 1.)extract the state information, 2.)check termination, 3.) calculate the reward and 4.) get observations 
         
         #1.) Extract the state information: positions/velocities, joint angles/velocities, foot contacts, etc.
         x, xd = self._pos_vel(data)
-        joint_angles = data.qpos[7:]
-        joint_vel = data.qvel[6:]  
+        joint_angles = data.qpos[7:] #q_{t+1}
+        joint_vel = data.qvel[6:]  #qdot_{t+1}
 
         # Foot contact data
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
@@ -477,7 +479,7 @@ class UnitreeEnv(MjxEnv):
         first_contact = (state.info['feet_air_time'] > 0) * contact_filt_mm
         # for observations
         state.info['contact'] = contact_filt_mm
-        state.info['feet_air_time'] += self.dt
+        state.info['feet_air_time'] += jp.where(jp.any(jp.abs(state.info['command'])>0.05), self.dt, 0) #self.dt
         state.info['feet_contact_time'] += self.dt
 
         # 2.) Check termination
@@ -819,7 +821,7 @@ class UnitreeEnv(MjxEnv):
     def rew_hip(
             self, joint_angles: jax.Array, commands: jax.Array
     ):
-        reward_hip = jp.exp(-0.4*jp.sum(jp.square(joint_angles[::3])))
+        reward_hip = jp.exp(-4.*jp.sum(jp.square(joint_angles[::3]-self.default_pos[7::3])))
         reward_hip *=(jp.any(jp.abs(commands) > 0.05))
         return reward_hip
     

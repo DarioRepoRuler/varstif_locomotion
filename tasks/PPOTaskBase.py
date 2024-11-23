@@ -380,7 +380,7 @@ class PPOTaskBase(nn.Module):
         self.test_xy_random(self.cfg.num_iterations)
 
     def test_default(self, num_iterations):
-        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
+        #from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
 
         for it in range(num_iterations):
             print(f"iteration: {it} ")

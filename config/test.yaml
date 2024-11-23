@@ -79,8 +79,8 @@ env:
 
   control:
     stiff_range: [0.5, 2.0]
-    p_gain: 25.0
-    d_gain: 0.6
+    p_gain: 50.0
+    d_gain: 1.0
   
   contacts:
     total: 23
@@ -114,7 +114,7 @@ timesteps_per_rollout: 50
 num_iterations: 21
 num_envs: 100
 
-viz: True
+viz: False
 device: 'cuda:0'
 curriculum: False
 scene_xml: 'unitree_go2/flat.xml'

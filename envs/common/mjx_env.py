@@ -66,17 +66,18 @@ class MjxEnv(Env):
         data = mjx.forward(self.sys, data)
         return data
 
-    def pipeline_step(self, data: mjx.Data, action: jp.ndarray, actuator_param: jp.ndarray) -> mjx.Data:
+    def pipeline_step(self, data: mjx.Data, action: jp.ndarray, last_action: jp.ndarray ,actuator_param: jp.ndarray, control_steps: jp.ndarray) -> mjx.Data:
         """Takes a physics step using the physics pipeline."""
-        def f(data, _):
-            ctrl = self.compute_torque(data, action, actuator_param)
+        def f(carry, _):
+            data, current_step = carry
+            ctrl = jp.where(current_step >= control_steps, self.compute_torque(data, action, actuator_param), self.compute_torque(data, last_action, actuator_param))
             data = data.replace(ctrl=ctrl)
             return (
-                mjx.step(self.sys, data),
+                (mjx.step(self.sys, data), current_step+1),
                 None,
             )
-        data, _ = jax.lax.scan(f, data, (), self._physics_steps_per_control_step)
-        
+        (data,_ ), _ = jax.lax.scan(f, (data,0), (), self._physics_steps_per_control_step)
+
         return data
     
     def pipeline_step2(self, data: mjx.Data, ctrl: jp.ndarray) -> mjx.Data:
