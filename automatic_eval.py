@@ -149,13 +149,16 @@ def modify_and_execute_script(config_path, checkpoint_path):
     config['ckpt_path'] = checkpoint_path
 
     # Add or modify additional configuration elements
-    config['num_iterations'] = 65
-    config['num_envs'] = 1000
+    config['env']['sample_command_interval'] = 500
+    config['env']['kick_vel'] = 0.0
+    config['env']['terminate_geoms'] = ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"]
     config['env']['enable_force_kick'] = False
     config['env']['impulse_force_kick'] = False
-    config['env']['kick_vel'] = 0.0
+    config['env']['force_kick_impulse'] = [20.0, 20.0]
+    config['env']['force_kick_interval']= 150
+    config['env']['kick_force'] = [50.0,600.0]
+    config['env']['is_training'] = False
     config['env']['domain_rand']['enable'] = False
-    config['device']='cuda:0'
     config['env']['control_range'] = {
         'cmd_x': [-1.5, 1.5],
         'cmd_y': [-1.5, 1.5],
@@ -168,10 +171,15 @@ def modify_and_execute_script(config_path, checkpoint_path):
         'cmd_y': 0.0,
         'cmd_ang': 0.0
     }
-    config['timesteps_per_rollout'] = 50
+    
     config['rollouts_per_experiment'] = 8
     config['success_threshold'] = 0.78125
+    config['timesteps_per_rollout'] = 50
+    config['plot_details']=False
+    config['num_iterations'] = 65
+    config['num_envs'] = 1000
     config['viz'] = False
+    config['device']='cuda:0'
     print(f"Updated config with new properties and ckpt_path: {checkpoint_path}")
 
     # Save the modified configuration to a temporary file
@@ -225,6 +233,7 @@ def process_dates_in_range(output_dir, start_date, end_date):
                 if os.path.isdir(subfolder_path):
                     if 'checkpoints' in os.listdir(subfolder_path):
                         checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
+                        ## Old evluation script
                         if checkpoint_path:
                             config_path = find_hydra_config(subfolder_path)
                             if config_path:
@@ -235,11 +244,29 @@ def process_dates_in_range(output_dir, start_date, end_date):
                             print(f'No checkpoints found in {subfolder_path}')
                     else:
                         print(f'No checkpoints in {subfolder_path}')
-                        # Uncomment to actually delete: shutil.rmtree(subfolder_path)
+                        ## New evaluation script
+                        # if checkpoint_path:
+                        #         # Extract numerical part if the file matches 'model_{i}.pt'
+                        #         filename = os.path.basename(checkpoint_path)
+                        #         if filename.startswith("model_") and filename.endswith(".pt"):
+                        #             try:
+                        #                 checkpoint_num = int(filename.split('_')[1].split('.')[0])
+                        #                 if checkpoint_num > 500:
+                        #                     print(f"Found valid checkpoint {filename} with number > 500.")
+                        #                     #modify_and_execute_script(config_path, checkpoint_path)
+                        #                 else:
+                        #                     print(f"Skipping ckpt {filename} as number is <= 500.")
+                        #             except ValueError:
+                        #                 print(f"Could not parse numerical part of {filename}, skipping.")
+                        #         elif filename in ['last.pt', 'best.pt']:
+                        #             print(f"Found {filename}, proceeding.")
+                        #             #modify_and_execute_script(config_path, checkpoint_path)
+                        # else:
+                        #     print(f"Skipping checkpoint {filename} as it does not meet criteria.")
 
 # Example usage
 output_dir = os.path.join(os.getcwd(), 'outputs')
-start_date = '2024-11-23'
-end_date = '2024-11-23'
+start_date = '2024-11-22'
+end_date = '2024-11-22'
 
 process_dates_in_range(output_dir, start_date, end_date)

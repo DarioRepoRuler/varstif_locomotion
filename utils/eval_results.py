@@ -3,7 +3,8 @@ import os
 import matplotlib.patches as mpatches
 
 # Get the results from the output directory
-output_dir = '/home/dario/Documents/TALocoMotion/outputs/graphs/'
+# output_dir = '/home/dario/Documents/TALocoMotion/outputs/graphs/'
+output_dir = os.path.join(os.getcwd(), 'outputs', 'graphs')
 if not os.path.exists(output_dir):
     assert False, f"Output directory does not exist: {output_dir}"
 files= os.listdir(output_dir)
@@ -39,7 +40,7 @@ def eval_heading(filenames, labels = None):
 
 filenames_headings= ['heading_directions_results_13-00-31.csv' , 'heading_directions_results_2024-10-15_22-15-05.csv', 'heading_directions_results_2024-10-10_14-00-27.csv', 'heading_directions_results_2024-10-11_15-11-37.csv'] #'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
 labels = ['Baseline', 'VIC1', 'VIC2', 'VIC4']
-eval_heading(filenames_headings, labels= labels)
+#eval_heading(filenames_headings, labels= labels)
 
 
 # ----------------------- Evaluation of Energy -----------------------
@@ -62,8 +63,8 @@ def eval_cot_heading(filenames, labels = None):
 
 filenames_heading = ['heading_directions_results_13-00-31.csv', 'heading_directions_results_2024-10-11_13-54-32.csv', 'heading_directions_results_2024-10-10_14-00-27.csv' ]# 'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
 labels = ['Baseline', 'VIC2 with feet contacts', 'VIC2 narrow stiff range']
-#eval_cot_heading(filenames['heading_directions'])
-eval_cot_heading(filenames_heading, labels)
+eval_cot_heading(filenames['heading_directions'])
+#eval_cot_heading(filenames_heading, labels)
 
 # ----------------------- Evaluation of force push -----------------------
 
@@ -83,19 +84,19 @@ def eval_force_push(filenames):
             polar_scatter_push_plot(push_data['kick_force_magnitude'], push_data['kick_theta'], push_data['success'], plot_name)
         else: 
             print(f"Skipping {filename} experiment failed!")
-filenames_force = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
-filenames_force = ['force_push_results_model_1500.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
+#filenames_force = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
+#filenames_force = ['force_push_results_model_1500.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
 
 eval_force_push(filenames['force_push'])
 
 # -----------------------Evaluation of pyramid excape-----------------------
-pyramid_success = {
-    'Baseline': load_tensor_from_csv('success_rate',filename='pyramid_results_rando_all1.csv'),
-}
-success_rates_t_pyramid = torch.stack([pyramid_success[key] for key in pyramid_success.keys()],dim=0)
-staircase_heights = torch.tensor([5, 6.25, 7.5, 8.75])
+# pyramid_success = {
+#     'Baseline': load_tensor_from_csv('success_rate',filename='pyramid_results_rando_all1.csv'),
+# }
+# success_rates_t_pyramid = torch.stack([pyramid_success[key] for key in pyramid_success.keys()],dim=0)
+# staircase_heights = torch.tensor([5, 6.25, 7.5, 8.75])
 
-create_graph(success_rates_t_pyramid, staircase_heights,[key for key in pyramid_success.keys()], 'Success Rate', 'success rate', 'stair height')
+#create_graph(success_rates_t_pyramid, staircase_heights,[key for key in pyramid_success.keys()], 'Success Rate', 'success rate', 'stair height')
 
 
 # -----------------------Evaluation for rando cmd -----------------------
@@ -108,7 +109,7 @@ def eval_cmd_rando(filenames):
             'cmd_theta': load_tensor_from_csv('cmd_theta', filename=filename),
         }
         #print(f"Preprocessed data: {cmd_data['cmd_norm'][:,:,0]}")
-        indices = torch.where(torch.logical_and(cmd_data['cmd_norm'][:,:,0] > 0.2, cmd_data['cmd_norm'][:,:,0] < 1.5))
+        indices = torch.where(torch.logical_and(cmd_data['cmd_norm'][:,:,0] > 0.01, cmd_data['cmd_norm'][:,:,0] < 1.5))
         #print(f"Indices: {indices}")
         #print(f"Shape of cmd_norm: {cmd_data['cmd_norm'][:,:,0].shape} and theta: {cmd_data['cmd_theta'].shape} and success: {cmd_data['success'].shape}")
         plot_name = filename.split('.')[0]
