@@ -54,7 +54,7 @@ class UnitreeEnv(MjxEnv):
         # Set obs sizes(size is adapted in PPOTaskBase) 
         self.single_obs_size = self.cfg.single_obs_size
         self.privileged_obs_size = self.cfg.single_obs_size_priv
-
+        print(f'Action size: {self.action_size}')
         # Variable impedance control parameters
         if self.cfg.control_mode == "VIC_1": # for hip,thigh and knee
             self.action_shape = self.action_size-2 + 3
@@ -69,7 +69,7 @@ class UnitreeEnv(MjxEnv):
             self.action_shape = self.action_size-2 + 7
         else:
             self.action_shape = self.action_size-2
-        
+        print(f"Action shape: {self.action_shape}")
         # Specify Gains for PD controller for each joint
         self.p_gain = cfg.control.p_gain
         self.d_gain = cfg.control.d_gain
@@ -259,7 +259,7 @@ class UnitreeEnv(MjxEnv):
             'last_kick_force_magnitude': jp.array(0.0),
             'des_foot_height': jp.zeros((4,50)),
             'foot_pos': jp.zeros((4,3)),
-            'last_action_kick': jp.zeros(18),
+            'last_action_kick': jp.zeros(self.action_shape+2),
         }
         
         # Define obs history
@@ -394,7 +394,7 @@ class UnitreeEnv(MjxEnv):
         if self.cfg.enable_force_kick:
             rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 3)
             # Push randomly
-            kick_theta = jax.random.uniform(rng_theta, maxval= 2* jp.pi)
+            kick_theta = jp.pi#jax.random.uniform(rng_theta, maxval= 2* jp.pi)
             kick_force = jax.random.uniform(rng_kick, minval=self.cfg.kick_force[0], maxval=self.cfg.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.cfg.force_kick_impulse[0], maxval=self.cfg.force_kick_impulse[1])
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 

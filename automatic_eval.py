@@ -133,7 +133,7 @@ def find_highest_checkpoint_in_date_range(output_dir, start_date, end_date):
 # #delete_all_non_checkpoints_runs(output_dir)
 
 
-def modify_and_execute_script(config_path, checkpoint_path):
+def modify_and_execute_test_script(config_path, checkpoint_path):
     """
     Modifies the config.yaml file to update the 'ckpt_path' property and executes test.py.
 
@@ -167,7 +167,7 @@ def modify_and_execute_script(config_path, checkpoint_path):
     config['env']['manual_control'] = {
         'enable': True,
         'task': 'auto',
-        'cmd_x': 0.8,
+        'cmd_x': 0.3,
         'cmd_y': 0.0,
         'cmd_ang': 0.0
     }
@@ -178,7 +178,7 @@ def modify_and_execute_script(config_path, checkpoint_path):
     config['plot_details']=False
     config['num_iterations'] = 65
     config['num_envs'] = 1000
-    config['viz'] = False
+    config['viz'] = True
     config['device']='cuda:0'
     print(f"Updated config with new properties and ckpt_path: {checkpoint_path}")
 
@@ -206,6 +206,34 @@ def modify_and_execute_script(config_path, checkpoint_path):
         if os.path.exists(temp_config_dir) and not os.listdir(temp_config_dir):
             os.rmdir(temp_config_dir)
 
+def eval_trained_model(subfolder_path):
+    if 'checkpoints' in os.listdir(subfolder_path):
+        checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
+        ## Old evluation script
+        if checkpoint_path:
+            config_path = find_hydra_config(subfolder_path)
+            # Extract numerical part if the file matches 'model_{i}.pt'
+            filename = os.path.basename(checkpoint_path)
+            if filename.startswith("model_") and filename.endswith(".pt"):
+                try:
+                    checkpoint_num = int(filename.split('_')[1].split('.')[0])
+                    if checkpoint_num > 500:
+                        print(f"Found valid checkpoint {filename} with number > 500.")
+                        modify_and_execute_test_script(config_path, checkpoint_path)
+                    else:
+                        print(f"Skipping ckpt {filename} as number is <= 500.")
+                except ValueError:
+                    print(f"Could not parse numerical part of {filename}, skipping.")
+            elif filename in ['last.pt', 'best.pt']:
+                print(f"Found {filename}, proceeding.")
+                modify_and_execute_test_script(config_path, checkpoint_path)
+        elif checkpoint_path is None:
+            print(f'No highest nor best/last checkpoint found in {subfolder_path}')
+    else:
+        print(f'No checkpoints in {subfolder_path}')
+
+
+
 def process_dates_in_range(output_dir, start_date, end_date):
     """
     Processes subdirectories within a date range, checking for and deleting non-checkpoint runs.
@@ -231,42 +259,28 @@ def process_dates_in_range(output_dir, start_date, end_date):
             for file in os.listdir(day_dir):
                 subfolder_path = os.path.join(day_dir, file)
                 if os.path.isdir(subfolder_path):
-                    if 'checkpoints' in os.listdir(subfolder_path):
-                        checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
-                        ## Old evluation script
-                        if checkpoint_path:
-                            config_path = find_hydra_config(subfolder_path)
-                            if config_path:
-                                modify_and_execute_script(config_path, checkpoint_path)
-                            else:
-                                print(f'No config.yaml found for checkpoint in {subfolder_path}')
-                        elif checkpoint_path is None:
-                            print(f'No checkpoints found in {subfolder_path}')
-                    else:
-                        print(f'No checkpoints in {subfolder_path}')
-                        ## New evaluation script
-                        # if checkpoint_path:
-                        #         # Extract numerical part if the file matches 'model_{i}.pt'
-                        #         filename = os.path.basename(checkpoint_path)
-                        #         if filename.startswith("model_") and filename.endswith(".pt"):
-                        #             try:
-                        #                 checkpoint_num = int(filename.split('_')[1].split('.')[0])
-                        #                 if checkpoint_num > 500:
-                        #                     print(f"Found valid checkpoint {filename} with number > 500.")
-                        #                     #modify_and_execute_script(config_path, checkpoint_path)
-                        #                 else:
-                        #                     print(f"Skipping ckpt {filename} as number is <= 500.")
-                        #             except ValueError:
-                        #                 print(f"Could not parse numerical part of {filename}, skipping.")
-                        #         elif filename in ['last.pt', 'best.pt']:
-                        #             print(f"Found {filename}, proceeding.")
-                        #             #modify_and_execute_script(config_path, checkpoint_path)
-                        # else:
-                        #     print(f"Skipping checkpoint {filename} as it does not meet criteria.")
+                    eval_trained_model(subfolder_path)
+                    # if 'checkpoints' in os.listdir(subfolder_path):
+                    #     checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
+                    #     ## Old evluation script
+                    #     if checkpoint_path:
+                    #         config_path = find_hydra_config(subfolder_path)
+                    #         if config_path:
+                    #             modify_and_execute__test_script(config_path, checkpoint_path)
+                    #         else:
+                    #             print(f'No config.yaml found for checkpoint in {subfolder_path}')
+                    #     elif checkpoint_path is None:
+                    #         print(f'No checkpoints found in {subfolder_path}')
+                    # else:
+                    #     print(f'No checkpoints in {subfolder_path}')
+
 
 # Example usage
-output_dir = os.path.join(os.getcwd(), 'outputs')
-start_date = '2024-11-22'
-end_date = '2024-11-22'
+# output_dir = os.path.join(os.getcwd(), 'outputs')
+# start_date = '2024-11-24'
+# end_date = '2024-11-24'
+# process_dates_in_range(output_dir, start_date, end_date)
 
-process_dates_in_range(output_dir, start_date, end_date)
+
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-35-09'
+eval_trained_model(trained_run_path)
