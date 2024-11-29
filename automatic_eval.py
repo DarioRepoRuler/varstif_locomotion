@@ -114,23 +114,7 @@ def find_highest_checkpoint_in_date_range(output_dir, start_date, end_date):
 
 
 
-# # Example call    
-# output_dir = os.path.join(os.getcwd(),'outputs')
-# for day in os.listdir(output_dir):
-#     day_outputs = os.path.join(output_dir,day)
-#     for file in os.listdir(day_outputs):
-#         subfolder_path = os.path.join(day_outputs, file)
-#         if os.path.isdir(subfolder_path):
-#             if 'checkpoints' in os.listdir(subfolder_path):
-#                 checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
-#                 if checkpoint_path is None:
-#                     print(f'No checkpoints found in {subfolder_path}')
-#             else:
-#                 print(f'No checkpoints in {subfolder_path}')
 
-# # day = '2024-11-23'
-# #delete_non_checkpoint_run(os.path.join(output_dir,day))
-# #delete_all_non_checkpoints_runs(output_dir)
 
 
 def modify_and_execute_test_script(config_path, checkpoint_path):
@@ -260,27 +244,36 @@ def process_dates_in_range(output_dir, start_date, end_date):
                 subfolder_path = os.path.join(day_dir, file)
                 if os.path.isdir(subfolder_path):
                     eval_trained_model(subfolder_path)
-                    # if 'checkpoints' in os.listdir(subfolder_path):
-                    #     checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
-                    #     ## Old evluation script
-                    #     if checkpoint_path:
-                    #         config_path = find_hydra_config(subfolder_path)
-                    #         if config_path:
-                    #             modify_and_execute__test_script(config_path, checkpoint_path)
-                    #         else:
-                    #             print(f'No config.yaml found for checkpoint in {subfolder_path}')
-                    #     elif checkpoint_path is None:
-                    #         print(f'No checkpoints found in {subfolder_path}')
-                    # else:
-                    #     print(f'No checkpoints in {subfolder_path}')
 
 
-# Example usage
+## Example usage
+
+# ----------Evaluation of model in a date range ----------- #
 # output_dir = os.path.join(os.getcwd(), 'outputs')
 # start_date = '2024-11-24'
 # end_date = '2024-11-24'
 # process_dates_in_range(output_dir, start_date, end_date)
 
 
+
+# ---------------- Example call ---------------- #    
+# output_dir = os.path.join(os.getcwd(),'outputs')
+# for day in os.listdir(output_dir):
+#     day_outputs = os.path.join(output_dir,day)
+#     for file in os.listdir(day_outputs):
+#         subfolder_path = os.path.join(day_outputs, file)
+#         if os.path.isdir(subfolder_path):
+#             if 'checkpoints' in os.listdir(subfolder_path):
+#                 checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
+#                 if checkpoint_path is None:
+#                     print(f'No checkpoints found in {subfolder_path}')
+#             else:
+#                 print(f'No checkpoints in {subfolder_path}')
+
+# # day = '2024-11-23'
+# #delete_non_checkpoint_run(os.path.join(output_dir,day))
+# #delete_all_non_checkpoints_runs(output_dir)
+
+# # ----------Evaluation of single model ----------- #
 trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-35-09'
 eval_trained_model(trained_run_path)

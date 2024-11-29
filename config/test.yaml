@@ -109,13 +109,13 @@ success_threshold: 0.78125
 rollouts_per_experiment: 8
 plot_details: True
 
-result_name: 'results_vic2_0810.csv'
+result_tag: 'test'
 timesteps_per_rollout: 50
 num_iterations: 65
 num_envs: 1
 
 viz: True
-record_video: False
+record_video: True
 device: 'cuda:0'
 curriculum: False
 scene_xml: 'unitree_go2/flat.xml'

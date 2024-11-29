@@ -72,8 +72,7 @@ class PPOTaskBase(nn.Module):
         self.level = 0
 
         # # Start the keyboard listener thread
-        if self.cfg.viz:
-            
+        if self.cfg.viz and not self.cfg.record_video:
             import threading
             from pynput import keyboard as pynput_keyboard
             self.pynput_keyboard = pynput_keyboard
@@ -357,14 +356,18 @@ class PPOTaskBase(nn.Module):
         print(f"Finihsed heading directions evaluation")
         print(f"Starting force push evaluation")
         # Change settings to force push 
-        self.cfg.env.manual_control.enable = True
+        self.cfg.env.domain_rand.randomisation = False
         self.cfg.env.manual_control.enable = True
         self.cfg.env.manual_control.cmd_x = 0.3
         self.cfg.timesteps_per_rollout = 50
         self.cfg.env.enable_force_kick = True
+        self.cfg.env.force_kick_interval = 150
+        self.cfg.env.impulse_force_kick= False
         self.cfg.env.kick_vel = 0.0
         self.cfg.rollouts_per_experiment = 5
         self.cfg.num_iterations = 21
+        self.cfg.env.force_kick_duration = 0.2
+        self.cfg.env.kick_force = [50.0, 300.0]
         self.cfg.env.sample_command_interval = 301
         self.test_force_push_random(self.cfg.num_iterations)
         print(f"Finished force push evaluation")
@@ -402,7 +405,6 @@ class PPOTaskBase(nn.Module):
         self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
         
-        
         import numpy as np
         from utils.graphs_gen import  save_tensors_to_csv
         
@@ -430,9 +432,11 @@ class PPOTaskBase(nn.Module):
         p_gains_values = []
         position_errors = []
         results = {'p_gains_values':[], 'position_errors':[], 'power':[]}
-        self.env.start_video_recording('/home/dario/Videos/tracking_camera.mp4', fps=50)
+        if self.cfg.viz and self.cfg.record_video:
+            path = os.path.join(os.getcwd(), 'outputs', 'videos', f'stiffness_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
+            self.env.start_video_recording(path, fps=50)
         
-        for it in range(num_iterations*50):
+        for it in range(num_iterations*self.cfg.timesteps_per_rollout):
             print(f"Iteration: {it}")
             
             # Run the simulation step and gather data
@@ -493,7 +497,8 @@ class PPOTaskBase(nn.Module):
                 self.algo.storage.clear() # we don't need to store the data for training
         # Turn off interactive mode and show the final plot
         plt.ioff()
-        self.env.stop_video_recording()
+        if self.cfg.viz and self.cfg.record_video:
+            self.env.stop_video_recording()
         print(f"Pgains shape in results: {torch.stack(results['p_gains_values']).shape}")
         print(f"Position errors shape in results: {torch.stack(results['position_errors']).shape}")
         print(f"Power shape in results: {torch.stack(results['power']).shape}")
@@ -506,13 +511,14 @@ class PPOTaskBase(nn.Module):
             else:
                 results[key] = torch.tensor([0.0])
         save_tensors_to_csv([results['p_gains_values'], results['position_errors'], results['power']],['p_gains_values', 'position_errors', 'power'], \
-                             f'stiffness_results_{name}.csv')        
+                             f'stiffness_{self.cfg.result_tag}_{name}.csv')        
         
     def test_force_push_random(self, num_iterations):
         name = self.get_model_name()
         self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
         if self.cfg.viz and self.cfg.record_video:
-            self.env.start_video_recording(f'/home/dario/Videos/force_push_{name}.mp4', fps=50)
+            path = os.path.join(os.getcwd(), 'outputs', 'videos', f'force_push_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
+            self.env.start_video_recording(path, fps=50)
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
@@ -568,7 +574,7 @@ class PPOTaskBase(nn.Module):
             self.env.stop_video_recording()
         print(f"Storing results in: force_push_results_{name}.csv")
         save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta']],['success_rate', 'kick_force_magnitude', 'kick_theta'], \
-                             f'force_push_results_{name}.csv')
+                             f'force_push_{self.cfg.result_tag}_{name}.csv')
          
     def test_escape_pyramid(self, num_iterations):
         self.env = self.init_env(f'unitree_go2/terrain_pyramid_l0.xml')
@@ -616,7 +622,7 @@ class PPOTaskBase(nn.Module):
         for key in results.keys():      
             results[key] = torch.stack(results[key]).cpu()
         save_tensors_to_csv([results['success_rate']], 
-                        [f'success_rate', ], f'pyramid_results_{name}.csv')
+                        [f'success_rate', ], f'pyramid_{self.cfg.result_tag}_{name}.csv')
 
     def test_tracking_traj(self, num_iterations):
         # eval data stores for every timestep, results are then the used metrics for overall comparison
@@ -635,7 +641,8 @@ class PPOTaskBase(nn.Module):
         self.env = self.init_env(self.cfg.scene_xml)
         # Start recording if wanted
         if self.cfg.viz and self.cfg.record_video:
-            self.env.start_video_recording(f'/home/dario/Videos/heading_{name}.mp4', fps=50)
+            path = os.path.join(os.getcwd(), 'outputs', 'videos', f'heading_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
+            self.env.start_video_recording(path, fps=50)
         
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
@@ -754,14 +761,15 @@ class PPOTaskBase(nn.Module):
         
         
         save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate'], results['COT']], 
-                            [f'power', f'energy', 'local_v', 'success_rate', 'COT'], f'heading_directions_results_{name}.csv')
+                            [f'power', f'energy', 'local_v', 'success_rate', 'COT'], f'heading_directions_{self.cfg.result_tag}_{name}.csv')
         
     def test_xy_random(self, num_iterations):
         name = self.get_model_name()
         
         self.env = self.init_env(self.cfg.scene_xml)
         if self.cfg.viz and self.cfg.record_video:
-            self.env.start_video_recording(f'/home/dario/Videos/random_xy_{name}.mp4', fps=50)
+            path = os.path.join(os.getcwd(), 'outputs', 'videos', f'cmd_rando_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
+            self.env.start_video_recording(path, fps=50)
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
@@ -814,7 +822,7 @@ class PPOTaskBase(nn.Module):
         if self.cfg.viz and self.cfg.record_video:
             self.env.stop_video_recording()
         save_tensors_to_csv([results['success'], results['cmd_norm'], results['cmd_theta'], results['cmd'], results['local_v']],['success', 'cmd_norm', 'cmd_theta', 'cmd', 'local_v'], \
-                             f'cmd_rando_xy_{name}.csv')  
+                             f'cmd_rando_xy_{self.cfg.result_tag}_{name}.csv')  
 
 
     def save(self, path, infos=None):

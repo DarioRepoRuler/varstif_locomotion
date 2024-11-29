@@ -15,7 +15,7 @@ class RenderWrapper:
     def __init__(self,
                  env: TorchWrapper,
                  render_mode: Optional[str] = None,
-                 width: int = 480,
+                 width: int = 640,
                  height: int = 480,
                  camera_id: Optional[int] = None,
                  camera_name: Optional[str] = None,
