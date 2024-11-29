@@ -31,7 +31,6 @@ class State(Base):
     done: jax.Array
     metrics: Dict[str, jax.Array] = struct.field(default_factory=dict)
     info: Dict[str, Any] = struct.field(default_factory=dict)
-    
 
 
 class MjxEnv(Env):

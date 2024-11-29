@@ -5,6 +5,9 @@ from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
 import jax
 import numpy as np
 import torch 
+import os
+import imageio
+from typing import Optional, List
 
 class RenderWrapper:
     """Wrapper that converts Jax tensors to PyTorch tensors."""
@@ -41,7 +44,51 @@ class RenderWrapper:
         self.vopt = mujoco.MjvOption()  # Initialize visualization options
         self.scene = mujoco.MjvScene(self.model, maxgeom=1000)  # Scene to hold geoms
         self.cam = mujoco.MjvCamera()  # Camera setup
+        
+        self.recording = False
+        self.recorded_frames: List[np.ndarray] = []
+        self.video_path = None
+        self.fps = 30
+    
+    def start_video_recording(self, video_path: str, fps: int = 30):
+        """
+        Start recording a video.
 
+        Args:
+            video_path (str): Path to save the video file.
+            fps (int): Frames per second for the video (default: 30).
+        """
+        self.recording = True
+        self.recorded_frames = []
+        self.video_path = video_path
+        self.fps = fps
+        print(f"Started video recording to {video_path} at {fps} FPS.")
+
+    def stop_video_recording(self):
+        """
+        Stops recording and saves the video.
+        """
+        if not self.recording:
+            print("No active recording to stop.")
+            return
+
+        if not self.video_path:
+            print("Error: No valid video path specified. Please call `start_video_recording` first.")
+            return
+
+        # Ensure the directory for the video exists
+        video_dir = os.path.dirname(self.video_path)
+        print(f"Saving video to {self.video_path}")
+        if video_dir:  # Only create directories if a path exists
+            os.makedirs(video_dir, exist_ok=True)
+        # Save the video using imageio
+        imageio.mimwrite(self.video_path, self.recorded_frames, fps=self.fps, format="mp4")
+        print(f"Video saved to {self.video_path}")
+
+        # Reset recording state
+        self.recording = False
+        self.recorded_frames = []
+        
     def reset(self, initial_xy=jax.numpy.array([0.0,0.0]), manual_cmd=jax.numpy.array([0.0,0.0]), traj = jax.numpy.zeros((500,3))):
         return self._env.reset(initial_xy, manual_cmd, traj)
 
@@ -49,7 +96,19 @@ class RenderWrapper:
         obs, privileged_obs, reward, done, info, metrics = self._env.step(action)
 
         
-        if self.render_mode == "human":
+        if self.render_mode == "rgb_array":
+            data = self._env.state.pipeline_state
+            self.data.qpos = data.qpos[env_id]
+            self.data.qvel = data.qvel[env_id]
+            mujoco.mj_forward(self.model, self.data)
+
+            #self.add_markers(info, env_id)
+            frame = self.render()
+            #print(f"Frame: {frame}")
+            # If recording, save the frame
+            if self.recording and frame is not None:
+                self.recorded_frames.append(frame)
+        elif self.render_mode == "human":
             data = self._env.state.pipeline_state
             self.data.qpos = data.qpos[env_id]
             self.data.qvel = data.qvel[env_id]
@@ -57,7 +116,6 @@ class RenderWrapper:
 
             #self.add_markers(info, env_id)
             self.render()
-            
             
         return obs, privileged_obs,reward, done, info, metrics
 
@@ -89,7 +147,23 @@ class RenderWrapper:
                                                               
 
     def render(self):
-
-        return self.mujoco_renderer.render(
-            self.render_mode, self.camera_id, self.camera_name
-        )
+        """
+        Renders the environment and returns an RGB array for video recording.
+        """
+        if self.render_mode in ["rgb_array", "rgb_array_list"]:
+            return self.mujoco_renderer.render(
+                render_mode="rgb_array",  # Explicitly request an RGB frame
+                camera_name="tracking",
+            )
+        
+        elif self.render_mode == "human":
+            # Render to the screen, does not return a frame
+            return self.mujoco_renderer.render(
+                render_mode=self.render_mode,
+                camera_id=self.camera_id,
+                camera_name=self.camera_name,
+            )
+            
+        else:
+            raise ValueError(f"Unsupported render mode: {self.render_mode}")
+    

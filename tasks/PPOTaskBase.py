@@ -28,6 +28,8 @@ class PPOTaskBase(nn.Module):
         self.save_interval = save_interval # not used
         self.test_interval = test_interval # not used
         
+        self.render_mode = "human"
+        
         self.initial_xy = jp.array([0, 0])
         self.manual_cmd = jp.array([cfg.env.manual_control.cmd_x, cfg.env.manual_control.cmd_y, cfg.env.manual_control.cmd_ang])
         self.high_score_avg_reward =0.0
@@ -71,6 +73,7 @@ class PPOTaskBase(nn.Module):
 
         # # Start the keyboard listener thread
         if self.cfg.viz:
+            
             import threading
             from pynput import keyboard as pynput_keyboard
             self.pynput_keyboard = pynput_keyboard
@@ -79,8 +82,8 @@ class PPOTaskBase(nn.Module):
             self.keyboard_listener_thread.daemon = True
             self.keyboard_listener_thread.start()
 
-    def init_env(self, scene_xml=None):
-        env = _create_env(GO2Env(self.cfg.env, scene_xml=scene_xml), num_envs=self.cfg.num_envs, device=self.cfg.device, viz=self.cfg.viz, domain_cfg=self.cfg.env.domain_rand)
+    def init_env(self, scene_xml=None, render_mode = "human"):
+        env = _create_env(GO2Env(self.cfg.env, scene_xml=scene_xml), num_envs=self.cfg.num_envs, device=self.cfg.device, viz=self.cfg.viz, domain_cfg=self.cfg.env.domain_rand, render_mode=self.render_mode)
         return env
 
     def on_press(self, key):
@@ -327,10 +330,9 @@ class PPOTaskBase(nn.Module):
 
         if ckpt_path:
             self.load(ckpt_path, load_optimizer=False)
+        if self.cfg.viz and self.cfg.record_video:
+            self.render_mode = "rgb_array"
         self.algo.actor_critic.eval()
-        
-        self.env = self.init_env(self.cfg.scene_xml)
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         if self.cfg.env.manual_control.enable and self.cfg.env.manual_control.task == 'heading_directions':
             self.test_heading_directions(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'xy_random':
@@ -364,7 +366,6 @@ class PPOTaskBase(nn.Module):
         self.cfg.rollouts_per_experiment = 5
         self.cfg.num_iterations = 21
         self.cfg.env.sample_command_interval = 301
-        self.env = self.init_env(self.cfg.scene_xml)
         self.test_force_push_random(self.cfg.num_iterations)
         print(f"Finished force push evaluation")
         # Change settings to random xy
@@ -374,14 +375,13 @@ class PPOTaskBase(nn.Module):
         self.cfg.env.control_range['cmd_ang'] = [0.0, 0.0]
         self.cfg.env.enable_force_kick = False
         
-        self.env = self.init_env(self.cfg.scene_xml)
         print(f"Starting random xy evaluation")
-        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
         self.test_xy_random(self.cfg.num_iterations)
 
     def test_default(self, num_iterations):
         #from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
-
+        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         for it in range(num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
@@ -399,7 +399,16 @@ class PPOTaskBase(nn.Module):
             self.algo.storage.clear()
     
     def test_stiffness(self, num_iterations):
+        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        
+        
         import numpy as np
+        from utils.graphs_gen import  save_tensors_to_csv
+        
+        # Control over evaluation of stiffness test
+        show_power = True
+        
         # Enable interactive mode for live plotting
         plt.ion()
         
@@ -408,18 +417,26 @@ class PPOTaskBase(nn.Module):
         ax1.set_title("P Gains over Time")
         ax1.set_xlabel("Iteration")
         ax1.set_ylabel("P Gains")
-        ax2.set_title("Position Errors over Time")
-        ax2.set_xlabel("Iteration")
-        ax2.set_ylabel("Position Error")
-        
+        if not show_power:
+            ax2.set_title("Position Errors over Time")
+            ax2.set_xlabel("Iteration")
+            ax2.set_ylabel("Position Error")
+        if show_power:
+            ax2.set_title("Power over Time")
+            ax2.set_xlabel("Iteration")
+            ax2.set_ylabel("Power")
+            
         # Lists to accumulate values for plotting each of the 3 p_gains and position errors
         p_gains_values = []
         position_errors = []
+        results = {'p_gains_values':[], 'position_errors':[], 'power':[]}
+        self.env.start_video_recording('/home/dario/Videos/tracking_camera.mp4', fps=50)
         
         for it in range(num_iterations*50):
             print(f"Iteration: {it}")
             
             # Run the simulation step and gather data
+            
             next_obs_g, next_priv_obs_g, dones, info, metrics = self.step(self.obs, self.obs_priv, is_training=False)
             
             #print(f"Episode info: {metrics}")
@@ -431,36 +448,42 @@ class PPOTaskBase(nn.Module):
                 #print(f"Eval metrics: {metrics['p_gains'].shape}")
                 
                 # Extract the p_gain and error values for the selected indices
-                current_p_gain = metrics['p_gains'][0, :].cpu().numpy()
+                current_p_gain = metrics['p_gains'][0, :] #.cpu().numpy()
                 #print(f"DOF pos: {metrics['dof_pos'][0, :]}")
                 #print(f"Target DOF pos: {metrics['target_dof_pos'][0, :]}")
-                current_error = (metrics['dof_pos'][0, :] - metrics['target_dof_pos'][0, :]).cpu().numpy()
+                current_error = (metrics['dof_pos'][0, :] - metrics['target_dof_pos'][0, :]) #.cpu().numpy()
 
                 # Append values for each of the p_gain components and errors
-                p_gains_values.append(current_p_gain)
-                position_errors.append(current_error)
+                results['p_gains_values'].append(current_p_gain)
+                results['position_errors'].append(current_error)
+                results['power'].append(metrics['power'])
                 
-                # Convert lists to numpy arrays for easier slicing and plotting
-                p_gains_array = np.array(p_gains_values)  # Shape (num_iterations, batch_size, 3)
-                position_errors_array = np.array(position_errors)  # Shape (num_iterations, batch_size, 3)
-                
+                # Convert lists to numpy arrays for easier slicing and plotting               
+                p_gains_array = torch.stack(results['p_gains_values']).cpu().numpy()             # Shape (num_iterations, batch_size, 3)
+                position_errors_array = torch.stack(results['position_errors']).cpu().numpy()  # Shape (num_iterations, batch_size, 3)
+                power_array = torch.stack(results['power']).cpu().numpy()  # Shape (num_iterations, batch_size, 3)
                 
                 # Clear and update the plots
                 
                 ax1.clear()
                 #print(f"Shape of p_gains_array: {p_gains_array[:,0].shape}")
-                ax1.plot(p_gains_array[-50: , 0].flatten(), label="P Gain FR", color="blue")
+                ax1.plot(p_gains_array[-50:, 0].flatten(), label="P Gain FR", color="blue")
                 ax1.plot(p_gains_array[-50:, 3].flatten(), label="P Gain FL", color="green")
                 ax1.plot(p_gains_array[-50:, 6].flatten(), label="P Gain RR", color="red")
                 ax1.plot(p_gains_array[-50:, 9].flatten(), label="P Gain RL", color="purple")
                 ax1.legend(loc="upper right")
                 
-                ax2.clear()
-                ax2.plot(np.abs(position_errors_array[-50:,0:3]).mean(axis=1).flatten(), label="Position Error FR", color="blue")
-                ax2.plot(np.abs(position_errors_array[-50:,3:6]).mean(axis=1).flatten(), label="Position Error FL", color="green")
-                ax2.plot(np.abs(position_errors_array[-50:,6:9]).mean(axis=1).flatten(), label="Position Error RR", color="red")
-                ax2.plot(np.abs(position_errors_array[-50:,9:12]).mean(axis=1).flatten(), label="Position Error RL", color="purple")
-                ax2.legend(loc="upper right")
+                if show_power:
+                    ax2.clear()
+                    ax2.plot(np.array(power_array).flatten(), label="Power", color="blue")
+                    ax2.legend(loc="upper right")
+                if not show_power:
+                    ax2.clear()
+                    ax2.plot(np.abs(position_errors_array[-50:,0:3]).mean(axis=1).flatten(), label="Position Error FR", color="blue")
+                    ax2.plot(np.abs(position_errors_array[-50:,3:6]).mean(axis=1).flatten(), label="Position Error FL", color="green")
+                    ax2.plot(np.abs(position_errors_array[-50:,6:9]).mean(axis=1).flatten(), label="Position Error RR", color="red")
+                    ax2.plot(np.abs(position_errors_array[-50:,9:12]).mean(axis=1).flatten(), label="Position Error RL", color="purple")
+                    ax2.legend(loc="upper right")
                 
                 # Add a small pause to update the plots
                 plt.pause(0.01)
@@ -468,13 +491,29 @@ class PPOTaskBase(nn.Module):
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
                 self.algo.storage.clear() # we don't need to store the data for training
-            
-        
         # Turn off interactive mode and show the final plot
         plt.ioff()
-        plt.show()
-
+        self.env.stop_video_recording()
+        print(f"Pgains shape in results: {torch.stack(results['p_gains_values']).shape}")
+        print(f"Position errors shape in results: {torch.stack(results['position_errors']).shape}")
+        print(f"Power shape in results: {torch.stack(results['power']).shape}")
+        
+        name = self.get_model_name()
+            
+        for key in results.keys():
+            if len(results[key]) != 0:      
+                results[key] = torch.stack(results[key], dim=0).cpu()
+            else:
+                results[key] = torch.tensor([0.0])
+        save_tensors_to_csv([results['p_gains_values'], results['position_errors'], results['power']],['p_gains_values', 'position_errors', 'power'], \
+                             f'stiffness_results_{name}.csv')        
+        
     def test_force_push_random(self, num_iterations):
+        name = self.get_model_name()
+        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        if self.cfg.viz and self.cfg.record_video:
+            self.env.start_video_recording(f'/home/dario/Videos/force_push_{name}.mp4', fps=50)
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
         if (self.cfg.env.force_kick_interval != 150) or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5) or (self.cfg.env.enable_force_kick != True):
@@ -525,20 +564,17 @@ class PPOTaskBase(nn.Module):
             else:
                 results[key] = torch.tensor([0.0])
 
-        if 'checkpoints' in self.cfg.ckpt_path:
-            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
-            parent_dir_name = os.path.basename(parent_dir)
-            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
-            name = f'{grandparent_dir_name}_{parent_dir_name}'
-        else:
-            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        if self.cfg.viz and self.cfg.record_video:
+            self.env.stop_video_recording()
         print(f"Storing results in: force_push_results_{name}.csv")
         save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta']],['success_rate', 'kick_force_magnitude', 'kick_theta'], \
                              f'force_push_results_{name}.csv')
          
     def test_escape_pyramid(self, num_iterations):
-        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
+        self.env = self.init_env(f'unitree_go2/terrain_pyramid_l0.xml')
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
+
         results = {'success_rate': []}
         eval_data = {'total_dist':[], 'successful_envs': None}
         success_dist = 4.5
@@ -593,6 +629,15 @@ class PPOTaskBase(nn.Module):
             self.algo.storage.clear()
         
     def test_heading_directions(self, num_iterations):
+        # Get checkpoint name
+        name = self.get_model_name()
+        
+        self.env = self.init_env(self.cfg.scene_xml)
+        # Start recording if wanted
+        if self.cfg.viz and self.cfg.record_video:
+            self.env.start_video_recording(f'/home/dario/Videos/heading_{name}.mp4', fps=50)
+        
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         if (self.cfg.env.manual_control.enable!=True) or (self.cfg.rollouts_per_experiment != 8) \
             or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.num_iterations!=65) or (self.cfg.env.enable_force_kick ==True) \
@@ -691,7 +736,8 @@ class PPOTaskBase(nn.Module):
                             ['FR_foot','FL_foot','RR_foot','RL_foot'], f'details/Foot z position test run {it}', 0.02)
             
             self.algo.storage.clear()
-        
+        if self.cfg.viz and self.cfg.record_video:
+            self.env.stop_video_recording()
         # Concatinating all recorded trajectories
         global_trajectory = torch.cat(eval_data['trajectory'], 0)
         print(f"Global trajectory: {global_trajectory.shape}")
@@ -705,17 +751,19 @@ class PPOTaskBase(nn.Module):
                 results[key] = torch.tensor([0.0])
         print(f"||  Results ||: Mean Power[W]: {results['power']}, Energy overall[Ws]: {results['energy']}, COT mean: {results['COT']}")
         
-        if 'checkpoints' in self.cfg.ckpt_path:
-            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
-            parent_dir_name = os.path.basename(parent_dir)
-            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
-            name = f'{grandparent_dir_name}_{parent_dir_name}'
-        else:
-            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        
+        
         save_tensors_to_csv([results['power'], results['energy'], results['local_v'], results['success_rate'], results['COT']], 
                             [f'power', f'energy', 'local_v', 'success_rate', 'COT'], f'heading_directions_results_{name}.csv')
         
     def test_xy_random(self, num_iterations):
+        name = self.get_model_name()
+        
+        self.env = self.init_env(self.cfg.scene_xml)
+        if self.cfg.viz and self.cfg.record_video:
+            self.env.start_video_recording(f'/home/dario/Videos/random_xy_{name}.mp4', fps=50)
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
+        
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         if (self.cfg.env.manual_control.enable==True) or (self.cfg.env.control_range['cmd_ang'] !=[0.,0.]) \
             or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.env.enable_force_kick ==True) or \
@@ -763,13 +811,8 @@ class PPOTaskBase(nn.Module):
             else:
                 results[key] = torch.tensor([0.0])
 
-        if 'checkpoints' in self.cfg.ckpt_path:
-            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
-            parent_dir_name = os.path.basename(parent_dir)
-            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
-            name = f'{grandparent_dir_name}_{parent_dir_name}'
-        else:
-            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        if self.cfg.viz and self.cfg.record_video:
+            self.env.stop_video_recording()
         save_tensors_to_csv([results['success'], results['cmd_norm'], results['cmd_theta'], results['cmd'], results['local_v']],['success', 'cmd_norm', 'cmd_theta', 'cmd', 'local_v'], \
                              f'cmd_rando_xy_{name}.csv')  
 
@@ -795,3 +838,15 @@ class PPOTaskBase(nn.Module):
         if device is not None:
             self.algo.actor_critic.to(device)
         return self.algo.actor_critic.act_inference
+    
+    def get_model_name(self):
+        if self.cfg.ckpt_path is None:
+            return None
+        if 'checkpoints' in self.cfg.ckpt_path:
+            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
+            parent_dir_name = os.path.basename(parent_dir)
+            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
+            name = f'{grandparent_dir_name}_{parent_dir_name}'
+        else:
+            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        return name 

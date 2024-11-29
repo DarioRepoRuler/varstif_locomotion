@@ -5,7 +5,7 @@ from envs.common.wrapper.render_wrapper import RenderWrapper
 from envs.common.wrapper.training_wrapper import VmapWrapper, AutoResetWrapper, wrap, domain_randomize
 
 
-def _create_env(env, num_envs, device, viz=False, domain_cfg=None):
+def _create_env(env, num_envs, device, viz=False, domain_cfg=None, render_mode='human'):
     """
     Create the environment with the specified number of environments and device.
     VmapWrapper->AutoResetWrapper->TorchWrapper(->RenderWrapper)
@@ -26,5 +26,5 @@ def _create_env(env, num_envs, device, viz=False, domain_cfg=None):
     else:
         env = TorchWrapper(env, device=device, backend='gpu')
     if viz:
-        env = RenderWrapper(env, render_mode='human')
+        env = RenderWrapper(env, render_mode=render_mode)
     return env

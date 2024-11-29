@@ -19,7 +19,8 @@ for file in files:
 
 
 # ----------------------- Evaluation of heading -----------------------
-def eval_heading(filenames, labels = None):
+def eval_heading(filenames, labels = None, threshold=None, file_outputname = "heading"):
+    print(f"Eval heading: {filenames}")
     heading_data = {'name':[],'local_v':[], 'success_rate':[]}
     for i,filename in enumerate(filenames):
         if labels == None:
@@ -35,12 +36,20 @@ def eval_heading(filenames, labels = None):
     heading_data['local_v'] = torch.stack(heading_data['local_v'],dim=0)
     heading_data['success_rate'] = torch.stack(heading_data['success_rate'],dim=0)
 
-    create_polar_plot(heading_data['local_v'], heading_data['name'], 'Speed (m/s)', 'heading_speed_comparison')
-    create_polar_plot(heading_data['success_rate'], heading_data['name'], 'Success Rate', 'heading_success_rate_comparison')
+    create_polar_plot(heading_data['local_v'], heading_data['name'], 'Speed (m/s)', f'{file_outputname}_compare', threshold)
+    create_polar_plot(heading_data['success_rate'], heading_data['name'], 'Success Rate', f'{file_outputname}_sr_compare', threshold)
 
-filenames_headings= ['heading_directions_results_13-00-31.csv' , 'heading_directions_results_2024-10-15_22-15-05.csv', 'heading_directions_results_2024-10-10_14-00-27.csv', 'heading_directions_results_2024-10-11_15-11-37.csv'] #'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
-labels = ['Baseline', 'VIC1', 'VIC2', 'VIC4']
-#eval_heading(filenames_headings, labels= labels)
+filenames_headings= ['heading_directions_results_2024-11-25_14-03-45_lowspeed.csv', 'heading_directions_results_2024-11-24_09-58-49_lowspeed.csv' , 'heading_directions_results_2024-11-25_10-20-58_lowspeed.csv']
+labels = ['P20', 'P50','VIC2']
+eval_heading(filenames_headings, labels= labels, threshold=0.5, file_outputname = "heading_lowspeed")
+
+filenames_headings= ['heading_directions_results_2024-11-25_14-03-45_highspeed.csv', 'heading_directions_results_2024-11-24_09-58-49_highspeed.csv' , 'heading_directions_results_2024-11-25_10-20-58_highspeed.csv']
+labels = ['P20', 'P50','VIC2']
+eval_heading(filenames_headings, labels= labels, threshold=1.3, file_outputname = "heading_highspeed")
+
+filenames_headings= ['heading_directions_results_2024-11-25_14-03-45_midspeed.csv', 'heading_directions_results_2024-11-24_09-58-49_midspeed.csv' , 'heading_directions_results_2024-11-25_10-20-58_midspeed.csv']
+labels = ['P20', 'P50','VIC2']
+eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_midspeed")
 
 
 # ----------------------- Evaluation of Energy -----------------------
