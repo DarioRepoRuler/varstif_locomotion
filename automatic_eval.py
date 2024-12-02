@@ -113,17 +113,28 @@ def find_highest_checkpoint_in_date_range(output_dir, start_date, end_date):
     return highest_checkpoint
 
 
+# Function to recursively update the configuration
+def recursive_update(d, u):
+    """
+    Recursively update dictionary d with values from dictionary u.
+    """
+    for k, v in u.items():
+        if isinstance(v, dict) and k in d:
+            d[k] = recursive_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 
 
-
-def modify_and_execute_test_script(config_path, checkpoint_path):
+def modify_and_execute_test_script(config_path, checkpoint_path, config_properties=None):
     """
     Modifies the config.yaml file to update the 'ckpt_path' property and executes test.py.
 
     Args:
         config_path (str): Path to the original config.yaml file.
         checkpoint_path (str): Path to the checkpoint to set in the config.
+        config_properties (dict): Optional dictionary of additional config properties to modify or add.
     """
     # Load the configuration
     with open(config_path, 'r') as file:
@@ -132,39 +143,13 @@ def modify_and_execute_test_script(config_path, checkpoint_path):
     # Modify the checkpoint path
     config['ckpt_path'] = checkpoint_path
 
-    # Add or modify additional configuration elements
-    config['env']['sample_command_interval'] = 500
-    config['env']['kick_vel'] = 0.0
-    config['env']['terminate_geoms'] = ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"]
-    config['env']['enable_force_kick'] = False
-    config['env']['impulse_force_kick'] = False
-    config['env']['force_kick_impulse'] = [20.0, 20.0]
-    config['env']['force_kick_interval']= 150
-    config['env']['kick_force'] = [50.0,600.0]
-    config['env']['is_training'] = False
-    config['env']['domain_rand']['enable'] = False
-    config['env']['control_range'] = {
-        'cmd_x': [-1.5, 1.5],
-        'cmd_y': [-1.5, 1.5],
-        'cmd_ang': [-0.0, 0.0]
-    }
-    config['env']['manual_control'] = {
-        'enable': True,
-        'task': 'auto',
-        'cmd_x': 0.3,
-        'cmd_y': 0.0,
-        'cmd_ang': 0.0
-    }
-    
-    config['rollouts_per_experiment'] = 8
-    config['success_threshold'] = 0.78125
-    config['timesteps_per_rollout'] = 50
-    config['plot_details']=False
-    config['num_iterations'] = 65
-    config['num_envs'] = 1000
-    config['viz'] = True
-    config['device']='cuda:0'
-    print(f"Updated config with new properties and ckpt_path: {checkpoint_path}")
+    # # Add or modify additional configuration elements if provided
+    # if config_properties:
+    #     config.update(config_properties)
+    # Recursively update the configuration with the provided properties
+    if config_properties:
+        config = recursive_update(config, config_properties)
+
 
     # Save the modified configuration to a temporary file
     temp_config_dir = os.path.join(os.getcwd(), 'temp_config')
@@ -190,7 +175,8 @@ def modify_and_execute_test_script(config_path, checkpoint_path):
         if os.path.exists(temp_config_dir) and not os.listdir(temp_config_dir):
             os.rmdir(temp_config_dir)
 
-def eval_trained_model(subfolder_path):
+def eval_trained_model(subfolder_path, config_properties = None):
+
     if 'checkpoints' in os.listdir(subfolder_path):
         checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
         ## Old evluation script
@@ -203,14 +189,14 @@ def eval_trained_model(subfolder_path):
                     checkpoint_num = int(filename.split('_')[1].split('.')[0])
                     if checkpoint_num > 500:
                         print(f"Found valid checkpoint {filename} with number > 500.")
-                        modify_and_execute_test_script(config_path, checkpoint_path)
+                        modify_and_execute_test_script(config_path, checkpoint_path, config_properties = config_properties)
                     else:
                         print(f"Skipping ckpt {filename} as number is <= 500.")
                 except ValueError:
                     print(f"Could not parse numerical part of {filename}, skipping.")
             elif filename in ['last.pt', 'best.pt']:
                 print(f"Found {filename}, proceeding.")
-                modify_and_execute_test_script(config_path, checkpoint_path)
+                modify_and_execute_test_script(config_path, checkpoint_path, config_properties = config_properties)
         elif checkpoint_path is None:
             print(f'No highest nor best/last checkpoint found in {subfolder_path}')
     else:
@@ -218,7 +204,7 @@ def eval_trained_model(subfolder_path):
 
 
 
-def process_dates_in_range(output_dir, start_date, end_date):
+def process_dates_in_range(output_dir, start_date, end_date, config_changes = None):
     """
     Processes subdirectories within a date range, checking for and deleting non-checkpoint runs.
 
@@ -227,6 +213,7 @@ def process_dates_in_range(output_dir, start_date, end_date):
         start_date (str): Start date in YYYY-MM-DD format.
         end_date (str): End date in YYYY-MM-DD format.
     """
+    
     start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
     end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
 
@@ -243,7 +230,8 @@ def process_dates_in_range(output_dir, start_date, end_date):
             for file in os.listdir(day_dir):
                 subfolder_path = os.path.join(day_dir, file)
                 if os.path.isdir(subfolder_path):
-                    eval_trained_model(subfolder_path)
+                    
+                    eval_trained_model(subfolder_path, config_changes)
 
 
 ## Example usage
@@ -275,5 +263,103 @@ def process_dates_in_range(output_dir, start_date, end_date):
 # #delete_all_non_checkpoints_runs(output_dir)
 
 # # ----------Evaluation of single model ----------- #
-trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-35-09'
-eval_trained_model(trained_run_path)
+# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-35-09'
+# config_changes = {
+#         'env': {
+#             'sample_command_interval': 500,
+#             'kick_vel': 0.0,
+#             'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+#             'enable_force_kick': False,
+#             'impulse_force_kick': False,
+#             'force_kick_impulse': [20.0, 20.0],
+#             'force_kick_interval': 150,
+#             'kick_force': [50.0, 300.0],
+#             'is_training': False,
+#             'domain_rand': {
+#                 'enable': False
+#             },
+#             'control_range': {
+#                 'cmd_x': [-1.5, 1.5],
+#                 'cmd_y': [-1.5, 1.5],
+#                 'cmd_ang': [-0.0, 0.0]
+#             },
+#             'manual_control': {
+#                 'enable': True,
+#                 'task': 'stiffness',
+#                 'cmd_x': 0.8,
+#                 'cmd_y': 0.0,
+#                 'cmd_ang': 0.0
+#             }
+#         },
+#         'rollouts_per_experiment': 8,
+#         'success_threshold': 0.78125,
+#         'timesteps_per_rollout': 50,
+#         'plot_details': False,
+#         'num_iterations': 65,
+#         'num_envs': 1000,
+#         'viz': True,
+#         'record_video':True,
+#         'result_tag': "test_automation",
+#         'device': 'cuda:0'
+#     }
+
+# #eval_trained_model(trained_run_path, config_changes)
+# config_changes['scene_xml'] = 'unitree_go2/flat.xml'
+# config_changes['result_tag'] = 'test'
+# config_changes['env']['manual_control']['cmd_x'] = 0.5
+# eval_trained_model(trained_run_path, config_changes)
+# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+# eval_trained_model(trained_run_path, config_changes)
+# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+# eval_trained_model(trained_run_path, config_changes)
+
+
+
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
+config_changes = {
+        'env': {
+            'sample_command_interval': 500,
+            'kick_vel': 0.0,
+            'terminate_geoms': ["base_0", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+            'enable_force_kick': True,
+            'force_kick_duration': 0.2,
+            'impulse_force_kick': False,
+            'force_kick_impulse': [20.0, 20.0],
+            'force_kick_interval': 150,
+            'kick_force': [250.0, 250.0],
+            'is_training': False,
+            'domain_rand': {
+                'randomisation': False
+            },
+            'control_range': {
+                'cmd_x': [-1.5, 1.5],
+                'cmd_y': [-1.5, 1.5],
+                'cmd_ang': [-0.0, 0.0]
+            },
+            'manual_control': {
+                'enable': True,
+                'task': 'stiffness',
+                'cmd_x': 0.3,
+                'cmd_y': 0.0,
+                'cmd_ang': 0.0
+            }
+        },
+        'rollouts_per_experiment': 8,
+        'success_threshold': 0.78125,
+        'timesteps_per_rollout': 50,
+        'plot_details': False,
+        'num_iterations': 10,
+        'num_envs': 1,
+        'viz': True,
+        'record_video':True,
+        'result_tag': "test",
+        'device': 'cuda:0'
+    }
+
+#eval_trained_model(trained_run_path, config_changes)
+config_changes['scene_xml'] = 'unitree_go2/flat.xml'
+eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+eval_trained_model(trained_run_path, config_changes)

@@ -2,13 +2,13 @@ defaults:
   - _self_
   - policy: ppo
 
-ckpt_path: 'outputs/2024-11-25/14-03-45/checkpoints/last.pt'
+ckpt_path: 'outputs/2024-11-25/10-20-58/checkpoints/last.pt'
 
 env:
   action_scale: 0.5
   action_stiff_scale: 1.0
   hip_scale: 0.6
-  control_mode: "P"
+  control_mode: "VIC_2"
   physics_steps_per_control_step: 4
   sample_command_interval: 500
 
@@ -17,17 +17,17 @@ env:
   kick_vel: 0.0
   push_interval: 25
 
-  terminate_geoms: ["base_0", "base_1", "base_2", "FR_hip","FL_hip","RR_hip","RL_hip"]
+  terminate_geoms: ["base_0", "FR_hip","FL_hip","RR_hip","RL_hip"]
   body_penalty_geom: ["base_0", "base_1", "base_2", "FR_hip", "FR_thigh", "FL_hip", "FL_thigh", "RR_hip", "RR_thigh", "RL_hip", "RL_thigh"]
   default_pos: [0, 0, 0.32, 1, 0, 0, 0, -0.1, 0.8, -1.5, 0.1, 0.8, -1.5, -0.1, 1.0, -1.5, 0.1, 1.0, -1.5]
   # Force kick in test
-  enable_force_kick: False
+  enable_force_kick: True
   impulse_force_kick: False
 
   force_kick_duration: 0.2
   force_kick_impulse: [20.,20.]
   force_kick_interval: 150
-  kick_force: [50.0, 300.0]
+  kick_force: [250.0, 250.0]
 
   is_training: False
   episode_length: 1000
@@ -66,8 +66,8 @@ env:
 
   manual_control:
     enable: True
-    task: 'auto' # can be either 'auto', 'force_push', 'heading_directions','xy_random' , 'escape pyramids' ,'track trajectory', 
-    cmd_x: 1.0
+    task: 'stiffness' # can be either 'auto', 'force_push', 'heading_directions','xy_random' , 'escape pyramids' ,'track trajectory', 
+    cmd_x: 0.3
     cmd_y: 0.
     cmd_ang: 0.0
 
@@ -79,8 +79,8 @@ env:
 
   control:
     stiff_range: [0.5, 1.5]
-    p_gain: 20.0
-    d_gain: 0.6
+    p_gain: 40.0
+    d_gain: 1.0
   
   contacts:
     total: 23
@@ -111,11 +111,11 @@ plot_details: True
 
 result_tag: 'test'
 timesteps_per_rollout: 50
-num_iterations: 65
+num_iterations: 10
 num_envs: 1
 
 viz: True
-record_video: True
+record_video: False
 device: 'cuda:0'
 curriculum: False
 scene_xml: 'unitree_go2/flat.xml'

@@ -2,7 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-from utils.graphs_gen import load_tensor_from_csv
+from graphs_gen import load_tensor_from_csv
 
 
 class VideoPlotCombiner:
@@ -165,7 +165,7 @@ class VideoPlotCombiner:
 
 # Example usage
 if __name__ == "__main__":
-    video_path = '/home/dario/Videos/tracking_camera.mp4'
+    video_path = '/home/dario/Videos/tracking_camera_payload.mp4'
     tensor_file = 'stiffness_results_2024-11-25_10-20-58.csv'
     output_video_path = '/home/dario/Videos/combined_video.avi'
 

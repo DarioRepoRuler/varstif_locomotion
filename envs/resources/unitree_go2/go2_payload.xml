@@ -293,7 +293,7 @@
       <geom name="base_1" size="0.05 0.045" pos="0.285 0 0.01" class="collision"/>
       <geom name="base_2" size="0.047" pos="0.293 0 -0.06" class="collision"/>
       <site name="imu" pos="-0.02557 0 0.04232"/>
-      <body name="payload_body" pos="0.1 0 0.1">
+      <body name="payload_body" pos="0. 0 0.1">
         <geom name="payload" type="box" size="0.05 0.05 0.05" rgba="0.5 0.5 0.5 1"/>
         <inertial pos="0 0 0" mass="10.0" diaginertia="0.1 0.1 0.1"/>
       </body>

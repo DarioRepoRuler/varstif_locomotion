@@ -444,9 +444,7 @@ class PPOTaskBase(nn.Module):
             next_obs_g, next_priv_obs_g, dones, info, metrics = self.step(self.obs, self.obs_priv, is_training=False)
             
             #print(f"Episode info: {metrics}")
-            
-            start_idx = 6
-            end_idx = 9
+
             # Assuming `eval_metrics` contains `p_gains` and `dof_pos` for position errors
             if 'p_gains' in metrics and 'dof_pos' in metrics and 'target_dof_pos' in metrics:
                 #print(f"Eval metrics: {metrics['p_gains'].shape}")
@@ -499,6 +497,7 @@ class PPOTaskBase(nn.Module):
         plt.ioff()
         if self.cfg.viz and self.cfg.record_video:
             self.env.stop_video_recording()
+            
         print(f"Pgains shape in results: {torch.stack(results['p_gains_values']).shape}")
         print(f"Position errors shape in results: {torch.stack(results['position_errors']).shape}")
         print(f"Power shape in results: {torch.stack(results['power']).shape}")
