@@ -315,7 +315,6 @@ def process_dates_in_range(output_dir, start_date, end_date, config_changes = No
 
 
 
-trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
 config_changes = {
         'env': {
             'sample_command_interval': 500,
@@ -326,7 +325,7 @@ config_changes = {
             'impulse_force_kick': False,
             'force_kick_impulse': [20.0, 20.0],
             'force_kick_interval': 150,
-            'kick_force': [250.0, 250.0],
+            'kick_force': [140.0, 140.0],
             'is_training': False,
             'domain_rand': {
                 'randomisation': False
@@ -352,14 +351,14 @@ config_changes = {
         'num_envs': 1,
         'viz': True,
         'record_video':True,
-        'result_tag': "test",
+        'result_tag': "test_direction",
         'device': 'cuda:0'
     }
-
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
 #eval_trained_model(trained_run_path, config_changes)
 config_changes['scene_xml'] = 'unitree_go2/flat.xml'
 eval_trained_model(trained_run_path, config_changes)
-trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
 eval_trained_model(trained_run_path, config_changes)
-trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
 eval_trained_model(trained_run_path, config_changes)

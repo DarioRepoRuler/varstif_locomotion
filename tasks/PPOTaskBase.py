@@ -72,7 +72,7 @@ class PPOTaskBase(nn.Module):
         self.level = 0
 
         # # Start the keyboard listener thread
-        if self.cfg.viz and not self.cfg.record_video:
+        if self.cfg.viz:
             import threading
             from pynput import keyboard as pynput_keyboard
             self.pynput_keyboard = pynput_keyboard

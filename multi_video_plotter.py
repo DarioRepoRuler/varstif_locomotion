@@ -35,7 +35,7 @@ class VideoPlotCombiner:
         self.video_crop_size = 250
         combined_width = self.video_crop_size + self.plot_width  # Two videos side-by-side + space for plot
         combined_height = self.video_crop_size * len(video_paths)  # Stack videos vertically
-        print(f"Combined width: {combined_width}, Combined height: {combined_height}")
+        #print(f"Combined width: {combined_width}, Combined height: {combined_height}")
 
         fourcc = cv2.VideoWriter_fourcc(*'MP4V')  # For MP4 output
         self.out = cv2.VideoWriter(self.output_video_path, fourcc, self.fps, (combined_width, combined_height))
@@ -71,24 +71,28 @@ class VideoPlotCombiner:
 
         self.ax1.clear()
         self.ax2.clear()
+        # Generate distinct base colors for robots
+        num_robots = len(self.tensor_file)
+        base_colors = plt.cm.tab10(np.linspace(0, 1, num_robots))  # Use tab10 colormap for distinct colors
 
         for robot in range(len(self.tensor_file)):
-            for leg in range(4):
-                if pgains_array[:, robot, 0] == pgains_array[:, robot, leg * 3] and pgains_array[:, robot, 0] == pgains_array[:, robot, leg * 6] and pgains_array[:, robot, 0] == pgains_array[:, robot, leg * 3 + 2]:
-                    continue 
-                self.ax1.plot(self.time_window, pgains_array[:, robot, leg * 3], label=f"Robot {robot + 1}, Leg {leg + 1}")
-        self.ax1.legend(loc="upper right", ncol=2, fontsize=8)
-        self.ax1.set_title("P Gains over Time")
-        self.ax1.set_ylabel("P Gains")
+            position_based= (pgains_array[0, robot, 0] == pgains_array[0, robot, 3] and pgains_array[0, robot, 0] == pgains_array[0, robot, 6] and pgains_array[0, robot, 0] == pgains_array[0, robot, 11])
+            if position_based:
+                    self.ax1.plot( self.time_window, pgains_array[:, robot, 0], label=f"Robot {robot + 1}", color=base_colors[robot], linewidth=2.5)
+            else: 
+                for leg in range(4):
+                    leg_color = base_colors[robot] * (1 - 0.1 * leg)
+                    self.ax1.plot(self.time_window, pgains_array[:, robot, leg * 3], label=f"Robot {robot + 1}, Leg {leg + 1}", color=leg_color)
+            self.ax1.legend(loc="upper right", ncol=2, fontsize=8)
+            self.ax1.set_ylabel("P Gains")
 
-        for robot in range(len(self.tensor_file)):
-            self.ax2.plot(self.time_window, power_array[:, robot, 0], label=f"Power [W] Robot {robot + 1}")
-        self.ax2.legend(loc="upper right", ncol=2, fontsize=8)
-        self.ax2.set_title("Power [W]")
-        self.ax2.set_xlabel("Time (s)")
-        self.ax2.set_ylabel("Power [W]")
+            self.ax2.plot(self.time_window, power_array[:, robot, 0], label=f"Power [W] Robot {robot + 1}", color=base_colors[robot], linewidth=2.5)
+            self.ax2.legend(loc="upper right", ncol=2, fontsize=8)
 
-        self.fig.canvas.draw()
+            self.ax2.set_xlabel("Time (s)")
+            self.ax2.set_ylabel("Power [W]")
+
+            self.fig.canvas.draw()
 
     def capture_and_process_frame(self, t):
         frames = []
@@ -108,9 +112,9 @@ class VideoPlotCombiner:
         plot_img = plot_img.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
         plot_img_resized = cv2.resize(plot_img, (self.plot_width, self.video_crop_size*len(self.video_path)))  # Resize plot for stacked videos
         final_frame = np.hstack([combined_video_frame, plot_img_resized])
-        print(f"PLot shape: {plot_img_resized.shape}")
-        print(f"Combined frame shape: {combined_video_frame.shape}")
-        print(f"Final frame shape: {final_frame.shape}")
+        #print(f"PLot shape: {plot_img_resized.shape}")
+        #print(f"Combined frame shape: {combined_video_frame.shape}")
+        #print(f"Final frame shape: {final_frame.shape}")
         self.out.write(final_frame)
         return True
 
@@ -133,8 +137,8 @@ class VideoPlotCombiner:
 
 
 if __name__ == "__main__":
-    video_paths = ['/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_2024-11-25_10-20-58.mp4', '/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_2024-11-24_09-58-49.mp4','/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_2024-11-25_14-03-45.mp4']
-    tensor_files = ['stiffness_test_2024-11-25_10-20-58.csv','stiffness_test_2024-11-24_09-58-49.csv','stiffness_test_2024-11-25_14-03-45.csv' ]
+    video_paths = ['/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_direction_2024-11-25_10-20-58.mp4', '/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_direction_2024-11-24_09-58-49.mp4','/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_direction_2024-11-25_14-03-45.mp4']
+    tensor_files = ['stiffness_test_direction_2024-11-25_10-20-58.csv','stiffness_test_direction_2024-11-24_09-58-49.csv','stiffness_test_direction_2024-11-25_14-03-45.csv' ]
     output_video_path = '/home/dario/Videos/combined_video.mp4'
 
     combiner = VideoPlotCombiner(video_paths, tensor_files, output_video_path)

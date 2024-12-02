@@ -359,13 +359,16 @@ class UnitreeEnv(MjxEnv):
         elif self.cfg.control_mode == "VIC_3":
             action_stiff = unscale(action[12:12+12], self.cfg.control.stiff_range[0], self.cfg.control.stiff_range[1])
         elif self.cfg.control_mode == "VIC_4":
-            stiff_leg = jp.tile(unscale(action[12:12+4], self.cfg.control.stiff_range[0], self.cfg.control.stiff_range[1]), 3).reshape(3,4)
-            stiff_joint = unscale(action[12+4:12+4+3], self.cfg.control.stiff_range[0], self.cfg.control.stiff_range[1])
+            stiff_leg = jp.tile(unscale(action[12:12+4], 0.0, 1.0), 3).reshape(3,4)
+            stiff_joint = unscale(action[12+4:12+4+3], 0.0, 1.0)
             action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
+            action_stiff = unscale( 2.0*(action_stiff-0.5) , self.cfg.control.stiff_range[0], self.cfg.control.stiff_range[1])
+            #jax.debug.print('Stiffness: {x}', x=action_stiff)
         else:
             raise RuntimeError("control model: P|T")
         
         p_gains = self.p_gains * action_stiff
+        #jax.debug.print('Stiffness: {x}', x=p_gains)
         return p_gains
 
 
