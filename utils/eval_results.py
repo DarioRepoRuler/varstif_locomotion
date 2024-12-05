@@ -21,7 +21,7 @@ for file in files:
 # ----------------------- Evaluation of heading -----------------------
 def eval_heading(filenames, labels = None, threshold=None, file_outputname = "heading"):
     print(f"Eval heading: {filenames}")
-    heading_data = {'name':[],'local_v':[], 'success_rate':[]}
+    heading_data = {'name':[],'local_v':[], 'success_rate':[], 'COT':[], 'power':[]}
     for i,filename in enumerate(filenames):
         if labels == None:
             label = filename.split('.')[0]
@@ -31,13 +31,21 @@ def eval_heading(filenames, labels = None, threshold=None, file_outputname = "he
             label = labels[i]
         heading_data['name'].append(label)
         heading_data['local_v'].append(load_tensor_from_csv('local_v',filename=filename))
+        heading_data['COT'].append(load_tensor_from_csv('COT',filename=filename))
+        heading_data['power'].append(load_tensor_from_csv('power',filename=filename))
+        # print(f"Local v error: {torch.abs(threshold-load_tensor_from_csv('local_v',filename=filename))}")
+        # print(f"Local v error: {torch.mean(torch.abs(threshold-load_tensor_from_csv('local_v',filename=filename)))}")
         heading_data['success_rate'].append(load_tensor_from_csv('success_rate',filename=filename))
 
     heading_data['local_v'] = torch.stack(heading_data['local_v'],dim=0)
     heading_data['success_rate'] = torch.stack(heading_data['success_rate'],dim=0)
+    heading_data['COT'] = torch.stack(heading_data['COT'],dim=0)
+    heading_data['power'] = torch.stack(heading_data['power'],dim=0)
 
+    create_polar_plot(heading_data['COT'], heading_data['name'], 'Cost of Transport', f'{file_outputname}_COT_compare')
+    create_polar_plot(heading_data['power'], heading_data['name'], 'Power (W)', f'{file_outputname}_power_compare')
     create_polar_plot(heading_data['local_v'], heading_data['name'], 'Speed (m/s)', f'{file_outputname}_compare', threshold)
-    create_polar_plot(heading_data['success_rate'], heading_data['name'], 'Success Rate', f'{file_outputname}_sr_compare', threshold)
+    create_polar_plot(heading_data['success_rate'], heading_data['name'], 'Success Rate', f'{file_outputname}_sr_compare')
 
 filenames_headings= ['heading_directions_results_2024-11-25_14-03-45_lowspeed.csv', 'heading_directions_results_2024-11-24_09-58-49_lowspeed.csv' , 'heading_directions_results_2024-11-25_10-20-58_lowspeed.csv']
 labels = ['P20', 'P50','VIC2']
@@ -52,6 +60,15 @@ labels = ['P20', 'P50','VIC2']
 eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_midspeed")
 
 
+filenames_headings= ['heading_directions_test_payload_2024-11-25_14-03-45.csv', 'heading_directions_test_payload_2024-11-24_09-58-49.csv' , 'heading_directions_test_payload_2024-11-25_10-20-58.csv']
+labels = ['P20', 'P50','VIC2']
+eval_heading(filenames_headings, labels= labels, threshold=0.3, file_outputname = "heading_payload")
+
+
+filenames_headings= ['heading_directions_test_2024-11-25_11-06-34.csv','heading_directions_test_2024-11-25_10-20-58.csv', 'heading_directions_test_2024-11-25_14-07-08.csv','heading_directions_test_2024-12-02_11-50-31.csv'] #'heading_directions_results_2024-11-25_14-07-08.csv',
+labels = ['VIC1', 'VIC2', 'VIC3' ,'VIC4'] #'VIC3',
+
+eval_heading(filenames_headings, labels= labels, threshold=0.8, file_outputname = "heading vic comparison")
 # ----------------------- Evaluation of Energy -----------------------
 def eval_cot_heading(filenames, labels = None):
     cot_data = {'name':[],'COT':[]}

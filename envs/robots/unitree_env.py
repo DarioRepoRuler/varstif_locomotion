@@ -396,7 +396,7 @@ class UnitreeEnv(MjxEnv):
         if self.cfg.enable_force_kick:
             rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 3)
             # Push randomly
-            kick_theta = jax.random.uniform(rng_theta, maxval= 2* jp.pi)
+            kick_theta = jax.random.uniform(rng_theta,minval=self.cfg.kick_theta[0]*jp.pi , maxval= self.cfg.kick_theta[1]*jp.pi)
             kick_force = jax.random.uniform(rng_kick, minval=self.cfg.kick_force[0], maxval=self.cfg.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.cfg.force_kick_impulse[0], maxval=self.cfg.force_kick_impulse[1])
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
@@ -744,12 +744,7 @@ class UnitreeEnv(MjxEnv):
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         lin_vel_error = jp.sum(jp.square(commands[:2] - local_vel[:2]))
         lin_vel_error_new = jp.abs(1-local_vel[:2]/(commands[:2] +1.e-6))
-        
-        #jax.debug.print('portion: {x}', x=local_vel[:2]/(commands[:2] +1.e-6))
-        #jax.debug.print('Lin vel error: {x}', x=lin_vel_error_new)
         lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
-        #lin_vel_reward_low = jp.exp(-16 * lin_vel_error) # change to sigma
-        #lin_vel_final = jp.where(jp.linalg.norm(commands[:2])<0.4, lin_vel_reward_low, lin_vel_reward)
         lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
         return lin_vel_reward
 

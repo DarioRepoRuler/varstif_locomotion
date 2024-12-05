@@ -137,8 +137,9 @@ class VideoPlotCombiner:
 
 
 if __name__ == "__main__":
-    video_paths = ['/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_direction_2024-11-25_10-20-58.mp4', '/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_direction_2024-11-24_09-58-49.mp4','/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_test_direction_2024-11-25_14-03-45.mp4']
-    tensor_files = ['stiffness_test_direction_2024-11-25_10-20-58.csv','stiffness_test_direction_2024-11-24_09-58-49.csv','stiffness_test_direction_2024-11-25_14-03-45.csv' ]
+    test_tag = 'test_direction1'
+    video_paths = [f'/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_{test_tag}_2024-11-25_10-20-58.mp4', f'/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_{test_tag}_2024-11-24_09-58-49.mp4',f'/home/dario/Documents/TALocoMotion/outputs/videos/stiffness_{test_tag}_2024-11-25_14-03-45.mp4']
+    tensor_files = [f'stiffness_{test_tag}_2024-11-25_10-20-58.csv',f'stiffness_{test_tag}_2024-11-24_09-58-49.csv',f'stiffness_{test_tag}_2024-11-25_14-03-45.csv' ]
     output_video_path = '/home/dario/Videos/combined_video.mp4'
 
     combiner = VideoPlotCombiner(video_paths, tensor_files, output_video_path)

@@ -293,7 +293,6 @@ class PPOTaskBase(nn.Module):
         for it in range(self.current_learning_iteration, num_total_iteration):
             print(f"Epoch: {it}")
             self.agent_train_step(it)
-            print(f"Tracking lin vel: {self._rew_track_lin_vel}")
             
             self.current_learning_iteration += 1
             
@@ -527,20 +526,31 @@ class PPOTaskBase(nn.Module):
 
         # This way the agent is pushes 
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
-        results = {'success': [], 'kick_theta':[], 'kick_force_magnitude':[]}
-
+        results = {'success': [], 'kick_theta':[], 'kick_force_magnitude':[], 'recovery_time':[]}
+        recovery_time = torch.zeros(self.cfg.num_envs, device=self.device, dtype=torch.float32)
+        threshold = 0.2
+        start_temp, end_temp =None, torch.ones_like(recovery_time)*self.cfg.rollouts_per_experiment*self.cfg.timesteps_per_rollout
         for it in range(1, num_iterations):
             print(f"iteration: {it} ")
             stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
 
+            tracking_error = torch.linalg.norm(eval_metrics['local_v'][:,:,:2] - eval_infos['cmd'][:,:,:2], dim=2)
+            tracking_error_normalised = tracking_error/(torch.linalg.norm(eval_infos['cmd'][:,:,:2], dim=2)+1e-6)
+            recovered = torch.logical_and(tracking_error_normalised < threshold , eval_infos['steps'] > self.cfg.env.force_kick_interval+4)
             # Find indices of non-zero elements, along axis=0 and extract the values
             non_zero_indices = eval_infos['kick_force_magnitude'].nonzero(as_tuple=True)
             non_zero_kick_force_magnitude = eval_infos['kick_force_magnitude'][non_zero_indices[0]]
-            #print(f"Non zero indices: {non_zero_indices.shape}")
+            start_recovery = eval_infos['steps'][non_zero_indices]
+            recovered_indices = recovered.nonzero(as_tuple=True)
+            masked_time = torch.where(recovered, eval_infos['steps'], torch.full_like(eval_infos['steps'], 500))
+            end_recovery = torch.min(masked_time, dim=0).values
+            if len(start_recovery) !=0 and start_temp == None:
+                start_temp = start_recovery
+            if torch.any(end_recovery !=500) and torch.all(end_temp == 500):
+                end_temp = end_recovery
+            #print(f"Step of pushed: {eval_infos['steps'][non_zero_indices]}, {eval_infos['steps'][non_zero_indices].shape}")
             
-            #non_zero_indices = eval_infos['kick_theta'].nonzero(as_tuple=True)[0] # indices: timesteps, 
             non_zero_kick_theta = eval_infos['kick_theta'][non_zero_indices[0]]
-            #print(f"Non zero indices: {non_zero_indices.shape}")
 
 
             magnitudes = torch.unique(non_zero_kick_force_magnitude, dim=0)
@@ -551,8 +561,10 @@ class PPOTaskBase(nn.Module):
                 thetas = torch.where(thetas.sum(dim=0)!=0, thetas.sum(dim=0), torch.tensor(0.))
                 results['kick_theta'].append(thetas.unsqueeze(0))
                 results['kick_force_magnitude'].append(magnitudes.unsqueeze(0))
+                results['recovery_time'].append(end_temp-start_temp)
                 print(f"Thetas: {thetas.shape}")
                 print(f"Magnitudes: {magnitudes.shape}")
+                end_time_temp = None
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
@@ -560,7 +572,7 @@ class PPOTaskBase(nn.Module):
                 print(f"Success rate: {success.shape}")
                 results['success'].append(success)
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
-             
+                start_temp, end_temp = None, torch.ones_like(recovery_time)*500
             self.algo.storage.clear()
         
         for key in results.keys():
@@ -571,8 +583,10 @@ class PPOTaskBase(nn.Module):
 
         if self.cfg.viz and self.cfg.record_video:
             self.env.stop_video_recording()
+        
         print(f"Storing results in: force_push_results_{name}.csv")
-        save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta']],['success_rate', 'kick_force_magnitude', 'kick_theta'], \
+        print(f"Average recovery {torch.mean(results['recovery_time'][torch.where(results['recovery_time']<349)])*0.02}")
+        save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta'], results['recovery_time']],['success_rate', 'kick_force_magnitude', 'kick_theta', 'recovery_time'], \
                              f'force_push_{self.cfg.result_tag}_{name}.csv')
          
     def test_escape_pyramid(self, num_iterations):

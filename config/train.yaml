@@ -33,6 +33,7 @@ env:
   force_kick_impulse: [8.0, 15.0]
   force_kick_interval: 300
   kick_force: [50.0, 150.0]
+  kick_theta: [0.0, 2.0] # theta * pi 
 
   single_obs_size: 48
   single_obs_size_priv: 59
