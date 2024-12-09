@@ -194,7 +194,7 @@ class UnitreeEnv(MjxEnv):
             state: the initial state of the environment
         """
 
-        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7, kp_rng, kd_rng, motor_strength_rng = jax.random.split(rng, 11)
+        rng, rng1, rng2, rng3, rng4, rng5 ,rng6, rng7, kp_rng, kd_rng, motor_strength_rng, rng_kick_offset = jax.random.split(rng, 12)
         
         # Actuator randomisation
         kp_factor = jax.random.uniform(kp_rng, (1,), minval=self.cfg.domain_rand.kp_range[0], maxval=self.cfg.domain_rand.kp_range[1])
@@ -223,6 +223,8 @@ class UnitreeEnv(MjxEnv):
         # Reset position only
         reset_pos = reset_pos.at[0:2].set(jp.array([reset_x[0], reset_y[0]]))        
         #reset_pos = reset_pos.at[4:7].set(jp.array([q1[0], q2[0], q3[0], q4]))
+        offset = jp.round(jax.random.uniform(rng_kick_offset, (1,), minval=-20, maxval=20))
+        
         
         # Get initial state
         data = self.pipeline_init(reset_pos, jp.zeros((self.sys.nv,)))
@@ -255,7 +257,7 @@ class UnitreeEnv(MjxEnv):
             'force_direction_counter': jp.array(0),
             'kick_theta': jp.array(0.0),
             'kick_force_magnitude': jp.array(0.0),
-            'last_kick_force_magnitude': jp.array(0.0),
+            'kick_offset_interval': offset,
             'des_foot_height': jp.zeros((4,50)),
             'foot_pos': jp.zeros((4,3)),
             'last_action_kick': jp.zeros(self.action_shape+2),
@@ -414,13 +416,13 @@ class UnitreeEnv(MjxEnv):
     def force_kick_robot(self, state: State, rng: jp.ndarray):
         # This is intended to be used for evaluation only
         if self.cfg.enable_force_kick:
-            rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 3)
+            rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 4)
             # Push randomly
             kick_theta = jax.random.uniform(rng_theta,minval=self.cfg.kick_theta[0]*jp.pi , maxval= self.cfg.kick_theta[1]*jp.pi)
             kick_force = jax.random.uniform(rng_kick, minval=self.cfg.kick_force[0], maxval=self.cfg.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.cfg.force_kick_impulse[0], maxval=self.cfg.force_kick_impulse[1])
-            kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force 
-            kick_condition = jp.logical_and(jp.mod(state.info['step'], self.cfg.force_kick_interval)==0, state.info['step']>1 )
+            kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force
+            kick_condition = jp.logical_and(jp.mod(state.info['step'], (self.cfg.force_kick_interval+state.info['kick_offset_interval']))==0, state.info['step']>1 )
             # Get the random values at kick interval
             state.info['force_kick'] = jp.where(kick_condition, kick, state.info['force_kick'])
             state.info['kick_theta']=jp.where(kick_condition, kick_theta, state.info['kick_theta'])
@@ -434,7 +436,7 @@ class UnitreeEnv(MjxEnv):
             #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
             state.info['force_kick'] = jp.where(state.info['kick_counter']>-1, state.info['force_kick'], 0.0)
             state.info['kick_theta'] = jp.where(state.info['kick_counter']>-1, state.info['kick_theta'], 0.0)
-            state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>-1, state.info['kick_force_magnitude'],0.0)
+            # state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>-1, state.info['kick_force_magnitude'],0.0)
             #state.info['last_kick_force_magnitude'] = state.info['kick_force_magnitude']
             #jax.debug.print('Force kick: {x}', x=state.info['kick_force_magnitude'])
         else:

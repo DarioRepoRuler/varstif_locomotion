@@ -338,7 +338,7 @@ class PPOTaskBase(nn.Module):
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'track_trajectory':
             self.test_tracking_traj(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'force_push':
-            self.test_force_push_random(num_iterations)
+            self.test_force_push_random_1(num_iterations)
         elif self.cfg.env.manual_control and self.cfg.env.manual_control.task == 'escape_pyramids':
             self.test_escape_pyramid(num_iterations)
         elif self.cfg.env.manual_control.task == 'auto':
@@ -540,31 +540,29 @@ class PPOTaskBase(nn.Module):
             # Find indices of non-zero elements, along axis=0 and extract the values
             non_zero_indices = eval_infos['kick_force_magnitude'].nonzero(as_tuple=True)
             non_zero_kick_force_magnitude = eval_infos['kick_force_magnitude'][non_zero_indices[0]]
-            start_recovery = eval_infos['steps'][non_zero_indices]
-            recovered_indices = recovered.nonzero(as_tuple=True)
-            masked_time = torch.where(recovered, eval_infos['steps'], torch.full_like(eval_infos['steps'], 500))
-            end_recovery = torch.min(masked_time, dim=0).values
-            if len(start_recovery) !=0 and start_temp == None:
-                start_temp = start_recovery
-            if torch.any(end_recovery !=500) and torch.all(end_temp == 500):
-                end_temp = end_recovery
+            #start_recovery = eval_infos['steps'][non_zero_indices]
+            #recovered_indices = recovered.nonzero(as_tuple=True)
+            # masked_time = torch.where(recovered, eval_infos['steps'], torch.full_like(eval_infos['steps'], 500))
+            # end_recovery = torch.min(masked_time, dim=0).values
+            # if len(start_recovery) !=0 and start_temp == None:
+            #     start_temp = start_recovery
+            # if torch.any(end_recovery !=500) and torch.all(end_temp == 500):
+            #     end_temp = end_recovery
             #print(f"Step of pushed: {eval_infos['steps'][non_zero_indices]}, {eval_infos['steps'][non_zero_indices].shape}")
             
             non_zero_kick_theta = eval_infos['kick_theta'][non_zero_indices[0]]
-
-
             magnitudes = torch.unique(non_zero_kick_force_magnitude, dim=0)
             thetas = torch.unique(non_zero_kick_theta, dim=0)
-            
-            if (magnitudes.numel() != 0) and ((it+1) % 5 == 0):
+            print(f"Magnitudes: {magnitudes.numel()}")
+            if (magnitudes.numel() != 0): # and ((it+1) % 5 == 0):
                 magnitudes = torch.where(magnitudes.sum(dim=0)!=0, magnitudes.sum(dim=0), torch.tensor(0.))
                 thetas = torch.where(thetas.sum(dim=0)!=0, thetas.sum(dim=0), torch.tensor(0.))
                 results['kick_theta'].append(thetas.unsqueeze(0))
                 results['kick_force_magnitude'].append(magnitudes.unsqueeze(0))
-                results['recovery_time'].append(end_temp-start_temp)
+                # results['recovery_time'].append(end_temp-start_temp)
                 print(f"Thetas: {thetas.shape}")
                 print(f"Magnitudes: {magnitudes.shape}")
-                end_time_temp = None
+                #end_time_temp = None
 
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {it//5} in total: {it//5*self.cfg.num_envs}")
@@ -586,6 +584,43 @@ class PPOTaskBase(nn.Module):
         
         print(f"Storing results in: force_push_results_{name}.csv")
         print(f"Average recovery {torch.mean(results['recovery_time'][torch.where(results['recovery_time']<349)])*0.02}")
+        # save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta'], results['recovery_time']],['success_rate', 'kick_force_magnitude', 'kick_theta', 'recovery_time'], \
+        #                      f'force_push_{self.cfg.result_tag}_{name}.csv')
+        save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta'], results['recovery_time']],['success_rate', 'kick_force_magnitude', 'kick_theta', 'recovery_time'], \
+                             f'force_push_{self.cfg.result_tag}_{name}.csv')
+        
+    def test_force_push_random_1(self, num_iterations):
+        name = self.get_model_name()
+        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        if self.cfg.viz and self.cfg.record_video:
+            path = os.path.join(os.getcwd(), 'outputs', 'videos', f'force_push_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
+            self.env.start_video_recording(path, fps=50)
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
+        from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
+        # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
+        if (self.cfg.env.force_kick_interval != 175) or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5) or (self.cfg.env.enable_force_kick != True):
+            print("Please set the force kick interval to 150, timesteps per rollout to 50 and rollouts per experiment to 5 and enable force kick to true")
+            return
+        self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
+        
+        results = {'success': torch.zeros(self.cfg.num_envs*4, dtype=torch.bool), 'kick_theta':torch.zeros(self.cfg.num_envs*4), 'kick_force_magnitude':torch.zeros(self.cfg.num_envs*4), 'recovery_time':torch.zeros(self.cfg.num_envs*4)}
+        experiment = 0
+        for it in range(1, num_iterations):
+            print(f"iteration: {it} ")
+            stat, episode_info, eval_infos, eval_metrics = self.simulate(it,is_training=False)
+            pushed_envs = eval_infos['kick_force_magnitude'].nonzero(as_tuple = True)[1]            
+            results['kick_force_magnitude'][experiment*self.cfg.num_envs + pushed_envs.cpu()] = eval_infos['kick_force_magnitude'][eval_infos['kick_force_magnitude']!=0].cpu()
+            results['kick_theta'][experiment*self.cfg.num_envs + pushed_envs.cpu()] = eval_infos['kick_theta'][eval_infos['kick_force_magnitude']!=0].cpu()
+            if it % 5 == 0 and it>0:
+                print(f"Finished experiment {experiment+1} in total: {(experiment+1)*self.cfg.num_envs}")
+                pushed_envs = results['kick_force_magnitude'][experiment*self.cfg.num_envs:].nonzero()[:,0]
+                results['success'][experiment*self.cfg.num_envs + pushed_envs.cpu()] = eval_infos['steps'][-1,:].cpu() >= 5*self.cfg.timesteps_per_rollout
+                self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
+                experiment += 1
+            self.algo.storage.clear()
+        
+        print(f"Storing results in: force_push_{self.cfg.result_tag}_{name}.csv")
+
         save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta'], results['recovery_time']],['success_rate', 'kick_force_magnitude', 'kick_theta', 'recovery_time'], \
                              f'force_push_{self.cfg.result_tag}_{name}.csv')
          

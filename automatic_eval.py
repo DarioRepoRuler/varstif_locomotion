@@ -376,34 +376,27 @@ config_changes = {
             },
             'manual_control': {
                 'enable': True,
-                'task': 'force_push',
-                'cmd_x': 0.0,
+                'task': 'auto',
+                'cmd_x': 0.8,
                 'cmd_y': 0.0,
                 'cmd_ang': 0.0
             }
         },
-        'rollouts_per_experiment': 5,
+        'rollouts_per_experiment': 8,
         'success_threshold': 0.78125,
         'timesteps_per_rollout': 50,
         'plot_details': False,
-        'num_iterations': 21,
+        'num_iterations': 65,
         'num_envs': 1000,
-        'viz': False,
-        'record_video':False,
-        'result_tag': "test_stand",
+        'viz': True,
+        'record_video':True,
+        'result_tag': "test",
         'device': 'cuda:0'
     }
 config_changes['scene_xml'] = 'unitree_go2/flat.xml'
 
-
-#trained_run_path = '/home/dspoljaric/TAvic/outputs/2024-11-25/10-20-58'
-#eval_trained_model(trained_run_path, config_changes)
-trained_run_path = '/home/dspoljaric/TAvic/outputs/2024-11-25/14-03-45'
-eval_trained_model(trained_run_path, config_changes)
-trained_run_path = '/home/dspoljaric/TAvic/outputs/2024-11-24/09-58-49'
-eval_trained_model(trained_run_path, config_changes)
-
 # for i in range(7):
+#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
 #     config_changes['env']['manual_control']['cmd_x'] = 1.0 + i*0.1
 #     config_changes['result_tag'] = f'test_vel_1_{i}'
 #     #eval_trained_model(trained_run_path, config_changes)
@@ -412,8 +405,11 @@ eval_trained_model(trained_run_path, config_changes)
 #     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
 #     eval_trained_model(trained_run_path, config_changes)
 
-# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
-# eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
+eval_trained_model(trained_run_path, config_changes)
 
-# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
-# eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+eval_trained_model(trained_run_path, config_changes)
+
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+eval_trained_model(trained_run_path, config_changes)
