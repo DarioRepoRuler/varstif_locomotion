@@ -237,10 +237,48 @@ def process_dates_in_range(output_dir, start_date, end_date, config_changes = No
 ## Example usage
 
 # ----------Evaluation of model in a date range ----------- #
-# output_dir = os.path.join(os.getcwd(), 'outputs')
-# start_date = '2024-11-24'
-# end_date = '2024-11-24'
-# process_dates_in_range(output_dir, start_date, end_date)
+output_dir = os.path.join(os.getcwd(), 'outputs')
+start_date = '2024-12-06'
+end_date = '2024-12-06'
+config_changes = {
+        'env': {
+            'sample_command_interval': 500,
+            'kick_vel': 0.0,
+            'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+            'enable_force_kick': False,
+            'impulse_force_kick': False,
+            'force_kick_impulse': [20.0, 20.0],
+            'force_kick_interval': 150,
+            'kick_force': [50.0, 300.0],
+            'is_training': False,
+            'domain_rand': {
+                'enable': False
+            },
+            'control_range': {
+                'cmd_x': [-1.5, 1.5],
+                'cmd_y': [-1.5, 1.5],
+                'cmd_ang': [-0.0, 0.0]
+            },
+            'manual_control': {
+                'enable': True,
+                'task': 'auto',
+                'cmd_x': 0.8,
+                'cmd_y': 0.0,
+                'cmd_ang': 0.0
+            }
+        },
+        'rollouts_per_experiment': 8,
+        'success_threshold': 0.78125,
+        'timesteps_per_rollout': 50,
+        'plot_details': False,
+        'num_iterations': 65,
+        'num_envs': 1000,
+        'viz': False,
+        'record_video':False,
+        'result_tag': "test_automation",
+        'device': 'cuda:0'
+    }
+#process_dates_in_range(output_dir, start_date, end_date, config_changes)
 
 
 
@@ -320,13 +358,13 @@ config_changes = {
             'sample_command_interval': 500,
             'kick_vel': 0.0,
             'terminate_geoms': [],
-            'enable_force_kick': False,
+            'enable_force_kick': True,
             'impulse_force_kick': False,
             'force_kick_duration': 0.2,
             'force_kick_impulse': [20.0, 20.0],
             'force_kick_interval': 150,
-            'kick_force': [190.0, 190.0],
-            'kick_theta': [5/4, 5/4], # kick_theta * pi
+            'kick_force': [50.0, 300.0],
+            'kick_theta': [0.0, 2.0], # kick_theta * pi
             'is_training': False,
             'domain_rand': {
                 'randomisation': False
@@ -338,34 +376,41 @@ config_changes = {
             },
             'manual_control': {
                 'enable': True,
-                'task': 'heading_directions',
-                'cmd_x': 1.0,
+                'task': 'force_push',
+                'cmd_x': 0.0,
                 'cmd_y': 0.0,
                 'cmd_ang': 0.0
             }
         },
-        'rollouts_per_experiment': 8,
+        'rollouts_per_experiment': 5,
         'success_threshold': 0.78125,
         'timesteps_per_rollout': 50,
         'plot_details': False,
-        'num_iterations': 65,
-        'num_envs': 1,
-        'viz': True,
-        'record_video':True,
-        'result_tag': "test_direction1",
+        'num_iterations': 21,
+        'num_envs': 1000,
+        'viz': False,
+        'record_video':False,
+        'result_tag': "test_stand",
         'device': 'cuda:0'
     }
 config_changes['scene_xml'] = 'unitree_go2/flat.xml'
 
-#trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
-for i in range(7):
-    config_changes['env']['manual_control']['cmd_x'] = 1.0 + i*0.1
-    config_changes['result_tag'] = f'test_vel_1_{i}'
-    #eval_trained_model(trained_run_path, config_changes)
-    trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
-    eval_trained_model(trained_run_path, config_changes)
-    trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
-    eval_trained_model(trained_run_path, config_changes)
+
+#trained_run_path = '/home/dspoljaric/TAvic/outputs/2024-11-25/10-20-58'
+#eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dspoljaric/TAvic/outputs/2024-11-25/14-03-45'
+eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dspoljaric/TAvic/outputs/2024-11-24/09-58-49'
+eval_trained_model(trained_run_path, config_changes)
+
+# for i in range(7):
+#     config_changes['env']['manual_control']['cmd_x'] = 1.0 + i*0.1
+#     config_changes['result_tag'] = f'test_vel_1_{i}'
+#     #eval_trained_model(trained_run_path, config_changes)
+#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+#     eval_trained_model(trained_run_path, config_changes)
+#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+#     eval_trained_model(trained_run_path, config_changes)
 
 # trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
 # eval_trained_model(trained_run_path, config_changes)

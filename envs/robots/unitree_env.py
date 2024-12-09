@@ -299,7 +299,9 @@ class UnitreeEnv(MjxEnv):
         """
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
-
+        
+        
+        
         if self.cfg.control_mode == "P" or self.cfg.control_mode == "VIC_1" or self.cfg.control_mode == "VIC_2" or self.cfg.control_mode == "VIC_3" or self.cfg.control_mode == "VIC_4":
             target_dof_pos = jp.clip(self.compute_target_dof(action),
                                 a_min=self.lower_limits, a_max=self.upper_limits)
@@ -314,6 +316,24 @@ class UnitreeEnv(MjxEnv):
                 p_gains = p_gains * actuator_param[0]
                 d_gains = d_gains * actuator_param[1]
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
+        if self.cfg.control_mode == "VIC_5":
+            # Variable impedance control in cartesian space
+            target_dof_pos = jp.clip(self.compute_target_dof(action),
+                                a_min=self.lower_limits, a_max=self.upper_limits)
+            q_des = data.qpos.at[7:].set(target_dof_pos)
+            # Getting desired state
+            des = smooth.kinematics(self.sys, data.replace(qpos=q_des))
+            des = smooth.com_pos(self.sys, des)
+            # Calculate desired and actual position, Could anything be in global?
+            x_des = des.xpos[self.foot_body_id] - des.xpos[self._torso_idx]
+            x = data.xpos[self.foot_body_id]- data.xpos[self._torso_idx]
+            J = self._get_jacobian(data, data.qpos)
+            x_dot = J @ data.qvel # is this global?
+            # calculate force in cartesian space
+            #force = K_p * (x_des - x) - K_d * x_dot
+            # Transform into joint space
+            # torque = J @ force
+            
         elif self.cfg.control_mode == "T":
             torques = unscale(self.cfg.action_scale * action[:12], lower=-self.torque_limits, upper=self.torque_limits)
         
@@ -649,6 +669,7 @@ class UnitreeEnv(MjxEnv):
             obs_history: jax.Array
         """
         x, xd = self._pos_vel(data)
+        
         inv_torso_rot = math.quat_inv(x.rot[0]) #calculates the inverse of a quaternion
         
         # Calculating the local measurable velocities
@@ -813,7 +834,7 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(jp.square(action - last_act))
     
     def action_rate2(self, action: jax.Array, last_act: jax.Array, action_minus_2t:jax.Array) -> jax.Array:
-        return jp.exp(-0.05*jp.sum(jp.power(action-2*last_act+action_minus_2t,2)))
+        return jp.sum(jp.square(action-2*last_act+action_minus_2t))
     
     def rew_hip(
             self, joint_angles: jax.Array, commands: jax.Array
