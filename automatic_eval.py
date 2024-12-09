@@ -325,8 +325,8 @@ config_changes = {
             'force_kick_duration': 0.2,
             'force_kick_impulse': [20.0, 20.0],
             'force_kick_interval': 150,
-            'kick_force': [190.0, 190.0],
-            'kick_theta': [5/4, 5/4], # kick_theta * pi
+            'kick_force': [50.0, 300.0],
+            'kick_theta': [0.0, 2.0], # kick_theta * pi
             'is_training': False,
             'domain_rand': {
                 'randomisation': False
@@ -338,8 +338,8 @@ config_changes = {
             },
             'manual_control': {
                 'enable': True,
-                'task': 'heading_directions',
-                'cmd_x': 1.0,
+                'task': 'auto',
+                'cmd_x': 0.8,
                 'cmd_y': 0.0,
                 'cmd_ang': 0.0
             }
@@ -349,26 +349,29 @@ config_changes = {
         'timesteps_per_rollout': 50,
         'plot_details': False,
         'num_iterations': 65,
-        'num_envs': 1,
+        'num_envs': 1000,
         'viz': True,
         'record_video':True,
-        'result_tag': "test_direction1",
+        'result_tag': "test",
         'device': 'cuda:0'
     }
 config_changes['scene_xml'] = 'unitree_go2/flat.xml'
 
-#trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
-for i in range(7):
-    config_changes['env']['manual_control']['cmd_x'] = 1.0 + i*0.1
-    config_changes['result_tag'] = f'test_vel_1_{i}'
-    #eval_trained_model(trained_run_path, config_changes)
-    trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
-    eval_trained_model(trained_run_path, config_changes)
-    trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
-    eval_trained_model(trained_run_path, config_changes)
+# for i in range(7):
+#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
+#     config_changes['env']['manual_control']['cmd_x'] = 1.0 + i*0.1
+#     config_changes['result_tag'] = f'test_vel_1_{i}'
+#     #eval_trained_model(trained_run_path, config_changes)
+#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+#     eval_trained_model(trained_run_path, config_changes)
+#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+#     eval_trained_model(trained_run_path, config_changes)
 
-# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
-# eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
+eval_trained_model(trained_run_path, config_changes)
 
-# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
-# eval_trained_model(trained_run_path, config_changes)
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+eval_trained_model(trained_run_path, config_changes)
+
+trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+eval_trained_model(trained_run_path, config_changes)
