@@ -31,6 +31,7 @@ class UnitreeEnv(MjxEnv):
         
         resource_directory = os.path.join(os.getcwd(), 'envs','resources') # it is anticipated to be executed from TALocoMotion
         mj_model = mujoco.MjModel.from_xml_path(os.path.join(resource_directory, model_path))
+        self.num_points = 25
         if "terrain" in model_path:
             self.terminate_map = True
             print(f"Changing termination to MAP TERMINATION: {self.terminate_map}")
@@ -42,7 +43,7 @@ class UnitreeEnv(MjxEnv):
             print(f"Shape of heightfield : {n}")
             #self.heightfield = jp.flipud(mj_model.hfield_data.reshape(n,n))
             self.heightfield = jp.array(mj_model.hfield_data.reshape(n,n))
-            self.num_points = 25
+            
             # print(f"Heightfield at 0 250: {self.heightfield[0,249]}")
             # print(f"Heightfield at 0 0: {self.heightfield[0,0]}")
             # print(f"Heightfield at 250 0: {self.heightfield[249,0]}")

@@ -4,7 +4,7 @@ import matplotlib.patches as mpatches
 
 # ----------------------- Evaluation of heading -----------------------
 def eval_heading(filenames, labels = None, threshold=None, file_outputname = "heading"):
-    print(f"Eval heading: {filenames}")
+    #print(f"Eval heading: {filenames}")
     heading_data = {'name':[],'local_v':[], 'success_rate':[], 'COT':[], 'power':[]}
     for i,filename in enumerate(filenames):
         if labels == None:
@@ -17,8 +17,6 @@ def eval_heading(filenames, labels = None, threshold=None, file_outputname = "he
         heading_data['local_v'].append(load_tensor_from_csv('local_v',filename=filename))
         heading_data['COT'].append(load_tensor_from_csv('COT',filename=filename))
         heading_data['power'].append(load_tensor_from_csv('power',filename=filename))
-        #print(f"Local v error: {torch.abs(threshold-load_tensor_from_csv('local_v',filename=filename))}")
-        print(f"Local v error: {torch.mean(torch.abs(threshold-load_tensor_from_csv('local_v',filename=filename)))}")
         heading_data['success_rate'].append(load_tensor_from_csv('success_rate',filename=filename))
 
     heading_data['local_v'] = torch.stack(heading_data['local_v'],dim=0)
@@ -230,7 +228,6 @@ def eval_cmd_rando_boundary(filenames, labels=None):
         os.makedirs(dir_name)
     fig_path = os.path.join(dir_name, f"{plot_name}_polar_scatter.png")
     plt.savefig(fig_path)
-    #plt.show()
 
 
 
@@ -238,7 +235,6 @@ def eval_cmd_rando_boundary(filenames, labels=None):
 def main():
 
     # Get the results from the output directory
-    # output_dir = '/home/dario/Documents/TALocoMotion/outputs/graphs/'
     output_dir = os.path.join(os.getcwd(), 'outputs', 'graphs')
     if not os.path.exists(output_dir):
         assert False, f"Output directory does not exist: {output_dir}"
@@ -247,58 +243,29 @@ def main():
     for file in files:
         if 'cmd_rando_xy' in file and 'csv' in file:
             filenames['cmd_rando'].append(file)
-        if 'force_push_test_interval' in file and 'csv' in file:
+        if 'force_push' in file and 'csv' in file:
             filenames['force_push'].append(file)
         if 'heading_directions' in file and 'csv' in file:
             filenames['heading_directions'].append(file)
     # ----------------------- Evaluation of heading -----------------------
-    # filenames_headings= ['heading_directions_results_2024-11-25_14-03-45_lowspeed.csv', 'heading_directions_results_2024-11-24_09-58-49_lowspeed.csv' , 'heading_directions_results_2024-11-25_10-20-58_lowspeed.csv']
-    # labels = ['P20', 'P50','PLS']
-    # eval_heading(filenames_headings, labels= labels, threshold=0.5, file_outputname = "heading_lowspeed")
-
-    # filenames_headings= ['heading_directions_results_2024-11-25_14-03-45_highspeed.csv', 'heading_directions_results_2024-11-24_09-58-49_highspeed.csv' , 'heading_directions_results_2024-11-25_10-20-58_highspeed.csv']
-    # labels = ['P20', 'P50','PLS']
-    # eval_heading(filenames_headings, labels= labels, threshold=1.3, file_outputname = "heading_highspeed")
-
-    # filenames_headings= ['heading_directions_results_2024-11-25_14-03-45_midspeed.csv', 'heading_directions_results_2024-11-24_09-58-49_midspeed.csv' , 'heading_directions_results_2024-11-25_10-20-58_midspeed.csv']
-    # labels = ['P20', 'P50','PLS']
-    # eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_midspeed")
-
-
-    # filenames_headings= ['heading_directions_test_payload_2024-11-25_14-03-45.csv', 'heading_directions_test_payload_2024-11-24_09-58-49.csv' , 'heading_directions_test_payload_2024-11-25_10-20-58.csv']
-    # labels = ['P20', 'P50','PLS']
-    # eval_heading(filenames_headings, labels= labels, threshold=0.3, file_outputname = "heading_payload")
-
-
-    # filenames_headings= ['heading_directions_test_2024-11-25_11-06-34.csv','heading_directions_test_2024-11-25_10-20-58.csv', 'heading_directions_test_2024-11-25_14-07-08.csv','heading_directions_test_2024-12-02_11-50-31.csv'] #'heading_directions_results_2024-11-25_14-07-08.csv',
-    # labels = ['PJS', 'PLS', 'IJS' ,'HJLS'] # vic 1, 2,3,4
-
-    # eval_heading(filenames_headings, labels= labels, threshold=0.8, file_outputname = "heading vic comparison")
-
+    eval_heading(filenames['heading_directions'])
 
     # ----------------------- Evaluation of Energy -----------------------
-    #filenames_heading = ['heading_directions_results_13-00-31.csv', 'heading_directions_results_2024-10-11_13-54-32.csv', 'heading_directions_results_2024-10-10_14-00-27.csv' ]# 'results_vic2_jt_hard_newnew.csv', 'results_vic3_jt.csv', 'results_vic2_0810.csv']
-    #labels = ['Baseline', 'VIC2 with feet contacts', 'VIC2 narrow stiff range']
-    #eval_cot_heading(filenames['heading_directions'])
-    #eval_cot_heading(filenames_heading, labels)
+    eval_cot_heading(filenames['heading_directions'])
 
 
     # ----------------------- Evaluation of force push -----------------------
-    #filenames_force = ['force_push_results_rando_all1.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
-    #filenames_force = ['force_push_results_model_1500.csv', 'force_push_results_test_vic2_jt_harder.csv', 'force_push_results_test_vic3_jt.csv', 'force_push_results_test_vic2_0810.csv', 'force_push_results_test_vic2_0810_1.csv']
-
     eval_force_push(filenames['force_push'])
-    #eval_force_push_boundary(['force_push_test_automation_2024-11-25_14-03-45.csv','force_push_test_automation_2024-11-25_10-20-58.csv'], labels = ['Baseline', 'VIC2'])
+    # ----------------------- Comparison of some runs -----------------------
     compare_runs = ['force_push_test_automation_2024-11-25_14-03-45.csv','force_push_test_automation_2024-11-25_10-20-58.csv', 'force_push_test_automation_2024-11-24_09-58-49.csv']
     labels = ['P20',  'PLS','P50']
     eval_force_push_scatter_boundary(compare_runs, labels = labels)
     eval_force_push_boundary(compare_runs, labels = labels)
-    #eval_cmd_rando_boundary(['cmd_rando_xy_13-00-31.csv', 'cmd_rando_xy_2024-10-11_13-54-32.csv'], labels = ['Baseline', 'VIC2'])
 
 
     # ----------------------- Evaluation of command random -----------------------
-    #filenames = ['cmd_rando_xy_test_vic2_0810_1.csv', 'cmd_rando_xy_model_1500.csv', 'cmd_rando_xy_11-32-08.csv', 'cmd_rando_xy_13-00-31.csv','cmd_rando_xy_11-32-08_1500.csv', 'cmd_rando_xy_11-32-08.csv']
-    #eval_cmd_rando(filenames['cmd_rando'])
+    eval_cmd_rando_boundary(['cmd_rando_xy_13-00-31.csv', 'cmd_rando_xy_2024-10-11_13-54-32.csv'], labels = ['Baseline', 'VIC2'])
+    eval_cmd_rando(filenames['cmd_rando'])
 
 
 

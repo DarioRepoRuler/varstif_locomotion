@@ -233,183 +233,279 @@ def process_dates_in_range(output_dir, start_date, end_date, config_changes = No
                     
                     eval_trained_model(subfolder_path, config_changes)
 
-
-## Example usage
-
-# ----------Evaluation of model in a date range ----------- #
-output_dir = os.path.join(os.getcwd(), 'outputs')
-start_date = '2024-12-06'
-end_date = '2024-12-06'
-config_changes = {
-        'env': {
-            'sample_command_interval': 500,
-            'kick_vel': 0.0,
-            'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
-            'enable_force_kick': False,
-            'impulse_force_kick': False,
-            'force_kick_impulse': [20.0, 20.0],
-            'force_kick_interval': 150,
-            'kick_force': [50.0, 300.0],
-            'is_training': False,
-            'domain_rand': {
-                'enable': False
+def eval_models_in_range(start_date, end_date):
+    output_dir = os.path.join(os.getcwd(), 'outputs')
+    # Set config to evaluate all metrics (per default)
+    config_changes = {
+            'env': {
+                'sample_command_interval': 500,
+                'kick_vel': 0.0,
+                'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+                'enable_force_kick': False,
+                'impulse_force_kick': False,
+                'force_kick_impulse': [20.0, 20.0],
+                'force_kick_interval': 150,
+                'kick_force': [50.0, 300.0],
+                'is_training': False,
+                'domain_rand': {
+                    'enable': False
+                },
+                'control_range': {
+                    'cmd_x': [-1.5, 1.5],
+                    'cmd_y': [-1.5, 1.5],
+                    'cmd_ang': [-0.0, 0.0]
+                },
+                'manual_control': {
+                    'enable': True,
+                    'task': 'auto',
+                    'cmd_x': 0.8,
+                    'cmd_y': 0.0,
+                    'cmd_ang': 0.0
+                }
             },
-            'control_range': {
-                'cmd_x': [-1.5, 1.5],
-                'cmd_y': [-1.5, 1.5],
-                'cmd_ang': [-0.0, 0.0]
+            'rollouts_per_experiment': 8,
+            'success_threshold': 0.78125,
+            'timesteps_per_rollout': 50,
+            'plot_details': False,
+            'num_iterations': 65,
+            'num_envs': 1000,
+            'viz': False,
+            'record_video':False,
+            'result_tag': "test_automation",
+            'device': 'cuda:0'
+        }
+    process_dates_in_range(output_dir, start_date, end_date, config_changes)
+
+def eval_model_speeds(trained_run_path):
+    config_changes = {
+            'env': {
+                'sample_command_interval': 500,
+                'kick_vel': 0.0,
+                'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+                'enable_force_kick': False,
+                'impulse_force_kick': False,
+                'force_kick_impulse': [20.0, 20.0],
+                'force_kick_interval': 150,
+                'kick_force': [50.0, 300.0],
+                'is_training': False,
+                'domain_rand': {
+                    'enable': False
+                },
+                'control_range': {
+                    'cmd_x': [-1.5, 1.5],
+                    'cmd_y': [-1.5, 1.5],
+                    'cmd_ang': [-0.0, 0.0]
+                },
+                'manual_control': {
+                    'enable': True,
+                    'task': 'heading_directions',
+                    'cmd_x': 0.8,
+                    'cmd_y': 0.0,
+                    'cmd_ang': 0.0
+                }
             },
-            'manual_control': {
-                'enable': True,
-                'task': 'auto',
-                'cmd_x': 0.8,
-                'cmd_y': 0.0,
-                'cmd_ang': 0.0
-            }
-        },
-        'rollouts_per_experiment': 8,
-        'success_threshold': 0.78125,
-        'timesteps_per_rollout': 50,
-        'plot_details': False,
-        'num_iterations': 65,
-        'num_envs': 1000,
-        'viz': False,
-        'record_video':False,
-        'result_tag': "test_automation",
-        'device': 'cuda:0'
-    }
-#process_dates_in_range(output_dir, start_date, end_date, config_changes)
+            'rollouts_per_experiment': 8,
+            'success_threshold': 0.78125,
+            'timesteps_per_rollout': 50,
+            'plot_details': False,
+            'num_iterations': 65,
+            'num_envs': 1000,
+            'viz': True,
+            'record_video':True,
+            'device': 'cuda:0'
+        }
+    print(f"Do lowspeed")
+    config_changes['scene_xml'] = 'unitree_go2/flat.xml'
+    config_changes['result_tag'] = 'test_low_speed'
+    config_changes['env']['manual_control']['cmd_x'] = 0.5
+    eval_trained_model(trained_run_path, config_changes)
+    print(f'Do midspeed')
+    config_changes['result_tag'] = 'test_mid_speed'
+    config_changes['env']['manual_control']['cmd_x'] = 1.0
+    eval_trained_model(trained_run_path, config_changes)
+    print(f'Do highspeed')
+    config_changes['result_tag'] = 'test_high_speed'
+    config_changes['env']['manual_control']['cmd_x'] = 1.5
+    eval_trained_model(trained_run_path, config_changes)
 
-
-
-# ---------------- Example call ---------------- #    
-# output_dir = os.path.join(os.getcwd(),'outputs')
-# for day in os.listdir(output_dir):
-#     day_outputs = os.path.join(output_dir,day)
-#     for file in os.listdir(day_outputs):
-#         subfolder_path = os.path.join(day_outputs, file)
-#         if os.path.isdir(subfolder_path):
-#             if 'checkpoints' in os.listdir(subfolder_path):
-#                 checkpoint_path = find_highest_checkpoint(os.path.join(subfolder_path, 'checkpoints'))
-#                 if checkpoint_path is None:
-#                     print(f'No checkpoints found in {subfolder_path}')
-#             else:
-#                 print(f'No checkpoints in {subfolder_path}')
-
-# # day = '2024-11-23'
-# #delete_non_checkpoint_run(os.path.join(output_dir,day))
-# #delete_all_non_checkpoints_runs(output_dir)
-
-# # ----------Evaluation of single model ----------- #
-# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-35-09'
-# config_changes = {
-#         'env': {
-#             'sample_command_interval': 500,
-#             'kick_vel': 0.0,
-#             'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
-#             'enable_force_kick': False,
-#             'impulse_force_kick': False,
-#             'force_kick_impulse': [20.0, 20.0],
-#             'force_kick_interval': 150,
-#             'kick_force': [50.0, 300.0],
-#             'is_training': False,
-#             'domain_rand': {
-#                 'enable': False
-#             },
-#             'control_range': {
-#                 'cmd_x': [-1.5, 1.5],
-#                 'cmd_y': [-1.5, 1.5],
-#                 'cmd_ang': [-0.0, 0.0]
-#             },
-#             'manual_control': {
-#                 'enable': True,
-#                 'task': 'stiffness',
-#                 'cmd_x': 0.8,
-#                 'cmd_y': 0.0,
-#                 'cmd_ang': 0.0
-#             }
-#         },
-#         'rollouts_per_experiment': 8,
-#         'success_threshold': 0.78125,
-#         'timesteps_per_rollout': 50,
-#         'plot_details': False,
-#         'num_iterations': 65,
-#         'num_envs': 1000,
-#         'viz': True,
-#         'record_video':True,
-#         'result_tag': "test_automation",
-#         'device': 'cuda:0'
-#     }
-
-# #eval_trained_model(trained_run_path, config_changes)
-# config_changes['scene_xml'] = 'unitree_go2/flat.xml'
-# config_changes['result_tag'] = 'test'
-# config_changes['env']['manual_control']['cmd_x'] = 0.5
-# eval_trained_model(trained_run_path, config_changes)
-# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
-# eval_trained_model(trained_run_path, config_changes)
-# trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
-# eval_trained_model(trained_run_path, config_changes)
-
-
-
-config_changes = {
-        'env': {
-            'sample_command_interval': 500,
-            'kick_vel': 0.0,
-            'terminate_geoms': [],
-            'enable_force_kick': True,
-            'impulse_force_kick': False,
-            'force_kick_duration': 0.2,
-            'force_kick_impulse': [20.0, 20.0],
-            'force_kick_interval': 150,
-            'kick_force': [50.0, 300.0],
-            'kick_theta': [0.0, 2.0], # kick_theta * pi
-            'is_training': False,
-            'domain_rand': {
-                'randomisation': False
+def eval_model_pushes(trained_run_path):
+    config_changes = {
+            'env': {
+                'sample_command_interval': 500,
+                'kick_vel': 0.0,
+                'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+                'enable_force_kick': True,
+                'impulse_force_kick': False,
+                'force_kick_impulse': [20.0, 20.0],
+                'force_kick_interval': 150,
+                'kick_force': [50.0, 300.0],
+                'is_training': False,
+                'domain_rand': {
+                    'enable': False
+                },
+                'control_range': {
+                    'cmd_x': [-1.5, 1.5],
+                    'cmd_y': [-1.5, 1.5],
+                    'cmd_ang': [-0.0, 0.0]
+                },
+                'manual_control': {
+                    'enable': True,
+                    'task': 'force_push',
+                    'cmd_x': 0.3,
+                    'cmd_y': 0.0,
+                    'cmd_ang': 0.0
+                }
             },
-            'control_range': {
-                'cmd_x': [-1.5, 1.5],
-                'cmd_y': [-1.5, 1.5],
-                'cmd_ang': [-0.0, 0.0]
-            },
-            'manual_control': {
-                'enable': True,
-                'task': 'auto',
-                'cmd_x': 0.8,
-                'cmd_y': 0.0,
-                'cmd_ang': 0.0
-            }
-        },
-        'rollouts_per_experiment': 8,
-        'success_threshold': 0.78125,
-        'timesteps_per_rollout': 50,
-        'plot_details': False,
-        'num_iterations': 65,
-        'num_envs': 1000,
-        'viz': True,
-        'record_video':True,
-        'result_tag': "test",
-        'device': 'cuda:0'
-    }
-config_changes['scene_xml'] = 'unitree_go2/flat.xml'
+            'rollouts_per_experiment': 5,
+            'success_threshold': 0.78125,
+            'timesteps_per_rollout': 50,
+            'plot_details': False,
+            'num_iterations': 21,
+            'num_envs': 1000,
+            'viz': True,
+            'record_video':True,
+            'device': 'cuda:0'
+        }
+    config_changes['scene_xml'] = 'unitree_go2/flat.xml'
+    config_changes['result_tag'] = 'test'
+    eval_trained_model(trained_run_path, config_changes)
 
-# for i in range(7):
-#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
-#     config_changes['env']['manual_control']['cmd_x'] = 1.0 + i*0.1
-#     config_changes['result_tag'] = f'test_vel_1_{i}'
-#     #eval_trained_model(trained_run_path, config_changes)
-#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
-#     eval_trained_model(trained_run_path, config_changes)
-#     trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
-#     eval_trained_model(trained_run_path, config_changes)
+if __name__ == '__main__':
+        ## Example usage
 
-trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
-eval_trained_model(trained_run_path, config_changes)
+    # Evaluation of the following models:
+    model_names ={'P20': '2024-11-25/14-03-45','P50': '2024-11-24/09-58-49', 'VIC1': '2024-11-25/11-06-34','VIC2': '2024-11-25/10-20-58' ,'VIC3': '2024-11-25/14-07-08','VIC4':'2024-12-02/11-50-31'}
+    output_path = os.path.join(os.getcwd(),'outputs')
+    # replace / with _ in model names
+    #model_names = {k:v.replace('/','_') for k,v in model_names.items()}
+    model_paths = {k:os.path.join(output_path,v) for k,v in model_names.items()}
+    # 1.) Evaluation of models on heading in different speeds and directions
+    for model in model_paths.values():
+        print(f'Evaluation of model {model} in heading directions')
+        eval_model_speeds(model)
+    
+    # 2.) Evaluation of force push recovery
+    for model in model_paths.values():
+        print(f'Evaluation of model {model} in heading directions')
+        eval_model_pushes(model)
 
-trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
-eval_trained_model(trained_run_path, config_changes)
 
-trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
-eval_trained_model(trained_run_path, config_changes)
+
+    # ----------Evaluation of model in a date range ----------- #
+    start_date = '2024-12-06'
+    end_date = '2024-12-06'
+    #eval_models_in_range(start_date, end_date)
+
+
+    
+
+    # # ----------Evaluation of single model ----------- #
+    # trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-35-09'
+    # config_changes = {
+    #         'env': {
+    #             'sample_command_interval': 500,
+    #             'kick_vel': 0.0,
+    #             'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+    #             'enable_force_kick': False,
+    #             'impulse_force_kick': False,
+    #             'force_kick_impulse': [20.0, 20.0],
+    #             'force_kick_interval': 150,
+    #             'kick_force': [50.0, 300.0],
+    #             'is_training': False,
+    #             'domain_rand': {
+    #                 'enable': False
+    #             },
+    #             'control_range': {
+    #                 'cmd_x': [-1.5, 1.5],
+    #                 'cmd_y': [-1.5, 1.5],
+    #                 'cmd_ang': [-0.0, 0.0]
+    #             },
+    #             'manual_control': {
+    #                 'enable': True,
+    #                 'task': 'stiffness',
+    #                 'cmd_x': 0.8,
+    #                 'cmd_y': 0.0,
+    #                 'cmd_ang': 0.0
+    #             }
+    #         },
+    #         'rollouts_per_experiment': 8,
+    #         'success_threshold': 0.78125,
+    #         'timesteps_per_rollout': 50,
+    #         'plot_details': False,
+    #         'num_iterations': 65,
+    #         'num_envs': 1000,
+    #         'viz': True,
+    #         'record_video':True,
+    #         'result_tag': "test_automation",
+    #         'device': 'cuda:0'
+    #     }
+
+    # #eval_trained_model(trained_run_path, config_changes)
+    # config_changes['scene_xml'] = 'unitree_go2/flat.xml'
+    # config_changes['result_tag'] = 'test'
+    # config_changes['env']['manual_control']['cmd_x'] = 0.5
+    # eval_trained_model(trained_run_path, config_changes)
+    # trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+    # eval_trained_model(trained_run_path, config_changes)
+    # trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+    # eval_trained_model(trained_run_path, config_changes)
+
+
+
+    # config_changes = {
+    #         'env': {
+    #             'sample_command_interval': 500,
+    #             'kick_vel': 0.0,
+    #             'terminate_geoms': [],
+    #             'enable_force_kick': True,
+    #             'impulse_force_kick': False,
+    #             'force_kick_duration': 0.2,
+    #             'force_kick_impulse': [20.0, 20.0],
+    #             'force_kick_interval': 150,
+    #             'kick_force': [50.0, 300.0],
+    #             'kick_theta': [0.0, 2.0], # kick_theta * pi
+    #             'is_training': False,
+    #             'domain_rand': {
+    #                 'randomisation': False
+    #             },
+    #             'control_range': {
+    #                 'cmd_x': [-1.5, 1.5],
+    #                 'cmd_y': [-1.5, 1.5],
+    #                 'cmd_ang': [-0.0, 0.0]
+    #             },
+    #             'manual_control': {
+    #                 'enable': True,
+    #                 'task': 'auto',
+    #                 'cmd_x': 0.8,
+    #                 'cmd_y': 0.0,
+    #                 'cmd_ang': 0.0
+    #             }
+    #         },
+    #         'rollouts_per_experiment': 8,
+    #         'success_threshold': 0.78125,
+    #         'timesteps_per_rollout': 50,
+    #         'plot_details': False,
+    #         'num_iterations': 65,
+    #         'num_envs': 1000,
+    #         'viz': True,
+    #         'record_video':True,
+    #         'result_tag': "test",
+    #         'device': 'cuda:0'
+    #     }
+    # config_changes['scene_xml'] = 'unitree_go2/flat.xml'
+
+
+    # trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/10-20-58'
+    # eval_trained_model(trained_run_path, config_changes)
+
+    # trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-25/14-03-45'
+    # eval_trained_model(trained_run_path, config_changes)
+
+    # trained_run_path = '/home/dario/Documents/TALocoMotion/outputs/2024-11-24/09-58-49'
+    # eval_trained_model(trained_run_path, config_changes)
+    
+    
+    # # ---------- Delete non-checkpoint runs ----------- #
+    # day = '2024-11-23'
+    #delete_non_checkpoint_run(os.path.join(output_dir,day))
+    #delete_all_non_checkpoints_runs(output_dir)
