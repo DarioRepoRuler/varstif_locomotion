@@ -53,6 +53,9 @@ class PPOTaskBase(nn.Module):
         elif self.control_mode == 'VIC_4':
             num_actions= 12+7
             offset = 7
+        elif self.control_mode == 'VIC_5':
+            num_actions= 12+3
+            offset = 3
         
         self.cfg.env.single_obs_size = self.cfg.env.single_obs_size + offset
         self.cfg.env.single_obs_size_priv = self.cfg.env.single_obs_size_priv + offset
@@ -598,8 +601,8 @@ class PPOTaskBase(nn.Module):
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
         from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
         # For using this script please make sure the push force interval is set to 150 and the timesteps per rollout to 50 and the 
-        if (self.cfg.env.force_kick_interval != 175) or (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5) or (self.cfg.env.enable_force_kick != True):
-            print("Please set the force kick interval to 150, timesteps per rollout to 50 and rollouts per experiment to 5 and enable force kick to true")
+        if (self.cfg.timesteps_per_rollout != 50) or (self.cfg.rollouts_per_experiment != 5) or (self.cfg.env.enable_force_kick != True):
+            print("Please set the force kick interval to 175, timesteps per rollout to 50 and rollouts per experiment to 5 and enable force kick to true")
             return
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
         

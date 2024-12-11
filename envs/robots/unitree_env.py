@@ -14,6 +14,8 @@ from envs.common.helper import unscale
 from pathlib import Path
 import os
 import numpy as np
+import matplotlib.pyplot as plt
+import scipy.interpolate as interpolate
 
 # For debugging set this:
 # config.update("jax_debug_nans", True)
@@ -32,9 +34,28 @@ class UnitreeEnv(MjxEnv):
         if "terrain" in model_path:
             self.terminate_map = True
             print(f"Changing termination to MAP TERMINATION: {self.terminate_map}")
+            # Access the heightfield asset to get the file name
+            paths = mj_model.paths
+            # It is assumed the heightfield is n x n size
+            n = jp.sqrt(mj_model.hfield_data.shape[0])
+            n = n.astype(int)
+            print(f"Shape of heightfield : {n}")
+            #self.heightfield = jp.flipud(mj_model.hfield_data.reshape(n,n))
+            self.heightfield = jp.array(mj_model.hfield_data.reshape(n,n))
+            self.num_points = 25
+            # print(f"Heightfield at 0 250: {self.heightfield[0,249]}")
+            # print(f"Heightfield at 0 0: {self.heightfield[0,0]}")
+            # print(f"Heightfield at 250 0: {self.heightfield[249,0]}")
+            # print(f"Heightfield at 250 250: {self.heightfield[249,249]}")
+            # Plot the heightfield as a 2D heatmap
+            # plt.figure()
+            # plt.imshow(self.heightfield)  # Adjust extent for real-world dimensions
+            #plt.imshow(self.heightfield)
+            # plt.show()
         else:
             print(f"DEFAULT TERMINATION")
             self.terminate_map = False
+            
 
         mj_model.opt.solver = mujoco.mjtSolver.mjSOL_NEWTON
         mj_model.opt.iterations = 6
@@ -44,6 +65,10 @@ class UnitreeEnv(MjxEnv):
         super().__init__(mj_model=mj_model,
                          physics_steps_per_control_step=cfg.physics_steps_per_control_step)
         print(self.sys.opt)
+        
+                
+        
+        
         
         self.cfg = cfg
         self.force_kick_counter = self.cfg.force_kick_duration / self.dt
@@ -67,6 +92,9 @@ class UnitreeEnv(MjxEnv):
             
         elif self.cfg.control_mode == "VIC_4":
             self.action_shape = self.action_size-2 + 7
+            
+        elif self.cfg.control_mode == "VIC_5":
+            self.action_shape = self.action_size-2 + 3
         else:
             self.action_shape = self.action_size-2
         # Specify Gains for PD controller for each joint
@@ -223,7 +251,7 @@ class UnitreeEnv(MjxEnv):
         # Reset position only
         reset_pos = reset_pos.at[0:2].set(jp.array([reset_x[0], reset_y[0]]))        
         #reset_pos = reset_pos.at[4:7].set(jp.array([q1[0], q2[0], q3[0], q4]))
-        offset = jp.round(jax.random.uniform(rng_kick_offset, (1,), minval=-20, maxval=20))
+        offset = jp.round(jax.random.uniform(rng_kick_offset, (1,), minval=-25, maxval=25))
         
         
         # Get initial state
@@ -261,6 +289,9 @@ class UnitreeEnv(MjxEnv):
             'des_foot_height': jp.zeros((4,50)),
             'foot_pos': jp.zeros((4,3)),
             'last_action_kick': jp.zeros(self.action_shape+2),
+            'global_pos': jp.zeros(3),
+            'height_scan': jp.zeros(3),
+            'height_scan1': jp.zeros((self.num_points,3)),
         }
         
         # Define obs history
@@ -302,8 +333,6 @@ class UnitreeEnv(MjxEnv):
         dof_pos = data.qpos[7:]
         dof_vel = data.qvel[6:]
         
-        
-        
         if self.cfg.control_mode == "P" or self.cfg.control_mode == "VIC_1" or self.cfg.control_mode == "VIC_2" or self.cfg.control_mode == "VIC_3" or self.cfg.control_mode == "VIC_4":
             target_dof_pos = jp.clip(self.compute_target_dof(action),
                                 a_min=self.lower_limits, a_max=self.upper_limits)
@@ -318,23 +347,47 @@ class UnitreeEnv(MjxEnv):
                 p_gains = p_gains * actuator_param[0]
                 d_gains = d_gains * actuator_param[1]
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
-        if self.cfg.control_mode == "VIC_5":
+        elif self.cfg.control_mode == "VIC_5":
             # Variable impedance control in cartesian space
+            ## Approach 1:
             target_dof_pos = jp.clip(self.compute_target_dof(action),
                                 a_min=self.lower_limits, a_max=self.upper_limits)
+            Kp = self.compute_stiffness(action)
+            Kd = 0.2*jp.sqrt(Kp)
             q_des = data.qpos.at[7:].set(target_dof_pos)
             # Getting desired state
             des = smooth.kinematics(self.sys, data.replace(qpos=q_des))
-            des = smooth.com_pos(self.sys, des)
+            des = smooth.com_pos(self.sys, des) # calculate new com
             # Calculate desired and actual position, Could anything be in global?
             x_des = des.xpos[self.foot_body_id] - des.xpos[self._torso_idx]
-            x = data.xpos[self.foot_body_id]- data.xpos[self._torso_idx]
-            J = self._get_jacobian(data, data.qpos)
-            x_dot = J @ data.qvel # is this global?
+            jax.debug.print('Desired foot pos: {x}', x=x_des)
+            x = data.xpos[self.foot_body_id] - data.xpos[self._torso_idx]
+            J = self._get_jacobian(data, data.qpos)[:,6:]
+            #jax.debug.print('Jacobian: {x}', x=J)
+            err = x_des - x
+            err = err.reshape(12,)
+            x_dot = J @ data.qvel[6:] # is this global?
+            jax.debug.print('Velocity: {x}', x=x_dot)
             # calculate force in cartesian space
-            #force = K_p * (x_des - x) - K_d * x_dot
+            force = Kp * err - Kd * x_dot
             # Transform into joint space
-            # torque = J @ force
+            torques = J.T @ force
+            jax.debug.print('Torques(way 1): {x}', x=torques)
+            ## Approach 2:
+            target_dof_pos = jp.clip(self.compute_target_dof(action),
+                                a_min=self.lower_limits, a_max=self.upper_limits)
+            Kp = self.compute_stiffness(action)
+            Kd = 0.2*jp.sqrt(Kp)
+            x_des, _ = self._pos_vel(data.replace(qpos=data.qpos.at[7:].set(target_dof_pos)))
+            x, xd = self._pos_vel(data)
+            err =  x.take(self.foot_body_id).pos- x_des.take(self.foot_body_id).pos
+            err = err.reshape(12,)
+            jax.debug.print('Error: {x}', x=err)
+            xd = xd.take(self.foot_body_id).vel
+            xd = xd.reshape(12,)
+            force = Kp * err - Kd * xd
+            torques = self._get_jacobian(data, data.qpos)[:,6:].T @ force
+            jax.debug.print('Torques (way 2): {x}', x=torques)
             
         elif self.cfg.control_mode == "T":
             torques = unscale(self.cfg.action_scale * action[:12], lower=-self.torque_limits, upper=self.torque_limits)
@@ -386,6 +439,8 @@ class UnitreeEnv(MjxEnv):
             action_stiff = jp.ravel((stiff_leg*stiff_joint[:,jp.newaxis]).T)
             action_stiff = unscale( 2.0*(action_stiff-0.5) , self.cfg.control.stiff_range[0], self.cfg.control.stiff_range[1])
             #jax.debug.print('Stiffness: {x}', x=action_stiff)
+        elif self.cfg.control_mode == "VIC_5": # the same as VIC1
+            action_stiff = unscale(jp.tile(action[12:12+3],4), self.cfg.control.stiff_range[0], self.cfg.control.stiff_range[1])
         else:
             raise RuntimeError("control model: P|T")
         
@@ -416,13 +471,14 @@ class UnitreeEnv(MjxEnv):
     def force_kick_robot(self, state: State, rng: jp.ndarray):
         # This is intended to be used for evaluation only
         if self.cfg.enable_force_kick:
-            rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 4)
+            rng_kick, rng_theta, rng_impulse = jax.random.split(rng, 3)
             # Push randomly
             kick_theta = jax.random.uniform(rng_theta,minval=self.cfg.kick_theta[0]*jp.pi , maxval= self.cfg.kick_theta[1]*jp.pi)
             kick_force = jax.random.uniform(rng_kick, minval=self.cfg.kick_force[0], maxval=self.cfg.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.cfg.force_kick_impulse[0], maxval=self.cfg.force_kick_impulse[1])
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force
-            kick_condition = jp.logical_and(jp.mod(state.info['step'], (self.cfg.force_kick_interval+state.info['kick_offset_interval']))==0, state.info['step']>1 )
+            #kick_condition = jp.logical_and(jp.mod(state.info['step'], (self.cfg.force_kick_interval+state.info['kick_offset_interval']))==0, state.info['step']>1 )
+            kick_condition = jp.logical_and(state.info['step'] == (self.cfg.force_kick_interval+state.info['kick_offset_interval']), state.info['step']>1 )
             # Get the random values at kick interval
             state.info['force_kick'] = jp.where(kick_condition, kick, state.info['force_kick'])
             state.info['kick_theta']=jp.where(kick_condition, kick_theta, state.info['kick_theta'])
@@ -442,6 +498,154 @@ class UnitreeEnv(MjxEnv):
         else:
             state.info['force_kick'] = jp.zeros(2)
         return state
+    
+    def get_heights(self, state: State, num_points=108):
+        heightfield_size = 30 # scaled to -15,15 meters
+        scale_xy = heightfield_size/self.heightfield.shape[0]
+        x_pixel = (state.info['global_pos'][:2][0] + heightfield_size/2) / scale_xy 
+        y_pixel = (state.info['global_pos'][:2][1] + heightfield_size/2) / scale_xy
+        jax.debug.print("X pixel: {x}", x=x_pixel)
+        jax.debug.print("Y pixel: {x}", x=y_pixel) 
+        # Ensure the pixel coordinates are within the image bounds
+        x_pixel = jp.clip(x_pixel, 0, self.heightfield.shape[0] - 1).astype(int)
+        y_pixel = jp.clip(y_pixel, 0, self.heightfield.shape[1] - 1).astype(int)
+        height = self.heightfield[y_pixel, x_pixel]*0.8-0.5
+        state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], height])
+        return self.heightfield[y_pixel, x_pixel]
+    
+    def get_height_interp2d_np(self, state: State):
+        ## Version 1.0:
+        # x = jp.linspace(-15, 15, 250)
+        # y= jp.linspace(-15, 15, 250)
+        # x_up = jp.linspace(-15, 15, 500)
+        # y_up = jp.linspace(-15, 15, 500)
+        # def f(x,y):
+        #     return self.heightfield[y,x]
+        # z = f(x,y)
+        # height_upsampled = self.interp2d(x_up, y_up, x ,y , z)
+        # jax.debug.print('Height upsampled shape: {x}', x=height_upsampled.shape)
+        # heightfield_size = 30 # scaled to -15,15 meters
+        # scale_xy = heightfield_size/500
+        # x_pixel = (state.info['global_pos'][:2][0] + heightfield_size/2) / scale_xy 
+        # y_pixel = (state.info['global_pos'][:2][1] + heightfield_size/2) / scale_xy
+        # jax.debug.print("X pixel: {x}", x=x_pixel)
+        # jax.debug.print("Y pixel: {x}", x=y_pixel)
+        
+        # height = height_upsampled[y_pixel, x_pixel]*0.8-0.5
+        
+        #state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], height])
+        
+        ## Version 2.0:
+        x = np.linspace(0, 30, 250)
+        y = np.linspace(0, 30, 250)
+
+        f = interpolate.interp2d(y, x, self.heightfield, kind='linear')
+
+        x_upsampled = np.linspace(0, 30, 500)
+        y_upsampled = np.linspace(0, 30, 500)
+        z_upsampled = f(y_upsampled, x_upsampled)
+        height_upsampled = z_upsampled
+        heightfield_size = 30 # scaled to -15,15 meters
+        scale_xy = heightfield_size/500
+        x_pixel = (state.info['global_pos'][:2][0] + heightfield_size/2) / scale_xy 
+        y_pixel = (state.info['global_pos'][:2][1] + heightfield_size/2) / scale_xy
+        
+        z= f(y_pixel, x_pixel)
+        jax.debug.print('Height z : {x}', x=z)
+        height_scan1 = jp.array([state.info['global_pos'][0], state.info['global_pos'][1],z])
+        
+        x_pixel = jp.clip(x_pixel, 0, 500 - 1).astype(int)
+        y_pixel = jp.clip(y_pixel, 0, 500 - 1).astype(int)
+        #jax.debug.print('Height upsampled: {x}', x=height_upsampled)
+        #jax.debug.print("X pixel: {x}", x=x_pixel)
+        #jax.debug.print("Y pixel: {x}", x=y_pixel)
+        height_upsampled = jp.asarray(height_upsampled)
+        height = height_upsampled[y_pixel, x_pixel]*0.8-0.5
+        state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], height])
+        jax.debug.print("Height: {x}", x=height)
+        return height
+
+    def get_height_interp2d(self, state: State):
+        x = jp.linspace(-15, 15, 250)
+        y = jp.linspace(-15, 15, 250)
+        
+        robot_xy = state.info['global_pos'][:2]
+        scan_x = jp.linspace(robot_xy[0]-1 , robot_xy[0]+1 , 5)
+        scan_y = jp.linspace(robot_xy[1]-1 , robot_xy[1]+1 , 5)
+        
+        grid_x, grid_y = jp.meshgrid(scan_x, scan_y, indexing="ij")
+        scan_x = jp.ravel(grid_x)
+        scan_y = jp.ravel(grid_y)
+
+        z = self.interp2d( robot_xy[1],robot_xy[0] , y, x, self.heightfield)*0.8-0.5
+        z_new = self.interp2d( scan_y, scan_x, y, x, self.heightfield)*0.8-0.5
+        #jax.debug.print('Height new: {x}', x=z_new)
+        height_scan = jp.stack([scan_x, scan_y, z_new], axis=1)
+        #jax.debug.print('Height scan: {x}', x=height_scan)
+        #jax.debug.print('Height scane new: {x}', x=jp.array([scan_x, scan_y, z_new]))
+        state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], z])
+        state.info['height_scan1']= height_scan
+        return 
+    
+    def get_height_interp2d_single(self, state: State):
+        x = jp.linspace(-15, 15, 250)
+        y = jp.linspace(-15, 15, 250)
+        robot_xy = state.info['global_pos'][:2]
+        jax.debug.print('Robot xy: {x}', x=robot_xy)
+        z = self.interp2d( robot_xy[1],robot_xy[0] , y, x, self.heightfield)*0.8-0.5
+        jax.debug.print('Height: {x}', x=z)
+        state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], z])
+        return 
+
+    def interp2d(self, x: jp.ndarray, y: jp.ndarray, xp: jp.ndarray, yp: jp.ndarray, zp: jp.ndarray) -> jp.ndarray:
+            """
+            Bilinear interpolation on a grid. ``CartesianGrid`` is much faster if the data
+            lies on a regular grid.
+
+            Args:
+                x, y: 1D arrays of point at which to interpolate. Any out-of-bounds
+                    coordinates will be clamped to lie in-bounds.
+                xp, yp: 1D arrays of points specifying grid points where function values
+                    are provided.
+                zp: 2D array of function values. For a function `f(x, y)` this must
+                    satisfy `zp[i, j] = f(xp[i], yp[j])`
+
+            Returns:
+                1D array `z` satisfying `z[i] = f(x[i], y[i])`.
+            """
+            # if xp.ndim != 1 or yp.ndim != 1:
+            #     raise ValueError("xp and yp must be 1D arrays")
+            # if zp.shape != (xp.shape + yp.shape):
+            #     raise ValueError("zp must be a 2D array with shape xp.shape + yp.shape")
+
+            ix = jp.clip(jp.searchsorted(xp, x, side="right"), 1, len(xp) - 1)
+            iy = jp.clip(jp.searchsorted(yp, y, side="right"), 1, len(yp) - 1)
+
+            # Using Wikipedia's notation (https://en.wikipedia.org/wiki/Bilinear_interpolation)
+            z_11 = zp[ix - 1, iy - 1]
+            z_21 = zp[ix, iy - 1]
+            z_12 = zp[ix - 1, iy]
+            z_22 = zp[ix, iy]
+
+            z_xy1 = (xp[ix] - x) / (xp[ix] - xp[ix - 1]) * z_11 + (x - xp[ix - 1]) / (
+                xp[ix] - xp[ix - 1]
+            ) * z_21
+            z_xy2 = (xp[ix] - x) / (xp[ix] - xp[ix - 1]) * z_12 + (x - xp[ix - 1]) / (
+                xp[ix] - xp[ix - 1]
+            ) * z_22
+
+            z = (yp[iy] - y) / (yp[iy] - yp[iy - 1]) * z_xy1 + (y - yp[iy - 1]) / (
+                yp[iy] - yp[iy - 1]
+            ) * z_xy2
+
+            # if fill_value is not None:
+            #     oob = jp.logical_or(
+            #         x < xp[0], jp.logical_or(x > xp[-1], jp.logical_or(y < yp[0], y > yp[-1]))
+            #     )
+            #     z = jp.where(oob, fill_value, z)
+
+            return z
+
 
     def step(self, state: State, action: jp.ndarray) -> State:
         """
@@ -467,7 +671,9 @@ class UnitreeEnv(MjxEnv):
         action_kick = jp.concatenate([action, jp.array(state.info['force_kick'])])
         # Get the current state of the physics
         data0 = state.pipeline_state
-
+        #height = self.get_heights(state)
+        #self.get_height_interp2d(state)
+        #jax.debug.print('Height scan: {x}', x=state.info['height_scan'])
         # Performs physics timesteps per control step
         actuator_param = jp.concatenate([state.info['kp_factor'], state.info['kd_factor'], state.info['motor_strength']])
 
@@ -585,6 +791,7 @@ class UnitreeEnv(MjxEnv):
         state.info['last_vel'] = data.qvel
         state.info['last_qpos'] = data.qpos
         state.info['foot_pos_z'] = foot_pos[:, 2]
+        state.info['global_pos'] = data.qpos[:3]
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         local_w = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         state.metrics['local_w'] = local_w
