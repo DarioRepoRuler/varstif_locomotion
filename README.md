@@ -12,8 +12,7 @@ The focus of this project is on the "position + stiffness (and damping)" control
 
 ## Requirements
 For the efficient execution of this repo, a GPU is strongly required. All of this code was executed under: `Ubuntu 22.0.4` with a GPU: ` NVIDIA GeForce GTX 1060 6GB`. 
-
- Under normal settings such as 4096 parallelised environments with flat floor training required about 3GB of VRAM. 
+Under normal settings such as 4096 parallelised environments with flat floor training required about 3GB of VRAM. 
 
 
 ## Installation 
@@ -24,8 +23,6 @@ conda activate mjx
 cd TALocoMotion
 pip install -r requirements.txt
 ```
-
-
 
 ## Training
 Per default brax is allocating 75 % of the GPU memory. This might not be necessary and therefore this parameter can be passed as "XLA_PYTHON_CLIENT_MEM_FRACTION".

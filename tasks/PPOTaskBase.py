@@ -113,16 +113,7 @@ class PPOTaskBase(nn.Module):
         """
         Performs action in the environment and returns the next observation. Everything outside this function will not directly
         affect the environment or the learning process.
-        """
-        
-        if torch.isnan(obs_g).any():
-            print(f"observation shape: {obs_g.shape}")
-            print("Nan in obs_g!! Coming from simulation then...")
-            print(f"In observation: {torch.where(torch.isnan(obs_g))}")
-            print(f"Last action: {self.algo.storage.actions[-1][torch.where(torch.isnan(obs_g))[0]]}")
-            print(f"Action before: {self.algo.storage.actions[-2][torch.where(torch.isnan(obs_g))[0]]}")
-            print(f"Observation: {obs_g[torch.where(torch.isnan(obs_g))]}")
-        
+        """        
         if is_training:
             actions = self.algo.act(obs_g, privileged_obs_g)
         else:
@@ -245,10 +236,8 @@ class PPOTaskBase(nn.Module):
     def agent_eval_step(self, it, save_dir, is_training=False): # this function can be called via test or train
 
         self.algo.actor_critic.eval()
-        
         stat, episode_infos, _,_ = self.simulate(it,is_training=is_training)
         if stat["avg_reward"] > self.high_score_avg_reward:
-            print(f"New high score: {stat['avg_reward']}")
             self.save(os.path.join(save_dir, f'best.pt'))
 
         if self.wandb_logger:
@@ -299,22 +288,10 @@ class PPOTaskBase(nn.Module):
             
             self.current_learning_iteration += 1
             
-            if it % self.eval_interval == 0:
+            if (it % self.eval_interval == 0) and it > 0:
                 self.save(os.path.join(save_dir, f'model_{it}.pt'))
-                # print(f"Evaluation at epoch: {it}")
-                # self.agent_eval_step(it, save_dir,is_training=False)
-                
-            # if (it % self.eval_interval == 0) and (it > 0) and (self._rew_track_lin_vel > 1.125):
-            #     # Adapting the control range
-            #     for key in self.cfg.env.control_range.keys():
-            #         cr = self.cfg.env.control_range[key]
-            #         cr_new = [num * 1.5 for num in cr]
-            #         self.cfg.env.control_range[key] = cr_new
-
-            #     self._rew_track_lin_vel = 0.0
-            #     print(f"Config env: {self.cfg.env}")
-            #     self.env = self.init_env(self.cfg.scene_xml)
-            #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
+                print(f"Evaluation at epoch: {it}")
+                self.agent_eval_step(it, save_dir,is_training=False)
 
             # Change terrain
             # if (it == 6000):
@@ -350,6 +327,42 @@ class PPOTaskBase(nn.Module):
             self.test_stiffness(num_iterations)
         elif self.cfg.env.manual_control.task == 'default':
             self.test_default(num_iterations)
+            
+    def save(self, path, infos=None):
+        torch.save({
+            'model_state_dict': self.algo.actor_critic.state_dict(),
+            'optimizer_state_dict': self.algo.optimizer.state_dict(),
+            'iter': self.current_learning_iteration,
+            'infos': infos,
+        }, path)
+
+    def load(self, path, load_optimizer=False):
+        loaded_dict = torch.load(path, map_location=self.device)
+        self.algo.actor_critic.load_state_dict(loaded_dict['model_state_dict'])
+        if load_optimizer:
+            self.algo.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])
+        self.current_learning_iteration = loaded_dict['iter']
+        return loaded_dict['infos']
+
+    def get_inference_policy(self, device=None):
+        self.algo.actor_critic.eval()  # switch to evaluation mode (dropout for example)
+        if device is not None:
+            self.algo.actor_critic.to(device)
+        return self.algo.actor_critic.act_inference
+    
+    def get_model_name(self):
+        if self.cfg.ckpt_path is None:
+            return None
+        if 'checkpoints' in self.cfg.ckpt_path:
+            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
+            parent_dir_name = os.path.basename(parent_dir)
+            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
+            name = f'{grandparent_dir_name}_{parent_dir_name}'
+        else:
+            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
+        return name 
+    
+    # --------------------- Evaluation functions --------------------- #
 
     def test_auto(self, num_iterations):
         print(f"Starting auto evaluation")
@@ -379,7 +392,6 @@ class PPOTaskBase(nn.Module):
         self.cfg.env.control_range['cmd_y'] = [-1.5, 1.5]
         self.cfg.env.control_range['cmd_ang'] = [0.0, 0.0]
         self.cfg.env.enable_force_kick = False
-        
         print(f"Starting random xy evaluation")
         self.test_xy_random(self.cfg.num_iterations)
 
@@ -396,11 +408,6 @@ class PPOTaskBase(nn.Module):
             commands = eval_infos['cmd'][-1,:,:]
             cmd_norm = torch.linalg.norm(commands, dim=1).unsqueeze(1).cpu()
             theta = torch.atan2(commands[:,1],commands[:,0]).cpu() # in rad
-            # Some testing
-            # if it == 1:
-            #     self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0., 0., 0.]))
-            # save_tensors_to_csv([cmd_norm, theta],['cmd_norm', 'cmd_theta'], \
-            #                  f'command_sampling.csv')
             self.algo.storage.clear()
     
     def test_stiffness(self, num_iterations):
@@ -431,8 +438,6 @@ class PPOTaskBase(nn.Module):
             ax2.set_ylabel("Power")
             
         # Lists to accumulate values for plotting each of the 3 p_gains and position errors
-        p_gains_values = []
-        position_errors = []
         results = {'p_gains_values':[], 'position_errors':[], 'power':[]}
         if self.cfg.viz and self.cfg.record_video:
             path = os.path.join(os.getcwd(), 'outputs', 'videos', f'stiffness_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
@@ -444,17 +449,10 @@ class PPOTaskBase(nn.Module):
             # Run the simulation step and gather data
             
             next_obs_g, next_priv_obs_g, dones, info, metrics = self.step(self.obs, self.obs_priv, is_training=False)
-            
-            #print(f"Episode info: {metrics}")
-
             # Assuming `eval_metrics` contains `p_gains` and `dof_pos` for position errors
-            if 'p_gains' in metrics and 'dof_pos' in metrics and 'target_dof_pos' in metrics:
-                #print(f"Eval metrics: {metrics['p_gains'].shape}")
-                
+            if 'p_gains' in metrics and 'dof_pos' in metrics and 'target_dof_pos' in metrics:                
                 # Extract the p_gain and error values for the selected indices
-                current_p_gain = metrics['p_gains'][0, :] #.cpu().numpy()
-                #print(f"DOF pos: {metrics['dof_pos'][0, :]}")
-                #print(f"Target DOF pos: {metrics['target_dof_pos'][0, :]}")
+                current_p_gain = metrics['p_gains'][0, :] #.cpu().numpy())
                 current_error = (metrics['dof_pos'][0, :] - metrics['target_dof_pos'][0, :]) #.cpu().numpy()
 
                 # Append values for each of the p_gain components and errors
@@ -468,9 +466,7 @@ class PPOTaskBase(nn.Module):
                 power_array = torch.stack(results['power']).cpu().numpy()  # Shape (num_iterations, batch_size, 3)
                 
                 # Clear and update the plots
-                
                 ax1.clear()
-                #print(f"Shape of p_gains_array: {p_gains_array[:,0].shape}")
                 ax1.plot(p_gains_array[-50:, 0].flatten(), label="P Gain FR", color="blue")
                 ax1.plot(p_gains_array[-50:, 3].flatten(), label="P Gain FL", color="green")
                 ax1.plot(p_gains_array[-50:, 6].flatten(), label="P Gain RR", color="red")
@@ -495,6 +491,7 @@ class PPOTaskBase(nn.Module):
                 self.obs = next_obs_g
                 self.priv_obs = next_priv_obs_g
                 self.algo.storage.clear() # we don't need to store the data for training
+                    
         # Turn off interactive mode and show the final plot
         plt.ioff()
         if self.cfg.viz and self.cfg.record_video:
@@ -584,11 +581,8 @@ class PPOTaskBase(nn.Module):
 
         if self.cfg.viz and self.cfg.record_video:
             self.env.stop_video_recording()
-        
         print(f"Storing results in: force_push_results_{name}.csv")
         print(f"Average recovery {torch.mean(results['recovery_time'][torch.where(results['recovery_time']<349)])*0.02}")
-        # save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta'], results['recovery_time']],['success_rate', 'kick_force_magnitude', 'kick_theta', 'recovery_time'], \
-        #                      f'force_push_{self.cfg.result_tag}_{name}.csv')
         save_tensors_to_csv([results['success'], results['kick_force_magnitude'], results['kick_theta'], results['recovery_time']],['success_rate', 'kick_force_magnitude', 'kick_theta', 'recovery_time'], \
                              f'force_push_{self.cfg.result_tag}_{name}.csv')
         
@@ -842,8 +836,6 @@ class PPOTaskBase(nn.Module):
             commands = eval_infos['cmd'][1,:,:2] # num_timesteps, num_envs, num_cmds
             cmd_norm = torch.linalg.norm(commands, dim=1).unsqueeze(1)
             
-            #cmd_track = torch.concat((eval_metrics['local_v'][:,:,:2], eval_metrics['local_w'][:,:,2].unsqueeze(2)), 2)
-            #mean_error = torch.mean(torch.linalg.norm(eval_infos['cmd']- cmd_track, dim = 2), dim = 0)
             # Do only use the first two indices of the command and count the error according to the command
             track_error = torch.mean(torch.linalg.norm(eval_metrics['local_v'][:,:,:2] - eval_infos['cmd'][:,:,:2], dim=2), dim=0)
             results['cmd'].append(eval_infos['cmd'][:,:,:2])
@@ -855,7 +847,6 @@ class PPOTaskBase(nn.Module):
 
             if it % self.cfg.rollouts_per_experiment == 0 and it >0:
                 mean_error = torch.mean(torch.stack(mean_error[-4:], dim=0),dim=0)
-                #success = (distance < 0.2*cmd_norm.T*self.cfg.rollouts_per_experiment)
                 success = (mean_error /(cmd_norm[:,0]+1.e-8) < 0.2).cpu().unsqueeze(0)
                 results['success'].append(success)
                 results['cmd_theta'].append(theta)
@@ -877,36 +868,3 @@ class PPOTaskBase(nn.Module):
                              f'cmd_rando_xy_{self.cfg.result_tag}_{name}.csv')  
 
 
-    def save(self, path, infos=None):
-        torch.save({
-            'model_state_dict': self.algo.actor_critic.state_dict(),
-            'optimizer_state_dict': self.algo.optimizer.state_dict(),
-            'iter': self.current_learning_iteration,
-            'infos': infos,
-        }, path)
-
-    def load(self, path, load_optimizer=False):
-        loaded_dict = torch.load(path, map_location=self.device)
-        self.algo.actor_critic.load_state_dict(loaded_dict['model_state_dict'])
-        if load_optimizer:
-            self.algo.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])
-        self.current_learning_iteration = loaded_dict['iter']
-        return loaded_dict['infos']
-
-    def get_inference_policy(self, device=None):
-        self.algo.actor_critic.eval()  # switch to evaluation mode (dropout for example)
-        if device is not None:
-            self.algo.actor_critic.to(device)
-        return self.algo.actor_critic.act_inference
-    
-    def get_model_name(self):
-        if self.cfg.ckpt_path is None:
-            return None
-        if 'checkpoints' in self.cfg.ckpt_path:
-            parent_dir = os.path.dirname(os.path.dirname(self.cfg.ckpt_path))
-            parent_dir_name = os.path.basename(parent_dir)
-            grandparent_dir_name = os.path.basename(os.path.dirname(parent_dir))
-            name = f'{grandparent_dir_name}_{parent_dir_name}'
-        else:
-            name = self.cfg.ckpt_path.split('/')[-1].split('.')[0]
-        return name 
