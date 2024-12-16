@@ -112,9 +112,6 @@ class VideoPlotCombiner:
         plot_img = plot_img.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
         plot_img_resized = cv2.resize(plot_img, (self.plot_width, self.video_crop_size*len(self.video_path)))  # Resize plot for stacked videos
         final_frame = np.hstack([combined_video_frame, plot_img_resized])
-        #print(f"PLot shape: {plot_img_resized.shape}")
-        #print(f"Combined frame shape: {combined_video_frame.shape}")
-        #print(f"Final frame shape: {final_frame.shape}")
         self.out.write(final_frame)
         return True
 

@@ -40,14 +40,8 @@ class UnitreeEnv(MjxEnv):
             # It is assumed the heightfield is n x n size
             n = jp.sqrt(mj_model.hfield_data.shape[0])
             n = n.astype(int)
-            print(f"Shape of heightfield : {n}")
-            #self.heightfield = jp.flipud(mj_model.hfield_data.reshape(n,n))
             self.heightfield = jp.array(mj_model.hfield_data.reshape(n,n))
             
-            # print(f"Heightfield at 0 250: {self.heightfield[0,249]}")
-            # print(f"Heightfield at 0 0: {self.heightfield[0,0]}")
-            # print(f"Heightfield at 250 0: {self.heightfield[249,0]}")
-            # print(f"Heightfield at 250 250: {self.heightfield[249,249]}")
             # Plot the heightfield as a 2D heatmap
             # plt.figure()
             # plt.imshow(self.heightfield)  # Adjust extent for real-world dimensions
@@ -66,10 +60,6 @@ class UnitreeEnv(MjxEnv):
         super().__init__(mj_model=mj_model,
                          physics_steps_per_control_step=cfg.physics_steps_per_control_step)
         print(self.sys.opt)
-        
-                
-        
-        
         
         self.cfg = cfg
         self.force_kick_counter = self.cfg.force_kick_duration / self.dt
@@ -349,9 +339,9 @@ class UnitreeEnv(MjxEnv):
                 d_gains = d_gains * actuator_param[1]
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
         elif self.cfg.control_mode == "VIC_5":
-            # Variable impedance control in cartesian space
+            # TO DO: Implement the cathesian space control
             
-            
+            # Variable impedance control in cartesian space         
             Kp = self.compute_stiffness(action)
             Kd = 0.2*jp.sqrt(Kp)
             ## Approach 1: Local space
@@ -485,8 +475,9 @@ class UnitreeEnv(MjxEnv):
             kick_force = jax.random.uniform(rng_kick, minval=self.cfg.kick_force[0], maxval=self.cfg.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.cfg.force_kick_impulse[0], maxval=self.cfg.force_kick_impulse[1])
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force
-            #kick_condition = jp.logical_and(jp.mod(state.info['step'], (self.cfg.force_kick_interval+state.info['kick_offset_interval']))==0, state.info['step']>1 )
-            kick_condition = jp.logical_and(state.info['step'] == (self.cfg.force_kick_interval+state.info['kick_offset_interval']), state.info['step']>1 )
+            kick_condition = jp.logical_and(jp.mod(state.info['step'], self.cfg.force_kick_interval)==0, state.info['step']>1 )
+            # This altered kick_condition is just for the evaluation
+            #kick_condition = jp.logical_and(state.info['step'] == (self.cfg.force_kick_interval+state.info['kick_offset_interval']), state.info['step']>1 )
             # Get the random values at kick interval
             state.info['force_kick'] = jp.where(kick_condition, kick, state.info['force_kick'])
             state.info['kick_theta']=jp.where(kick_condition, kick_theta, state.info['kick_theta'])
@@ -494,26 +485,19 @@ class UnitreeEnv(MjxEnv):
             
             # Hold the same value for a few steps
             state.info['kick_counter_initial']= jp.where(jp.logical_and(self.cfg.impulse_force_kick, kick_condition), ((kick_impulse/state.info['kick_force_magnitude']) / self.dt).astype(int), self.force_kick_counter)
-            #jax.debug.print('Kick counter initial: {x}', x=state.info['kick_counter_initial'])
             state.info['kick_counter'] = jp.where(kick_condition, state.info['kick_counter_initial'], state.info['kick_counter'])
             state.info['kick_counter'] = jp.where( state.info['kick_counter']>-1 , state.info['kick_counter']-1, state.info['kick_counter'])
-            #jax.debug.print('Kick counter: {x}', x=state.info['kick_counter'])
             state.info['force_kick'] = jp.where(state.info['kick_counter']>-1, state.info['force_kick'], 0.0)
             state.info['kick_theta'] = jp.where(state.info['kick_counter']>-1, state.info['kick_theta'], 0.0)
-            # state.info['kick_force_magnitude'] = jp.where(state.info['kick_counter']>-1, state.info['kick_force_magnitude'],0.0)
-            #state.info['last_kick_force_magnitude'] = state.info['kick_force_magnitude']
-            #jax.debug.print('Force kick: {x}', x=state.info['kick_force_magnitude'])
         else:
             state.info['force_kick'] = jp.zeros(2)
         return state
     
-    def get_heights(self, state: State, num_points=108):
+    def get_heights(self, state: State):
         heightfield_size = 30 # scaled to -15,15 meters
         scale_xy = heightfield_size/self.heightfield.shape[0]
         x_pixel = (state.info['global_pos'][:2][0] + heightfield_size/2) / scale_xy 
         y_pixel = (state.info['global_pos'][:2][1] + heightfield_size/2) / scale_xy
-        jax.debug.print("X pixel: {x}", x=x_pixel)
-        jax.debug.print("Y pixel: {x}", x=y_pixel) 
         # Ensure the pixel coordinates are within the image bounds
         x_pixel = jp.clip(x_pixel, 0, self.heightfield.shape[0] - 1).astype(int)
         y_pixel = jp.clip(y_pixel, 0, self.heightfield.shape[1] - 1).astype(int)
@@ -521,57 +505,6 @@ class UnitreeEnv(MjxEnv):
         state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], height])
         return self.heightfield[y_pixel, x_pixel]
     
-    def get_height_interp2d_np(self, state: State):
-        ## Version 1.0:
-        # x = jp.linspace(-15, 15, 250)
-        # y= jp.linspace(-15, 15, 250)
-        # x_up = jp.linspace(-15, 15, 500)
-        # y_up = jp.linspace(-15, 15, 500)
-        # def f(x,y):
-        #     return self.heightfield[y,x]
-        # z = f(x,y)
-        # height_upsampled = self.interp2d(x_up, y_up, x ,y , z)
-        # jax.debug.print('Height upsampled shape: {x}', x=height_upsampled.shape)
-        # heightfield_size = 30 # scaled to -15,15 meters
-        # scale_xy = heightfield_size/500
-        # x_pixel = (state.info['global_pos'][:2][0] + heightfield_size/2) / scale_xy 
-        # y_pixel = (state.info['global_pos'][:2][1] + heightfield_size/2) / scale_xy
-        # jax.debug.print("X pixel: {x}", x=x_pixel)
-        # jax.debug.print("Y pixel: {x}", x=y_pixel)
-        
-        # height = height_upsampled[y_pixel, x_pixel]*0.8-0.5
-        
-        #state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], height])
-        
-        ## Version 2.0:
-        x = np.linspace(0, 30, 250)
-        y = np.linspace(0, 30, 250)
-
-        f = interpolate.interp2d(y, x, self.heightfield, kind='linear')
-
-        x_upsampled = np.linspace(0, 30, 500)
-        y_upsampled = np.linspace(0, 30, 500)
-        z_upsampled = f(y_upsampled, x_upsampled)
-        height_upsampled = z_upsampled
-        heightfield_size = 30 # scaled to -15,15 meters
-        scale_xy = heightfield_size/500
-        x_pixel = (state.info['global_pos'][:2][0] + heightfield_size/2) / scale_xy 
-        y_pixel = (state.info['global_pos'][:2][1] + heightfield_size/2) / scale_xy
-        
-        z= f(y_pixel, x_pixel)
-        jax.debug.print('Height z : {x}', x=z)
-        height_scan1 = jp.array([state.info['global_pos'][0], state.info['global_pos'][1],z])
-        
-        x_pixel = jp.clip(x_pixel, 0, 500 - 1).astype(int)
-        y_pixel = jp.clip(y_pixel, 0, 500 - 1).astype(int)
-        #jax.debug.print('Height upsampled: {x}', x=height_upsampled)
-        #jax.debug.print("X pixel: {x}", x=x_pixel)
-        #jax.debug.print("Y pixel: {x}", x=y_pixel)
-        height_upsampled = jp.asarray(height_upsampled)
-        height = height_upsampled[y_pixel, x_pixel]*0.8-0.5
-        state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], height])
-        jax.debug.print("Height: {x}", x=height)
-        return height
 
     def get_height_interp2d(self, state: State):
         x = jp.linspace(-15, 15, 250)
@@ -587,10 +520,7 @@ class UnitreeEnv(MjxEnv):
 
         z = self.interp2d( robot_xy[1],robot_xy[0] , y, x, self.heightfield)*0.8-0.5
         z_new = self.interp2d( scan_y, scan_x, y, x, self.heightfield)*0.8-0.5
-        #jax.debug.print('Height new: {x}', x=z_new)
         height_scan = jp.stack([scan_x, scan_y, z_new], axis=1)
-        #jax.debug.print('Height scan: {x}', x=height_scan)
-        #jax.debug.print('Height scane new: {x}', x=jp.array([scan_x, scan_y, z_new]))
         state.info['height_scan']= jp.array([state.info['global_pos'][0], state.info['global_pos'][1], z])
         state.info['height_scan1']= height_scan
         return 
@@ -607,24 +537,16 @@ class UnitreeEnv(MjxEnv):
 
     def interp2d(self, x: jp.ndarray, y: jp.ndarray, xp: jp.ndarray, yp: jp.ndarray, zp: jp.ndarray) -> jp.ndarray:
             """
-            Bilinear interpolation on a grid. ``CartesianGrid`` is much faster if the data
-            lies on a regular grid.
+            Bilinear interpolation on a grid.
 
             Args:
-                x, y: 1D arrays of point at which to interpolate. Any out-of-bounds
-                    coordinates will be clamped to lie in-bounds.
-                xp, yp: 1D arrays of points specifying grid points where function values
-                    are provided.
-                zp: 2D array of function values. For a function `f(x, y)` this must
-                    satisfy `zp[i, j] = f(xp[i], yp[j])`
+                x, y: 1D arrays of points to interpolate.
+                xp, yp: 1D arrays of grid points where function values are provided.
+                zp: 2D array of function values.
 
             Returns:
-                1D array `z` satisfying `z[i] = f(x[i], y[i])`.
+                1D array of interpolated values.
             """
-            # if xp.ndim != 1 or yp.ndim != 1:
-            #     raise ValueError("xp and yp must be 1D arrays")
-            # if zp.shape != (xp.shape + yp.shape):
-            #     raise ValueError("zp must be a 2D array with shape xp.shape + yp.shape")
 
             ix = jp.clip(jp.searchsorted(xp, x, side="right"), 1, len(xp) - 1)
             iy = jp.clip(jp.searchsorted(yp, y, side="right"), 1, len(yp) - 1)
@@ -646,12 +568,6 @@ class UnitreeEnv(MjxEnv):
                 yp[iy] - yp[iy - 1]
             ) * z_xy2
 
-            # if fill_value is not None:
-            #     oob = jp.logical_or(
-            #         x < xp[0], jp.logical_or(x > xp[-1], jp.logical_or(y < yp[0], y > yp[-1]))
-            #     )
-            #     z = jp.where(oob, fill_value, z)
-
             return z
 
 
@@ -666,22 +582,23 @@ class UnitreeEnv(MjxEnv):
         Returns:
             state: the new state of the environment
         """
-        #action = jp.clip(action, a_min=-1.0, a_max=1.0)
         # For randomization
         rng, obs_rng, kick_noise, cmd_rng, delay_rng = jax.random.split(state.info['rng'], 5)
         
         # kick robot
         state = self.kick_robot(state, kick_noise)
-        #state = self.force_kick_robot(state, kick_noise)
         state = self.force_kick_robot(state, kick_noise)
 
         # Add the force kick to the action, if not needed it will be zero
         action_kick = jp.concatenate([action, jp.array(state.info['force_kick'])])
         # Get the current state of the physics
         data0 = state.pipeline_state
+        
+        # New feature: Height scan
         #height = self.get_heights(state)
         #self.get_height_interp2d(state)
         #jax.debug.print('Height scan: {x}', x=state.info['height_scan'])
+        
         # Performs physics timesteps per control step
         actuator_param = jp.concatenate([state.info['kp_factor'], state.info['kd_factor'], state.info['motor_strength']])
 
@@ -693,7 +610,6 @@ class UnitreeEnv(MjxEnv):
         
         # ----------------- POST Physics step --------------- #
         # Here we 1.)extract the state information, 2.)check termination, 3.) calculate the reward and 4.) get observations 
-        
         #1.) Extract the state information: positions/velocities, joint angles/velocities, foot contacts, etc.
         x, xd = self._pos_vel(data)
         joint_angles = data.qpos[7:] #q_{t+1}
@@ -708,7 +624,6 @@ class UnitreeEnv(MjxEnv):
         foot_contacts = foot_contacts.at[0:4].set(self.get_contacts(data, len(self.feet_geom_id), geom_indices= self.feet_geom_id)[0:4,0].astype(int))
         foot_floor_dist = jp.zeros((4),dtype=float)
         foot_floor_dist = foot_floor_dist.at[:].set(data.contact.dist[foot_contacts])
-        #jax.debug.print('Foot floor distance: {x}', x=foot_floor_dist)
         
         ## general contact management
         contact = foot_floor_dist < 1e-3  # a mm or less off the floor
@@ -768,21 +683,8 @@ class UnitreeEnv(MjxEnv):
             k: rewards[k] * v for k, v in self.cfg.reward_scales.items()
         }
         
-        # jax.debug.print('Step: {x}', x=state.info['step'])
-        # jax.debug.print('Done: {x}', x=done)
-        # jax.debug.print('Termination reward: {x}', x=rewards['termination'])
-        
         #Reward clipping like in unitree rl
         reward = jp.clip(sum(rewards.values())*self.dt , 0.0, 10000.0)
-
-
-        # J = self._get_jacobian(data, data.qpos)
-        # jax.debug.print('Jacobian: {x}', x=J[:,6:])
-        # jax.debug.print('jacobian shape: {x}', x=J[:,6:].shape)
-        # K = jp.array([1.0, 1.0, 1.0]*4)
-        # jax.debug.print('stiffness: {x}', x=K.shape)
-        # jax.debug.print('joint stiffness: {x}', x=J[:,6:].T @ K @ J[:,6:])
-        # #jax.debug.print('K: {x}', x=K)
 
         # state management
         state.info['feet_air_time'] *= ~contact_filt_mm # bitwise negation
@@ -802,18 +704,13 @@ class UnitreeEnv(MjxEnv):
         state.info['global_pos'] = data.qpos[:3]
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         local_w = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
+        
         state.metrics['local_w'] = local_w
-        # jax.debug.print('Command track: {x}', x=state.info['local_w'])
-        # # log total displacement as a proxy metric
-        # jax.debug.print('Total distance: {x}', x=jp.linalg.norm(x.pos[self._torso_idx-1][:2]))
-        # jax.debug.print('Total distance(old): {x}', x=math.normalize(x.pos[self._torso_idx - 1])[1])
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics['total_time'] = state.info['step'] * self.dt
         state.metrics['power'] = jp.sum(jp.abs(data.ctrl[:12]*joint_vel))
-        
         state.metrics['local_v'] = local_vel
         state.metrics['foot_pos_z'] = foot_pos[:, 2]
-
         state.metrics['target_dof_pos'] = jp.clip(target_dof, a_min=self.lower_limits, a_max=self.upper_limits)
         state.metrics['dof_pos'] = data.qpos[7:]
         state.metrics['glob_pos'] = data.qpos[:2]
@@ -829,21 +726,23 @@ class UnitreeEnv(MjxEnv):
             )
         
         # track the trajectory (for evaluation)
-        state.info['command'] = jp.where(
-            jp.logical_and(self.cfg.manual_control.enable, self.track_traj),
-            state.info['trajectory'][state.info['step'].astype(int), :],
-            state.info['command'],
-        )
+        # state.info['command'] = jp.where(
+        #     jp.logical_and(self.cfg.manual_control.enable, self.track_traj),
+        #     state.info['trajectory'][state.info['step'].astype(int), :],
+        #     state.info['command'],
+        # )
+        
         # reset the step counter when done
         state.info['step'] = jp.where(
         (state.info['step'] > self.cfg.episode_length), 0, state.info['step']
         )
         
-        
         state.metrics.update(state.info['rewards'])
 
-        # observation
+        # Observation
         obs, privileged_obs = self._get_obs(data, state.info, state.obs, state.privileged_obs, obs_rng=obs_rng)
+        
+        # Check for NaNs, early termination conditions
         state.info['nan'] |= jp.isnan(obs).any() | jp.isnan(privileged_obs).any() | jp.isnan(reward).any() | jp.isnan(done).any()
         done = jp.float32(done)
         
@@ -981,9 +880,7 @@ class UnitreeEnv(MjxEnv):
         # Tracking of linear velocity commands (xy axes)
         local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
         lin_vel_error = jp.sum(jp.square(commands[:2] - local_vel[:2]))
-        lin_vel_error_new = jp.abs(1-local_vel[:2]/(commands[:2] +1.e-6))
         lin_vel_reward = jp.exp(-4 * lin_vel_error) # change to sigma
-        lin_vel_reward_new = jp.sum(jp.exp(-4 * lin_vel_error_new)) # change to sigma
         return lin_vel_reward
 
     def _reward_tracking_ang_vel(
@@ -992,10 +889,7 @@ class UnitreeEnv(MjxEnv):
         # Tracking of angular velocity commands (yaw)
         base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
         ang_vel_error = jp.square(commands[2] - base_ang_vel[2])
-        ang_vel_error_new = jp.abs(1-base_ang_vel[2]/(commands[2] +1.e-6))
-        
         ang_vel_rew = jp.exp(-4 * ang_vel_error) #change to sigma
-        ang_vel_rew_new = jp.exp(-2 * ang_vel_error_new)
         return ang_vel_rew #change to sigma
 
     def _reward_lin_vel_z(self, xd: Motion) -> jax.Array: 
@@ -1037,16 +931,13 @@ class UnitreeEnv(MjxEnv):
         return jp.sum(stiff_out_of_bounds)
     
     def _reward_limits(self, pos: jax.Array, stiff: jax.Array) -> jax.Array:
-        # position and stiffness is passed unclipped
         return self._reward_pos_limits(pos) + self._reward_stiff_limits(stiff)
     
     def _reward_collision(self, data) -> jax.Array:
         body_contacts = jp.zeros(len(self.body_geom_id),dtype=int)
         body_contacts = body_contacts.at[:].set(self.get_contacts(data, len(self.body_geom_id), geom_indices= self.body_geom_id)[:,0])
-        #jax.debug.print('Body distance: {x}', x=data.contact.dist[body_contacts])
         return jp.sum(data.contact.dist[body_contacts] < 0.05)
         
-    ## Related to smoothness of the actions:
     def action_rate(self, action: jax.Array, last_act: jax.Array) -> jax.Array:
         return jp.sum(jp.square(action - last_act))
     
@@ -1059,7 +950,6 @@ class UnitreeEnv(MjxEnv):
         reward_hip = jp.exp(-4.*jp.sum(jp.square(joint_angles[::3]-self.default_pos[7::3])))
         reward_hip *=(jp.any(jp.abs(commands) > 0.05))
         return reward_hip
-    
 
     def _reward_feet_air_time(
             self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array
@@ -1072,15 +962,6 @@ class UnitreeEnv(MjxEnv):
         )
         return rew_air_time
     
-    def _reward_foot_clearance(
-            self, xd: Motion, foot_z: jax.Array, des_z = 0.09
-    ) -> jax.Array:
-        foot_indices = self.foot_body_id - 1
-        foot_vel = xd.take(foot_indices).vel
-        #rew_clearance = jp.sum(jp.square(foot_z - des_z) * jp.sqrt(jp.linalg.norm(foot_vel[:, :2], axis=1 )))
-        rew_clearance = jp.sum(jp.min(jp.clip(foot_z - des_z, min=0.0, max=100.), 0) * jp.linalg.norm(foot_vel[:, :2], axis=1 ))
-        return rew_clearance
-
     def _reward_stand_still( 
             self,
             commands: jax.Array,
@@ -1091,6 +972,15 @@ class UnitreeEnv(MjxEnv):
             jp.all(jp.abs(commands) < 0.05)
             #math.normalize(commands[:])[1] < 0.1
         )
+    
+    def _reward_foot_clearance(
+            self, xd: Motion, foot_z: jax.Array, des_z = 0.09
+    ) -> jax.Array:
+        foot_indices = self.foot_body_id - 1
+        foot_vel = xd.take(foot_indices).vel
+        #rew_clearance = jp.sum(jp.square(foot_z - des_z) * jp.sqrt(jp.linalg.norm(foot_vel[:, :2], axis=1 )))
+        rew_clearance = jp.sum(jp.min(jp.clip(foot_z - des_z, min=0.0, max=100.), 0) * jp.linalg.norm(foot_vel[:, :2], axis=1 ))
+        return rew_clearance
 
     def _reward_foot_slip(self, pipeline_state: State, xd, contact_filt: jax.Array) -> jax.Array:
         foot_indices = self.foot_body_id - 1
@@ -1128,7 +1018,4 @@ class UnitreeEnv(MjxEnv):
     def _reward_com(self, com: jax.Array, foot_pos: jax.Array) -> jax.Array:
         des_com = foot_pos[:,:2].mean(axis=0)
         com_rew = jp.sum(jp.linalg.norm(com[:2]-des_com))
-        #jax.debug.print('COM reward: {x}', x=com_rew)
-        com_rew_old = jp.sum(jp.square(com[:2]-des_com))
-        #jax.debug.print('COM reward(old): {x}', x=com_rew_old)
         return com_rew
