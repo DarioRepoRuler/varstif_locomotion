@@ -350,45 +350,52 @@ class UnitreeEnv(MjxEnv):
             torques = p_gains * (target_dof_pos - dof_pos) - d_gains * dof_vel
         elif self.cfg.control_mode == "VIC_5":
             # Variable impedance control in cartesian space
-            ## Approach 1:
-            target_dof_pos = jp.clip(self.compute_target_dof(action),
-                                a_min=self.lower_limits, a_max=self.upper_limits)
+            
+            
             Kp = self.compute_stiffness(action)
             Kd = 0.2*jp.sqrt(Kp)
+            ## Approach 1: Local space
+            target_dof_pos = jp.clip(self.compute_target_dof(action), a_min=self.lower_limits, a_max=self.upper_limits)
             q_des = data.qpos.at[7:].set(target_dof_pos)
+            x = data.xpos[self.foot_body_id] - data.xpos[self._torso_idx]
             # Getting desired state
+            
             des = smooth.kinematics(self.sys, data.replace(qpos=q_des))
             des = smooth.com_pos(self.sys, des) # calculate new com
             # Calculate desired and actual position, Could anything be in global?
             x_des = des.xpos[self.foot_body_id] - des.xpos[self._torso_idx]
-            jax.debug.print('Desired foot pos: {x}', x=x_des)
-            x = data.xpos[self.foot_body_id] - data.xpos[self._torso_idx]
+            #jax.debug.print('Desired foot pos: {x}', x=x_des)
+            
             J = self._get_jacobian(data, data.qpos)[:,6:]
             #jax.debug.print('Jacobian: {x}', x=J)
             err = x_des - x
             err = err.reshape(12,)
-            x_dot = J @ data.qvel[6:] # is this global?
-            jax.debug.print('Velocity: {x}', x=x_dot)
+            jax.debug.print('Error(way1): {x}', x=err)
+            x_dot = J @ data.qvel[6:] 
+            jax.debug.print('Velocity(way1): {x}', x=x_dot)
+            #jax.debug.print('Velocity: {x}', x=x_dot)
             # calculate force in cartesian space
             force = Kp * err - Kd * x_dot
+            jax.debug.print('Force(way1): {x}', x=force)
             # Transform into joint space
             torques = J.T @ force
             jax.debug.print('Torques(way 1): {x}', x=torques)
-            ## Approach 2:
-            target_dof_pos = jp.clip(self.compute_target_dof(action),
-                                a_min=self.lower_limits, a_max=self.upper_limits)
-            Kp = self.compute_stiffness(action)
-            Kd = 0.2*jp.sqrt(Kp)
-            x_des, _ = self._pos_vel(data.replace(qpos=data.qpos.at[7:].set(target_dof_pos)))
-            x, xd = self._pos_vel(data)
-            err =  x.take(self.foot_body_id).pos- x_des.take(self.foot_body_id).pos
-            err = err.reshape(12,)
-            jax.debug.print('Error: {x}', x=err)
-            xd = xd.take(self.foot_body_id).vel
-            xd = xd.reshape(12,)
-            force = Kp * err - Kd * xd
-            torques = self._get_jacobian(data, data.qpos)[:,6:].T @ force
-            jax.debug.print('Torques (way 2): {x}', x=torques)
+            # ## Approach 2: Global space
+            # target_dof_pos = jp.clip(self.compute_target_dof(action),
+            #                     a_min=self.lower_limits, a_max=self.upper_limits)
+            # Kp = self.compute_stiffness(action)
+            # Kd = 0.2*jp.sqrt(Kp)
+            # x, xd = self._pos_vel(data)
+            # x_des, _ = self._pos_vel(data.replace(qpos=data.qpos.at[7:].set(target_dof_pos)))
+            # err =  x.take(self.foot_body_id).pos- x_des.take(self.foot_body_id).pos
+            # err = err.reshape(12,)
+            # jax.debug.print('Error(way2): {x}', x=err)
+            # x_dot = xd.take(self.foot_body_id).vel
+            # x_dot = x_dot.reshape(12,)
+            # jax.debug.print('Velocity(way2): {x}', x=x_dot)
+            # force = Kp * err - Kd * x_dot
+            # torques = self._get_jacobian(data, data.qpos)[:,6:].T @ force
+            # jax.debug.print('Torques (way 2): {x}', x=torques)
             
         elif self.cfg.control_mode == "T":
             torques = unscale(self.cfg.action_scale * action[:12], lower=-self.torque_limits, upper=self.torque_limits)
@@ -802,7 +809,7 @@ class UnitreeEnv(MjxEnv):
         # jax.debug.print('Total distance(old): {x}', x=math.normalize(x.pos[self._torso_idx - 1])[1])
         state.metrics['total_dist'] = math.normalize(x.pos[self._torso_idx - 1])[1]
         state.metrics['total_time'] = state.info['step'] * self.dt
-        state.metrics['power'] = jp.sum(jp.abs(data.ctrl[:12])) * jp.abs(jp.sum(joint_vel))
+        state.metrics['power'] = jp.sum(jp.abs(data.ctrl[:12]*joint_vel))
         
         state.metrics['local_v'] = local_vel
         state.metrics['foot_pos_z'] = foot_pos[:, 2]

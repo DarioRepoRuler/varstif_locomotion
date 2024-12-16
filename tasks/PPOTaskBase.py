@@ -617,6 +617,7 @@ class PPOTaskBase(nn.Module):
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {experiment+1} in total: {(experiment+1)*self.cfg.num_envs}")
                 pushed_envs = results['kick_force_magnitude'][experiment*self.cfg.num_envs:].nonzero()[:,0]
+                print(f"pushed envs: {len(pushed_envs.cpu())}")
                 results['success'][experiment*self.cfg.num_envs + pushed_envs.cpu()] = eval_infos['steps'][-1,:].cpu() >= 5*self.cfg.timesteps_per_rollout
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
                 experiment += 1

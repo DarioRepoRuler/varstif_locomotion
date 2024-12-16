@@ -210,7 +210,7 @@ def polar_scatter_boundary(radius, theta, success, ax, label=None, color=None, t
     X_scaled = scaler.fit_transform(X)
 
     # Create an SVM model
-    svm = SVC(kernel="rbf", C=0.9, class_weight='balanced')  # Adjust parameters as needed
+    svm = SVC(kernel="rbf")  # Adjust parameters as needed
 
     # Train the SVM model
     svm.fit(X_scaled, y)

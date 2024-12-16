@@ -289,7 +289,7 @@ def eval_model_speeds(trained_run_path):
                 'kick_force': [50.0, 300.0],
                 'is_training': False,
                 'domain_rand': {
-                    'enable': False
+                    'randomisation': False
                 },
                 'control_range': {
                     'cmd_x': [-1.5, 1.5],
@@ -310,8 +310,8 @@ def eval_model_speeds(trained_run_path):
             'plot_details': False,
             'num_iterations': 65,
             'num_envs': 1000,
-            'viz': True,
-            'record_video':True,
+            'viz': False,
+            'record_video':False,
             'device': 'cuda:0'
         }
     print(f"Do lowspeed")
@@ -319,29 +319,37 @@ def eval_model_speeds(trained_run_path):
     config_changes['result_tag'] = 'test_low_speed'
     config_changes['env']['manual_control']['cmd_x'] = 0.5
     eval_trained_model(trained_run_path, config_changes)
+    print(f"Do intermediate speed")
+    config_changes['result_tag'] = 'test_intermediate_speed'
+    config_changes['env']['manual_control']['cmd_x'] = 0.8
+    eval_trained_model(trained_run_path, config_changes)
     print(f'Do midspeed')
     config_changes['result_tag'] = 'test_mid_speed'
     config_changes['env']['manual_control']['cmd_x'] = 1.0
     eval_trained_model(trained_run_path, config_changes)
-    print(f'Do highspeed')
-    config_changes['result_tag'] = 'test_high_speed'
-    config_changes['env']['manual_control']['cmd_x'] = 1.5
-    eval_trained_model(trained_run_path, config_changes)
+    # print(f'Do highspeed')
+    # config_changes['result_tag'] = 'test_high_speed'
+    # config_changes['env']['manual_control']['cmd_x'] = 1.5
+    # eval_trained_model(trained_run_path, config_changes)
+    
+    
 
 def eval_model_pushes(trained_run_path):
     config_changes = {
             'env': {
                 'sample_command_interval': 500,
                 'kick_vel': 0.0,
-                'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip", "FL_hip", "RR_hip", "RL_hip"],
+                'terminate_geoms': ["base_0", "base_1", "base_2", "FR_hip","FL_hip","RR_hip","RL_hip"],
                 'enable_force_kick': True,
                 'impulse_force_kick': False,
+                'force_kick_duration':0.1,
                 'force_kick_impulse': [20.0, 20.0],
                 'force_kick_interval': 150,
-                'kick_force': [50.0, 300.0],
+                'kick_force': [50.0, 400.0],
+                'kick_theta': [0.0, 2.0], # kick_theta * pi
                 'is_training': False,
                 'domain_rand': {
-                    'enable': False
+                    'randomisation': False
                 },
                 'control_range': {
                     'cmd_x': [-1.5, 1.5],
@@ -363,7 +371,7 @@ def eval_model_pushes(trained_run_path):
             'num_iterations': 21,
             'num_envs': 1000,
             'viz': True,
-            'record_video':True,
+            'record_video':False,
             'device': 'cuda:0'
         }
     config_changes['scene_xml'] = 'unitree_go2/flat.xml'
@@ -371,7 +379,7 @@ def eval_model_pushes(trained_run_path):
     eval_trained_model(trained_run_path, config_changes)
 
 if __name__ == '__main__':
-        ## Example usage
+    ## Example usage
 
     # Evaluation of the following models:
     model_names ={'P20': '2024-11-25/14-03-45','P50': '2024-11-24/09-58-49', 'VIC1': '2024-11-25/11-06-34','VIC2': '2024-11-25/10-20-58' ,'VIC3': '2024-11-25/14-07-08','VIC4':'2024-12-02/11-50-31'}
@@ -380,20 +388,23 @@ if __name__ == '__main__':
     #model_names = {k:v.replace('/','_') for k,v in model_names.items()}
     model_paths = {k:os.path.join(output_path,v) for k,v in model_names.items()}
     # 1.) Evaluation of models on heading in different speeds and directions
-    for model in model_paths.values():
-        print(f'Evaluation of model {model} in heading directions')
-        eval_model_speeds(model)
+    for key in model_paths.keys():
+        print(f'Evaluation of model {model_paths[key]} in heading directions')
+        if 'VIC' in key:
+            print(f"Skipping {key} as it is a VIC model")
+            continue
+        eval_model_speeds(model_paths[key])
     
     # 2.) Evaluation of force push recovery
-    for model in model_paths.values():
-        print(f'Evaluation of model {model} in heading directions')
-        eval_model_pushes(model)
+    # for model in model_paths.values():
+    #     print(f'Evaluation of model {model} in push recovery')
+    #     eval_model_pushes(model)
 
 
 
     # ----------Evaluation of model in a date range ----------- #
-    start_date = '2024-12-06'
-    end_date = '2024-12-06'
+    start_date = '2024-12-12'
+    end_date = '2024-12-12'
     #eval_models_in_range(start_date, end_date)
 
 

@@ -59,14 +59,12 @@ def eval_force_push(filenames):
             'kick_theta': load_tensor_from_csv('kick_theta', filename=filename),
             'success': load_tensor_from_csv('success_rate', filename=filename),
         }
-
+        print(f"Shape of push data: {push_data['kick_force_magnitude'].shape} shape of success: {push_data['success'].shape}")
         if len(push_data['kick_force_magnitude'].shape) == 3:
             push_data['kick_force_magnitude'] = push_data['kick_force_magnitude'][:,0,:]
             push_data['kick_theta'] = push_data['kick_theta'][:,0,:]
-            plot_name = filename.split('.')[0]
-            polar_scatter_push_plot(push_data['kick_force_magnitude'], push_data['kick_theta'], push_data['success'], plot_name)
-        else: 
-            print(f"Skipping {filename} experiment failed!")
+        plot_name = filename.split('.')[0]    
+        polar_scatter_push_plot(push_data['kick_force_magnitude'].flatten(), push_data['kick_theta'].flatten(), push_data['success'].flatten(), plot_name)
             
 def eval_force_push_scatter_boundary(filenames, labels=None):
     """
@@ -243,7 +241,7 @@ def main():
     for file in files:
         if 'cmd_rando_xy' in file and 'csv' in file:
             filenames['cmd_rando'].append(file)
-        if 'force_push' in file and 'csv' in file:
+        if 'force_push_test' in file and 'csv' in file:
             filenames['force_push'].append(file)
         if 'heading_directions' in file and 'csv' in file:
             filenames['heading_directions'].append(file)
