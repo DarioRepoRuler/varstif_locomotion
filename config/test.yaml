@@ -2,7 +2,7 @@ defaults:
   - _self_
   - policy: ppo
 
-ckpt_path: 'outputs/2024-12-13/11-38-18/checkpoints/last.pt'
+ckpt_path: 'outputs/2024-12-17/20-48-12/checkpoints/model_1900.pt'
 
 env:
   action_scale: 0.5
@@ -24,10 +24,10 @@ env:
   enable_force_kick: True
   impulse_force_kick: False
 
-  force_kick_duration: 0.1
+  force_kick_duration: 0.2
   force_kick_impulse: [20.,20.]
   force_kick_interval: 150
-  kick_force: [50.0, 400.0]
+  kick_force: [50.0, 300.0]
   kick_theta: [0.0, 2.0] # theta * pi 
 
   is_training: False
@@ -38,7 +38,7 @@ env:
  
 
   domain_rand:
-    randomisation: False
+    randomisation: True
     gravity_offset: [-1., 1.]
     friction_range: [0.3, 1.25]
     payload_range: [-1., 3.]

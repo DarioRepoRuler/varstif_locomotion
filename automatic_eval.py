@@ -349,7 +349,14 @@ def eval_model_pushes(trained_run_path):
                 'kick_theta': [0.0, 2.0], # kick_theta * pi
                 'is_training': False,
                 'domain_rand': {
-                    'randomisation': False
+                    'randomisation': True,
+                    'gravity_offset': [-.1, .1],
+                    'friction_range': [1., 1.],
+                    'payload_range': [-.1, .1],
+                    'hip_mass_range': [-0.3, 0.3],
+                    'kp_range': [1., 1.],
+                    'kd_range': [1., 1.],
+                    'motor_strength_range': [1., 1.]
                 },
                 'control_range': {
                     'cmd_x': [-1.5, 1.5],
@@ -370,12 +377,12 @@ def eval_model_pushes(trained_run_path):
             'plot_details': False,
             'num_iterations': 21,
             'num_envs': 1000,
-            'viz': True,
+            'viz': False,
             'record_video':False,
             'device': 'cuda:0'
         }
     config_changes['scene_xml'] = 'unitree_go2/flat.xml'
-    config_changes['result_tag'] = 'test'
+    config_changes['result_tag'] = 'test_longer'
     eval_trained_model(trained_run_path, config_changes)
 
 if __name__ == '__main__':
@@ -388,12 +395,12 @@ if __name__ == '__main__':
     #model_names = {k:v.replace('/','_') for k,v in model_names.items()}
     model_paths = {k:os.path.join(output_path,v) for k,v in model_names.items()}
     # 1.) Evaluation of models on heading in different speeds and directions
-    for key in model_paths.keys():
-        print(f'Evaluation of model {model_paths[key]} in heading directions')
-        if 'VIC' in key:
-            print(f"Skipping {key} as it is a VIC model")
-            continue
-        eval_model_speeds(model_paths[key])
+    # for key in model_paths.keys():
+    #     print(f'Evaluation of model {model_paths[key]} in heading directions')
+    #     if 'VIC' in key:
+    #         print(f"Skipping {key} as it is a VIC model")
+    #         continue
+    #     eval_model_speeds(model_paths[key])
     
     # 2.) Evaluation of force push recovery
     # for model in model_paths.values():
@@ -403,9 +410,9 @@ if __name__ == '__main__':
 
 
     # ----------Evaluation of model in a date range ----------- #
-    start_date = '2024-12-12'
-    end_date = '2024-12-12'
-    #eval_models_in_range(start_date, end_date)
+    start_date = '2024-12-18'
+    end_date = '2024-12-18'
+    eval_models_in_range(start_date, end_date)
 
 
     

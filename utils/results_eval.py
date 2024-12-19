@@ -21,6 +21,7 @@ def eval_heading(filenames, labels = None, threshold=None, file_outputname = "he
             #print(f"Local v error: {torch.abs(threshold-load_tensor_from_csv('local_v',filename=filename))} for model {label}")
             print(f"Local v error: {torch.mean(torch.abs(threshold-load_tensor_from_csv('local_v',filename=filename)))} for model {label}") 
             print(f"Mean COT:{torch.mean(load_tensor_from_csv('COT',filename=filename))} for model {label}")
+            print(f"Mean Power:{torch.mean(load_tensor_from_csv('power',filename=filename))} for model {label}")
         heading_data['success_rate'].append(load_tensor_from_csv('success_rate',filename=filename))
 
     heading_data['local_v'] = torch.stack(heading_data['local_v'],dim=0)
@@ -249,59 +250,52 @@ def main():
     vic_intermediate_speed = {key: f'heading_directions_test_intermediate_speed_{vic_run_names[key]}.csv' for key in vic_run_names}
     # ----------------------- Evaluation of heading -----------------------
     ## ----------------- EVALUATION OF POS AGAINST VIC  -----------------------
-    # 0.5m/s
-    filenames_headings= [f'heading_directions_results_{pos_run_names['P20']}_lowspeed.csv', f'heading_directions_results_{pos_run_names['P50']}_lowspeed.csv' , f'heading_directions_results_{vic_run_names['VIC2']}_lowspeed.csv']
-    labels = ['P20', 'P50','PLS']
-    eval_heading(filenames_headings, labels= labels, threshold=0.5, file_outputname = "heading_lowspeed")
-
-    # 1.0m/s
-    filenames_headings = [f'heading_directions_results_{pos_run_names["P20"]}_midspeed.csv', f'heading_directions_results_{pos_run_names["P50"]}_midspeed.csv' , f'heading_directions_results_{vic_run_names["VIC2"]}_midspeed.csv']
-    labels = ['P20', 'P50','PLS']
-    eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_midspeed")
-
-    # # 1.3m/s
-    filenames_headings = [f'heading_directions_results_{pos_run_names["P20"]}_highspeed.csv', f'heading_directions_results_{pos_run_names["P50"]}_highspeed.csv' , f'heading_directions_results_{vic_run_names["VIC2"]}_highspeed.csv']
-    labels = ['P20', 'P50','PLS']
-    eval_heading(filenames_headings, labels= labels, threshold=1.3, file_outputname = "heading_highspeed")
-    
-    # # 0.5 m/s
-    # filenames_headings = [pos_low_speed['P20'], pos_low_speed['P50'], vic_low_speed['VIC2']]
+    # # 0.5m/s
+    # filenames_headings= [f'heading_directions_results_{pos_run_names['P20']}_lowspeed.csv', f'heading_directions_results_{pos_run_names['P50']}_lowspeed.csv' , f'heading_directions_results_{vic_run_names['VIC2']}_lowspeed.csv']
     # labels = ['P20', 'P50','PLS']
-    # eval_heading(filenames_headings, labels= labels, threshold=0.5, file_outputname = "heading_pos_vic_lowspeed")
-    # # 0.8 m/s
-    # filenames_headings= [pos_intermediate_speed['P20'], pos_intermediate_speed['P50'], vic_intermediate_speed['VIC2']]
-    # eval_heading(filenames_headings, labels= labels, threshold=0.8, file_outputname = "heading_pos_vic_intermediate_speed")
-    # # 1.0 m/s
-    # filenames_headings = [pos_mid_speed['P20'], pos_mid_speed['P50'], vic_mid_speed['VIC2']]
-    # eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_pos_vic_midspeed")
+    # eval_heading(filenames_headings, labels= labels, threshold=0.5, file_outputname = "heading_lowspeed")
+
+    # # 1.0m/s
+    # filenames_headings = [f'heading_directions_results_{pos_run_names["P20"]}_midspeed.csv', f'heading_directions_results_{pos_run_names["P50"]}_midspeed.csv' , f'heading_directions_results_{vic_run_names["VIC2"]}_midspeed.csv']
+    # labels = ['P20', 'P50','PLS']
+    # eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_midspeed")
+
+    # # # 1.3m/s
+    # filenames_headings = [f'heading_directions_results_{pos_run_names["P20"]}_highspeed.csv', f'heading_directions_results_{pos_run_names["P50"]}_highspeed.csv' , f'heading_directions_results_{vic_run_names["VIC2"]}_highspeed.csv']
+    # labels = ['P20', 'P50','PLS']
+    # eval_heading(filenames_headings, labels= labels, threshold=1.3, file_outputname = "heading_highspeed")
+    
     
     # ----------------- EVALUATION OF VIC -----------------------
+    print(f"\n\n------------ Evaluation of Heading for VIC ------------")
     # 0.5m/s
     print(f"Evaluating low speed vic")
     filenames_headings= [vic_low_speed['VIC1'], vic_low_speed['VIC2'], vic_low_speed['VIC3'], vic_low_speed['VIC4']]
     labels = ['PJS', 'PLS', 'IJS' ,'HJLS']
     eval_heading(filenames_headings, labels= labels, threshold=0.5, file_outputname = "heading_vic_lowspeed")
     
+    # 0.8 m/s
+    print(f"Evaluating 0.8 m/s speed vic")
+    filenames_headings = [vic_intermediate_speed['VIC1'], vic_intermediate_speed['VIC2'], vic_intermediate_speed['VIC3'], vic_intermediate_speed['VIC4']]
+    eval_heading(filenames_headings, labels= labels, threshold=0.8, file_outputname = "heading_vic_0_8m_s")
+
     # 1.0m/s
     print(f"Evaluating mid speed vic")
     filenames_headings = [vic_mid_speed['VIC1'], vic_mid_speed['VIC2'], vic_mid_speed['VIC3'], vic_mid_speed['VIC4']]
     eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_vic_midspeed")
-    # 0.8 m/s
-    print(f"Evaluating 0.8 m/s speed vic")
-    filenames_headings = [vic_intermediate_speed['VIC1'], vic_intermediate_speed['VIC2'], vic_intermediate_speed['VIC3'], vic_intermediate_speed['VIC4']]
-    eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_vic_0_8m_s")
-
-    print(f"Evaluating intermediate speed vic")
-    filenames_headings=[f"heading_directions_test_intermediate_speed_{vic_run_names['VIC1']}.csv", f"heading_directions_test_intermediate_speed_{vic_run_names['VIC2']}.csv", f"heading_directions_test_intermediate_speed_{vic_run_names['VIC3']}.csv", f"heading_directions_test_intermediate_speed_{vic_run_names['VIC4']}.csv"]
-    eval_heading(filenames_headings, labels= labels, threshold=0.8, file_outputname = "heading_vic_intermediate_speed")
-    # 1.5m/s
-    #filenames_headings = [vic_high_speed['VIC1'], vic_high_speed['VIC2'], vic_high_speed['VIC3'], vic_high_speed['VIC4']]
-    #eval_heading(filenames_headings, labels= labels, threshold=1.3, file_outputname = "heading_vic_highspeed")
     
-    # intermediate
-    filenames_headings = ['heading_directions_test_2024-11-24_09-58-49.csv', 'heading_directions_test_2024-11-25_14-03-45.csv', 'heading_directions_test_2024-11-25_10-20-58.csv']
-    labels = ['P50', 'P20','PLS']
-    eval_heading(filenames_headings, labels= labels, threshold=1.4, file_outputname = "heading_1_0m_s")
+    print(f"\n\n------------ Evaluation of Heading compared to baseline ------------")
+    # 0.5 m/s
+    filenames_headings = [pos_low_speed['P20'], pos_low_speed['P50'], vic_low_speed['VIC2']]
+    labels = ['P20', 'P50','PLS']
+    eval_heading(filenames_headings, labels= labels, threshold=0.5, file_outputname = "heading_pos_vic_lowspeed")
+    # 0.8 m/s
+    filenames_headings= [pos_intermediate_speed['P20'], pos_intermediate_speed['P50'], vic_intermediate_speed['VIC2']]
+    eval_heading(filenames_headings, labels= labels, threshold=0.8, file_outputname = "heading_pos_vic_intermediate_speed")
+    # 1.0 m/s
+    filenames_headings = [pos_mid_speed['P20'], pos_mid_speed['P50'], vic_mid_speed['VIC2']]
+    eval_heading(filenames_headings, labels= labels, threshold=1.0, file_outputname = "heading_pos_vic_midspeed")
+    
     
     # ----------------------- Evaluation of Payload -----------------------
     # filenames_headings= ['heading_directions_test_payload_2024-11-25_14-03-45.csv', 'heading_directions_test_payload_2024-11-24_09-58-49.csv' , 'heading_directions_test_payload_2024-11-25_10-20-58.csv']
@@ -317,17 +311,20 @@ def main():
     # ----------------------- Evaluation of force push -----------------------
     #eval_force_push_boundary(['force_push_test_automation_2024-11-25_14-03-45.csv','force_push_test_automation_2024-11-25_10-20-58.csv'], labels = ['Baseline', 'VIC2'])
     compare_runs =[ f'force_push_test_{pos_run_names["P20"]}.csv', f'force_push_test_{vic_run_names["VIC2"]}.csv', f'force_push_test_{pos_run_names["P50"]}.csv']
-    eval_force_push(compare_runs)
+    #eval_force_push(compare_runs)
     #compare_runs=[f'force_push_test_interval_{pos_run_names["P20"]}.csv', f'force_push_test_interval_{vic_run_names["VIC2"]}.csv', f'force_push_test_interval_{pos_run_names["P50"]}.csv']
     labels = ['P20',  'PLS','P50']
     #eval_force_push_scatter_boundary(compare_runs, labels = labels)
-    eval_force_push_boundary(compare_runs, labels = labels, output_name='force_push_pos_vic_comparison')
+    #eval_force_push_boundary(compare_runs, labels = labels, output_name='force_push_pos_vic_comparison')
     compare_runs =[f'force_push_test_{vic_run_names["VIC1"]}.csv', f'force_push_test_{vic_run_names["VIC2"]}.csv', f'force_push_test_{vic_run_names["VIC3"]}.csv', f'force_push_test_{vic_run_names["VIC4"]}.csv']
-    eval_force_push(compare_runs)
+    #eval_force_push(compare_runs)
     labels = ['PJS', 'PLS', 'IJS' ,'HJLS']
     #eval_force_push_scatter_boundary(compare_runs, labels = labels)
     eval_force_push_boundary(compare_runs, labels = labels,output_name='force_push_vic_comparison')
-
+    
+    compare_runs = [f'force_push_test_dr_{vic_run_names["VIC1"]}.csv', f'force_push_test_dr_{vic_run_names["VIC2"]}.csv', f'force_push_test_dr_{vic_run_names["VIC3"]}.csv', f'force_push_test_dr_{vic_run_names["VIC4"]}.csv']
+    eval_force_push_scatter_boundary(compare_runs, labels = labels)
+    eval_force_push_boundary(compare_runs, labels = labels, output_name='force_push_vic_dr_comparison')
 
     # ----------------------- Evaluation of command random -----------------------
     #filenames = ['cmd_rando_xy_test_vic2_0810_1.csv', 'cmd_rando_xy_model_1500.csv', 'cmd_rando_xy_11-32-08.csv', 'cmd_rando_xy_13-00-31.csv','cmd_rando_xy_11-32-08_1500.csv', 'cmd_rando_xy_11-32-08.csv']

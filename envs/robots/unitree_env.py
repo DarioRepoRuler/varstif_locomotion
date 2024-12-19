@@ -475,9 +475,9 @@ class UnitreeEnv(MjxEnv):
             kick_force = jax.random.uniform(rng_kick, minval=self.cfg.kick_force[0], maxval=self.cfg.kick_force[1])
             kick_impulse = jax.random.uniform(rng_impulse, minval=self.cfg.force_kick_impulse[0], maxval=self.cfg.force_kick_impulse[1])
             kick = jp.array([jp.cos(kick_theta), jp.sin(kick_theta)]) * kick_force
-            kick_condition = jp.logical_and(jp.mod(state.info['step'], self.cfg.force_kick_interval)==0, state.info['step']>1 )
+            #kick_condition = jp.logical_and(jp.mod(state.info['step'], self.cfg.force_kick_interval)==0, state.info['step']>1 )
             # This altered kick_condition is just for the evaluation
-            #kick_condition = jp.logical_and(state.info['step'] == (self.cfg.force_kick_interval+state.info['kick_offset_interval']), state.info['step']>1 )
+            kick_condition = jp.logical_and(state.info['step'] == (self.cfg.force_kick_interval+state.info['kick_offset_interval']), state.info['step']>1 )
             # Get the random values at kick interval
             state.info['force_kick'] = jp.where(kick_condition, kick, state.info['force_kick'])
             state.info['kick_theta']=jp.where(kick_condition, kick_theta, state.info['kick_theta'])
@@ -614,7 +614,6 @@ class UnitreeEnv(MjxEnv):
         x, xd = self._pos_vel(data)
         joint_angles = data.qpos[7:] #q_{t+1}
         joint_vel = data.qvel[6:]  #qdot_{t+1}
-
         # Foot contact data
         foot_pos = data.site_xpos[self.feet_site_id]  # pytype: disable=attribute-error
         #state.info['des_foot_height'] = target_foot_height

@@ -84,7 +84,7 @@ class PPOTaskBase(nn.Module):
             self.keyboard_listener_thread.daemon = True
             self.keyboard_listener_thread.start()
 
-    def init_env(self, scene_xml=None, render_mode = "human"):
+    def init_env(self, scene_xml=None):
         env = _create_env(GO2Env(self.cfg.env, scene_xml=scene_xml), num_envs=self.cfg.num_envs, device=self.cfg.device, viz=self.cfg.viz, domain_cfg=self.cfg.env.domain_rand, render_mode=self.render_mode)
         return env
 
@@ -384,7 +384,7 @@ class PPOTaskBase(nn.Module):
         self.cfg.env.force_kick_duration = 0.2
         self.cfg.env.kick_force = [50.0, 300.0]
         self.cfg.env.sample_command_interval = 301
-        self.test_force_push_random(self.cfg.num_iterations)
+        self.test_force_push_random_1(self.cfg.num_iterations)
         print(f"Finished force push evaluation")
         # Change settings to random xy
         self.cfg.env.manual_control.enable = False
@@ -397,7 +397,7 @@ class PPOTaskBase(nn.Module):
 
     def test_default(self, num_iterations):
         #from utils.graphs_gen import time_graph, create_multiple_box_plots, create_power_energy_bar_chart, save_tensors_to_csv, load_tensor_from_csv, plot_xy_position
-        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        self.env = self.init_env(self.cfg.scene_xml)
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=self.manual_cmd)
         for it in range(num_iterations):
             print(f"iteration: {it} ")
@@ -411,7 +411,7 @@ class PPOTaskBase(nn.Module):
             self.algo.storage.clear()
     
     def test_stiffness(self, num_iterations):
-        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        self.env = self.init_env(self.cfg.scene_xml)
         self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([0.5, 0., 0.]))
         
         import numpy as np
@@ -513,7 +513,7 @@ class PPOTaskBase(nn.Module):
         
     def test_force_push_random(self, num_iterations):
         name = self.get_model_name()
-        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        self.env = self.init_env(self.cfg.scene_xml)
         if self.cfg.viz and self.cfg.record_video:
             path = os.path.join(os.getcwd(), 'outputs', 'videos', f'force_push_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
             self.env.start_video_recording(path, fps=50)
@@ -588,7 +588,7 @@ class PPOTaskBase(nn.Module):
         
     def test_force_push_random_1(self, num_iterations):
         name = self.get_model_name()
-        self.env = self.init_env(self.cfg.scene_xml, render_mode="human")
+        self.env = self.init_env(self.cfg.scene_xml)
         if self.cfg.viz and self.cfg.record_video:
             path = os.path.join(os.getcwd(), 'outputs', 'videos', f'force_push_{self.cfg.result_tag}_{self.get_model_name()}.mp4')
             self.env.start_video_recording(path, fps=50)
@@ -611,8 +611,9 @@ class PPOTaskBase(nn.Module):
             if it % 5 == 0 and it>0:
                 print(f"Finished experiment {experiment+1} in total: {(experiment+1)*self.cfg.num_envs}")
                 pushed_envs = results['kick_force_magnitude'][experiment*self.cfg.num_envs:].nonzero()[:,0]
-                print(f"pushed envs: {len(pushed_envs.cpu())}")
-                results['success'][experiment*self.cfg.num_envs + pushed_envs.cpu()] = eval_infos['steps'][-1,:].cpu() >= 5*self.cfg.timesteps_per_rollout
+                print(f"pushed envs: {pushed_envs.cpu()}")
+                print(f"Shape of steps: {eval_infos['steps'].shape}")
+                results['success'][experiment*self.cfg.num_envs + pushed_envs.cpu()] = eval_infos['steps'][-1,pushed_envs].cpu() >= 5*self.cfg.timesteps_per_rollout
                 self.obs, self.obs_priv = self.env.reset(initial_xy=self.initial_xy, manual_cmd=jp.array([self.cfg.env.manual_control.cmd_x, 0., 0.]))
                 experiment += 1
             self.algo.storage.clear()
