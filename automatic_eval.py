@@ -349,7 +349,7 @@ def eval_model_pushes(trained_run_path):
                 'kick_theta': [0.0, 2.0], # kick_theta * pi
                 'is_training': False,
                 'domain_rand': {
-                    'randomisation': True,
+                    'randomisation': False,
                     'gravity_offset': [-.1, .1],
                     'friction_range': [1., 1.],
                     'payload_range': [-.1, .1],
@@ -382,7 +382,7 @@ def eval_model_pushes(trained_run_path):
             'device': 'cuda:0'
         }
     config_changes['scene_xml'] = 'unitree_go2/flat.xml'
-    config_changes['result_tag'] = 'test_longer'
+    config_changes['result_tag'] = 'test_short'
     eval_trained_model(trained_run_path, config_changes)
 
 if __name__ == '__main__':
@@ -403,16 +403,16 @@ if __name__ == '__main__':
     #     eval_model_speeds(model_paths[key])
     
     # 2.) Evaluation of force push recovery
-    # for model in model_paths.values():
-    #     print(f'Evaluation of model {model} in push recovery')
-    #     eval_model_pushes(model)
+    for model in model_paths.values():
+        print(f'Evaluation of model {model} in push recovery')
+        eval_model_pushes(model)
 
 
 
     # ----------Evaluation of model in a date range ----------- #
     start_date = '2024-12-18'
     end_date = '2024-12-18'
-    eval_models_in_range(start_date, end_date)
+    #eval_models_in_range(start_date, end_date)
 
 
     

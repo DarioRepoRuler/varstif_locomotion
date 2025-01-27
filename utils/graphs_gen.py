@@ -114,61 +114,7 @@ def polar_scatter_push_plot(radius, theta, success, plot_name):
 def polar_boundary(radius, theta, success, ax, label=None, color=None, title=None):
     """
     Plots a decision boundary on a polar plot using SVM.
-
-    Args:
-        radius (torch.Tensor): Tensor of radius values.
-        theta (torch.Tensor): Tensor of angle values.
-        success (torch.Tensor): Tensor of success/failure labels.
-        ax (matplotlib.axes.Axes): Axes to plot the boundary on.
-        label (str, optional): Label for the current dataset (for legend). Defaults to None.
-        color (str, optional): Color for the boundary line. Defaults to None.
-    """
-
-    # Convert tensors to numpy arrays
-    radius = radius.numpy()
-    theta = theta.numpy()
-    success = success.numpy()
-
-    # Create SVM features in polar space
-    polar_features = np.column_stack([radius, np.sin(theta), np.cos(theta)])
-    y = success
-
-    # Standardize features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(polar_features)
-
-    # Train SVM
-    svm = SVC(kernel="rbf")
-    svm.fit(X_scaled, y)
-
-    # Create a dense polar grid
-    r_vals = np.linspace(0, radius.max(), 500)
-    theta_vals = np.linspace(0, 2 * np.pi, 500)
-    r_grid, theta_grid = np.meshgrid(r_vals, theta_vals)
-
-    # Convert polar grid to Cartesian for SVM prediction
-    x_grid = r_grid * np.cos(theta_grid)
-    y_grid = r_grid * np.sin(theta_grid)
-    cartesian_grid = np.column_stack([x_grid.ravel(), y_grid.ravel()])
-
-    # Scale the Cartesian grid and predict
-    cartesian_grid_scaled = scaler.transform(np.column_stack([
-        np.sqrt(cartesian_grid[:, 0]**2 + cartesian_grid[:, 1]**2),
-        np.sin(np.arctan2(cartesian_grid[:, 1], cartesian_grid[:, 0])),
-        np.cos(np.arctan2(cartesian_grid[:, 1], cartesian_grid[:, 0]))
-    ]))
-    Z = svm.predict(cartesian_grid_scaled).reshape(r_grid.shape)
-
-    # Plot decision boundary
-    ax.contour(theta_grid, r_grid, Z, levels=[0.5], colors=[color], linewidths=2)
-    ax.set_title(title)
-    ax.set_rlim(0, radius.max())
-    ax.grid(True, linestyle='--', color='gray', alpha=0.7)
-
-    
-def polar_scatter_boundary(radius, theta, success, ax, label=None, color=None, title=None):
-    """
-    Plots a decision boundary on a polar plot using SVM and overlays scatter points for success/failure.
+    Ensures the middle of the plot is classified as a success and boundary is convex.
 
     Args:
         radius (torch.Tensor): Tensor of radius values.
@@ -180,29 +126,59 @@ def polar_scatter_boundary(radius, theta, success, ax, label=None, color=None, t
         title (str, optional): Title for the plot. Defaults to None.
     """
 
+    polar_scatter_boundary(radius, theta, success, ax, label, color, title, scatter=False)
+    
+def polar_scatter_boundary(radius, theta, success, ax, label=None, color=None, title=None, scatter=True, grid_density=100):
+    """
+    Plots a decision boundary on a polar plot using SVM probabilities.
+    Ensures the middle of the plot is classified as a success and boundary is convex.
+    Allows for sparse sampling of points for drawing the boundary.
+
+    Args:
+        radius (torch.Tensor): Tensor of radius values.
+        theta (torch.Tensor): Tensor of angle values.
+        success (torch.Tensor): Tensor of success/failure labels.
+        ax (matplotlib.axes.Axes): Axes to plot the boundary on.
+        label (str, optional): Label for the current dataset (for legend). Defaults to None.
+        color (str, optional): Color for the boundary line. Defaults to None.
+        title (str, optional): Title for the plot. Defaults to None.
+        scatter (bool, optional): Whether to show scatter points. Defaults to True.
+        grid_density (int, optional): Number of points for grid density. Lower values for sparser grids. Defaults to 200.
+    """
+
     # Convert tensors to numpy arrays
     radius = radius.numpy()
     theta = theta.numpy()
     success = success.numpy()
 
+    # Add synthetic success points at the center and within radius <= 50
+    draw = radius >= 50.0
+    synthetic_radius = np.append(radius[draw], np.random.uniform(0., 50., 100))  # Add points from 0 to 50 radius
+    synthetic_theta = np.append(theta[draw], np.random.uniform(0, 2 * np.pi, 100))  # Cover full range of angles
+    synthetic_success = np.append(success[draw], np.ones(100).astype(bool))  # All synthetic points are success
+
     # Create SVM features in polar space
-    polar_features = np.column_stack([radius, np.sin(theta), np.cos(theta)])
-    y = success
+    polar_features = np.column_stack([
+        synthetic_radius,                       # Radial distance
+        np.sin(synthetic_theta),                # Sine of angle
+        np.cos(synthetic_theta)                 # Cosine of angle
+    ])
+    y = synthetic_success
 
     # Standardize features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(polar_features)
 
-    # Train SVM
-    svm = SVC(kernel="rbf")
+    # Train SVM with RBF kernel and probability output
+    svm = SVC(kernel="rbf", probability=True, C=0.4, gamma = 0.1)
     svm.fit(X_scaled, y)
 
-    # Create a dense polar grid
-    r_vals = np.linspace(0, radius.max(), 500)
-    theta_vals = np.linspace(0, 2 * np.pi, 500)
+    # Create a sparse polar grid
+    r_vals = np.linspace(0, radius.max(), grid_density)  # Reduced density grid
+    theta_vals = np.linspace(0, 2 * np.pi, grid_density)  # Reduced density grid
     r_grid, theta_grid = np.meshgrid(r_vals, theta_vals)
 
-    # Convert polar grid to scaled SVM features
+    # Transform polar grid to radial features
     grid_polar_features = np.column_stack([
         r_grid.ravel(),
         np.sin(theta_grid.ravel()),
@@ -210,19 +186,21 @@ def polar_scatter_boundary(radius, theta, success, ax, label=None, color=None, t
     ])
     grid_polar_features_scaled = scaler.transform(grid_polar_features)
 
-    # Predict labels for the grid points
-    Z = svm.predict(grid_polar_features_scaled).reshape(r_grid.shape)
+    # Predict probabilities for the grid points
+    prob_success = svm.predict_proba(grid_polar_features_scaled)[:, 1]  # Probability for success class (label=1)
+    prob_success = prob_success.reshape(r_grid.shape)
 
-    # Plot the decision boundary
-    ax.contour(theta_grid, r_grid, Z, levels=[0.5], colors=[color], linewidths=2)
+    # Plot probability contours
+    ax.contour(theta_grid, r_grid, prob_success, levels=[ 0.90], colors=[color], linewidths=2)
 
-    # Plot success points (success == 1) in green
-    success_show = np.logical_and(success == 1, radius > 50.0)
-    ax.scatter(theta[success_show], radius[success_show], color='green', label='Success')
+    if scatter:
+        # Plot success points (success == 1) in green
+        success_show = np.logical_and(success == 1, radius >= 50)
+        ax.scatter(theta[success_show], radius[success_show], color='green', label='Success')
 
-    # Plot failure points (success == 0) in red
-    failure_show = np.logical_and(success == 0, radius > 50.0)
-    ax.scatter(theta[failure_show], radius[failure_show], color='red', label='Failure')
+        # Plot failure points (success == 0) in red
+        failure_show =  np.logical_and(success == 0, radius >= 50)
+        ax.scatter(theta[failure_show], radius[failure_show], color='red', label='Failure')
 
     # Set title and grid
     if title:
@@ -234,6 +212,11 @@ def polar_scatter_boundary(radius, theta, success, ax, label=None, color=None, t
     # Add legend if a label is provided
     if label:
         ax.legend()
+
+
+
+
+
 
 
 def create_multiple_box_plots(data_arrays, labels, plot_name):
