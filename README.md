@@ -1,4 +1,4 @@
-# TALocoMotion
+# Variable Stiffness Locomotion (varstif_locomotion)
 
 This repository contains the code for training and testing different control paradigms on the unitreeGO2 robot. The optimization technique used is PPO (Proximal Policy Optimization), but other optimization techniques may also be implemented. The simulation enviroment used is Mujoco-MJX. 
 
