@@ -96,9 +96,9 @@ Somehow this error keeps happening, especially after restarting/suspending the c
 To be exact it was resolved with this command: `conda install -c conda-forge libstdcxx-ng`
 
 
-# Testing on real hardware
+# Deployment on real hardware
 
-Once a solid model was trained it can be easily deployed using my repository: [Unitree Mujoco Repo](https://github.com/DarioRepoRuler/unitree_mujoco/tree/main).
+Once a solid model was trained it can be easily deployed using my repository: [Unitree Mujoco Repo](https://github.com/DarioRepoRuler/unitree_mujoco/tree/main). This repository implements the ROS2 based control framework to control the robot, using the models trained here.
 
 ![Hardware Demo](docs/hardware_demo.gif)
 
