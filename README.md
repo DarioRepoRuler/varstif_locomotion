@@ -1,14 +1,12 @@
 # Variable Stiffness Locomotion (varstif_locomotion)
-
-This repository contains the code for training and testing different control paradigms on the unitreeGO2 robot. The optimization technique used is PPO (Proximal Policy Optimization), but other optimization techniques may also be implemented. The simulation enviroment used is Mujoco-MJX. 
-
-The control paradigms currently implemented are:
+This repository provides the codebase for training and testing policies presented in this [paper](https://arxiv.org/abs/2502.09436). The results were presented at the IFAC conference 2025. 
+The optimization technique used is **PPO (Proximal Policy Optimization)**. The simulation enviroment used is Mujoco-MJX. 
+Different controls are implemented to offer a fair comparison:
 - Position-based control
 - Torque-based control
 - Position + stiffness (and damping) control
 
 The focus of this project is on the "position + stiffness (and damping)" control paradigm, as it is the main topic of research for the master's thesis.
-
 
 ## Requirements
 For the efficient execution of this repo, a GPU is strongly required. All of this code was executed under: `Ubuntu 22.0.4` with a GPU: ` NVIDIA GeForce GTX 1060 6GB`. 
