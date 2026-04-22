@@ -1,6 +1,9 @@
 # Variable Stiffness Locomotion (varstif_locomotion)
 This repository provides the codebase for training and testing policies presented in this [paper](https://arxiv.org/abs/2502.09436), which was published at the IFAC conference 2025. For deeper insights you can also read into my [Master thesis](https://dario-spoljaric.com/assets/download/Masterarbeit.pdf) 
 
+![Overview Architecture](./docs/architecture.png)
+
+
 The reinforcement learning technique used is **PPO (Proximal Policy Optimization)**. The simulation enviroment used is Mujoco-MJX. 
 Different controls are implemented to offer a fair comparison:
 - Position-based control
