@@ -3,17 +3,16 @@ This repository provides the codebase for training and testing policies presente
 
 ![Overview Architecture](./docs/architecture.png)
 
-
 The reinforcement learning technique used is **PPO (Proximal Policy Optimization)**. The simulation enviroment used is Mujoco-MJX. 
-Different controls are implemented to offer a fair comparison:
-- Position-based control
+Different control architectures are implemented to offer a fair comparison to the SOTA:
+- Position-based control (shown as blue dashed feedback loop)
 - Torque-based control
-- Position + stiffness (and damping) control
+- Position + stiffness (and damping) control (shown as black feedback loop)
 
 The focus of this project is on the "position + stiffness (and damping)" control paradigm, as it is the main topic of research for the master's thesis.
 
 ## Requirements
-For the efficient execution of this repo, a GPU is strongly required. All of this code was executed under: `Ubuntu 22.0.4` with a GPU: ` NVIDIA GeForce GTX 1060 6GB`. 
+For the efficient execution of this repo, a GPU is strongly recommended. All of this code was executed under: `Ubuntu 22.0.4` with a GPU: ` NVIDIA GeForce GTX 1060 6GB`. 
 Under normal settings such as 4096 parallelised environments with flat floor training required about 3GB of VRAM. 
 
 
