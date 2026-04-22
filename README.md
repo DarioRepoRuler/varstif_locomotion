@@ -77,7 +77,8 @@ To generate terrains for the environment simply call.
 ```
 python utils/hm_gen.py
 ```
-In the main function four different terrains are implied into one environment and can be adapted as wanted.
+
+Per default it will generate a multi terrain, which includes different terrain types as shown:
 
 | Terrain | Description                         |
 |---------|-------------------------------------|
