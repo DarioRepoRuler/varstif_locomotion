@@ -1,15 +1,43 @@
 # Variable Stiffness Locomotion (varstif_locomotion)
-This repository provides the codebase for training and testing policies presented in this [paper](https://arxiv.org/abs/2502.09436), which was published at the IFAC conference July,2025. For deeper insights you can also read into my [Master thesis](https://dario-spoljaric.com/assets/download/Masterarbeit.pdf) 
+This repository provides the module for training and testing policies presented in this [paper](https://arxiv.org/abs/2502.09436), which was published at the IFAC conference July,2025. 
+Rather than being a standalone ML experiment, Varstif Locomotion is intended as the policy learning module of a larger robotics system, separating training, evaluation, and [deployment](https://github.com/DarioRepoRuler/unitree_mujoco/tree/main) into modular components. 
+For deeper insights you can also read into my [Master thesis](https://dario-spoljaric.com/assets/download/Masterarbeit.pdf). 
 
 ![Overview Architecture](./docs/architecture.png)
 
 The reinforcement learning technique used is **PPO (Proximal Policy Optimization)**. The simulation enviroment used is Mujoco-MJX. 
+
+## The Problem: Manual Gain Tuning
+Traditional RL locomotion often requires tedious manual tuning of joint stiffness (Kp​) and damping (Kd​) to match specific robot morphologies. This project introduces a novel control paradigm that integrates dynamic stiffness into the action space.
+By allowing the policy to modulate its own mechanical impedance, we enable: grouped stiffness control such as per-joint stiffness (PJS), per-leg stiffness (PLS) and hybrid joint-leg stiffness (HJLS). 
+We show that variable stiffness policies, with grouping in per-leg stiffness(PLS), outperform position-based control in velocity tracking and push recovery. 
+
 Different control architectures are implemented to offer a fair comparison to the SOTA:
 - Position-based control (shown as blue dashed feedback loop)
 - Torque-based control
 - Position + stiffness (and damping) control (shown as black feedback loop)
 
-The focus of this project is on the "position + stiffness (and damping)" control paradigm, as it is the main topic of research for the master's thesis.
+## System Context
+
+Varstiff Locomotion is not an isolated training pipeline. It is part of a modular robotics system:
+
+```
+┌──────────────────────────────┐
+│   Policy Learning (Varstiff )│
+│   - RL training              │
+│   - Evaluation               │
+│   - Policy export            │
+└────────────┬─────────────────┘
+             │ exported policy
+             ▼
+┌──────────────────────────────┐
+│  Deployment Layer (ROS2)     │
+│  - Real robot execution      │
+│  - Sensor integration        │
+│  - Control interface         │
+└──────────────────────────────┘
+```
+[This](https://github.com/DarioRepoRuler/varstif_locomotion) repository focuses exclusively on the policy learning and validation stage. The ROS2 implementation for deploying policies on the real robot can be found in my [Unitree Mujoco Repo](https://github.com/DarioRepoRuler/unitree_mujoco/tree/main).  
 
 ## Requirements
 For the efficient execution of this repo, a GPU is strongly recommended. All of this code was executed under: `Ubuntu 22.0.4` with a GPU: ` NVIDIA GeForce GTX 1060 6GB`. 
@@ -39,7 +67,7 @@ The training settings can be investigated in the folder `config/`. This folder h
 
 
 ## Testing
-In order to evaluate the model you have to first specify the path in `test.yaml`. This path should be the relative path from the folder TALocoMotion. Beaware that all the control settings should be set accordingly.
+In order to evaluate the model you have to first specify the path in `test.yaml`. This path should be the relative path from the folder Varstiff Locomotion. Beaware that all the control settings should be set accordingly.
 
 In here different tests are included to test the robustness of the model. We are not only calculating the achieved reward, but rather implemented more real life test scenarios.
 
@@ -73,6 +101,46 @@ python automatic_eval.py
 ```
 In this script models will automatically be loaded and their configurations without the need to define the control parameters in the `test.yaml`. Furthermore, it is possible to define a range of dates and all models within this range will be evaluated on the task `auto`.
 
+# Docker
+A Dockerfile is provided for GPU-accelerated development with X11 forwarding for MuJoCo rendering. Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) to be installed.
+
+**Build:**
+```
+docker build -t varstif_locomotion .
+```
+
+**Allow X11 connections from Docker:**
+```
+xhost +local:docker
+```
+
+**Interactive development shell** (source code mounted from host, edits persist):
+```
+docker run -it --gpus all \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v "$(pwd)":/app/varstif_locomotion \
+  -e XLA_PYTHON_CLIENT_MEM_FRACTION=.1 \
+  --name varstif_dev \
+  varstif_locomotion
+```
+
+<!-- **Re-attach to a stopped container:**
+```
+docker start -ai varstif_dev
+``` -->
+
+**One-off commands (non-interactive):**
+```
+docker run --rm --gpus all \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v "$(pwd)":/app/varstif_locomotion \
+  -e XLA_PYTHON_CLIENT_MEM_FRACTION=.1 \
+  varstif_locomotion \
+  -c "XLA_PYTHON_CLIENT_MEM_FRACTION=.1 python train.py"
+```
+
 ## Generating terrains
 With the recent update of MJX it is possible to load height fields. To generate those height field you can just import an greyscaled `.png` file. 
 To generate terrains for the environment simply call.  
@@ -98,7 +166,7 @@ To be exact it was resolved with this command: `conda install -c conda-forge lib
 
 # Deployment on real hardware
 
-Once a solid model was trained it can be easily deployed using my repository: [Unitree Mujoco Repo](https://github.com/DarioRepoRuler/unitree_mujoco/tree/main). This repository implements the ROS2 based control framework to control the robot, using the models trained here.
+Once a solid model is trained it can be easily deployed using my repository: [Unitree Mujoco Repo](https://github.com/DarioRepoRuler/unitree_mujoco/tree/main). This repository implements the ROS2 based control framework to control the robot, using the models trained here.
 
 ![Hardware Demo](docs/hardware_demo.gif)
 
