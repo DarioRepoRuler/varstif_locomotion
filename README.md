@@ -1,5 +1,5 @@
 # Variable Stiffness Locomotion (varstif_locomotion)
-This repository provides the codebase for training and testing policies presented in this [paper](https://arxiv.org/abs/2502.09436), which was published at the IFAC conference 2025. For deeper insights you can also read into my [Master thesis](https://dario-spoljaric.com/assets/download/Masterarbeit.pdf) 
+This repository provides the codebase for training and testing policies presented in this [paper](https://arxiv.org/abs/2502.09436), which was published at the IFAC conference July,2025. For deeper insights you can also read into my [Master thesis](https://dario-spoljaric.com/assets/download/Masterarbeit.pdf) 
 
 ![Overview Architecture](./docs/architecture.png)
 
@@ -18,10 +18,10 @@ Under normal settings such as 4096 parallelised environments with flat floor tra
 
 ## Installation 
 ```
-git clone git@github.com:gautica/TALocoMotion.git
-conda create -n mjx python=3.12
-conda activate mjx
-cd TALocoMotion
+git clone git@github.com:DarioRepoRuler/varstif_locomotion.git
+conda create -n varstif python=3.12
+conda activate varstif
+cd varstif_locomotion
 pip install -r requirements.txt
 ```
 
