@@ -55,6 +55,8 @@ RUN sed -i 's/solver_iter/solver_niter/g' \
 
 COPY . .
 
+RUN git config --global --add safe.directory /app/varstif_locomotion
+
 ENV XLA_PYTHON_CLIENT_MEM_FRACTION=0.1
 ENV QT_X11_NO_MITSHM=1
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics

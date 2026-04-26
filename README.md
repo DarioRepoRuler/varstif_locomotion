@@ -137,9 +137,11 @@ docker run --rm --gpus all \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v "$(pwd)":/app/varstif_locomotion \
   -e XLA_PYTHON_CLIENT_MEM_FRACTION=.1 \
+  -e WANDB_API_KEY=your_wandb_key \
   varstif_locomotion \
-  -c "XLA_PYTHON_CLIENT_MEM_FRACTION=.1 python train.py"
+  -c "python train.py"
 ```
+> **Note:** Replace `your_wandb_key` with your [wandb API key](https://wandb.ai/authorize). Alternatively, mount your credentials with `-v ~/.netrc:/root/.netrc:ro` instead of passing the key directly.
 
 ## Generating terrains
 With the recent update of MJX it is possible to load height fields. To generate those height field you can just import an greyscaled `.png` file. 
